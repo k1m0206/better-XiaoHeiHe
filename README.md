@@ -27,11 +27,38 @@
 
 修改代码后，在扩展管理页面点击重新加载插件，再刷新小黑盒页面。
 
+## 打包上架
+
+用于 Chrome Web Store 上传的压缩包可以通过脚本生成：
+
+```powershell
+.\scripts\build-extension.ps1
+```
+
+生成结果：
+
+```text
+dist/better-XiaoHeiHe.zip
+```
+
+上架资料可参考：
+
+- `CHROME_STORE.md`
+- `PRIVACY.md`
+
+上架前还需要准备至少 1 张商店截图，并把隐私政策发布到可公开访问的链接。
+
 ## 项目结构
 
 ```text
 better-XiaoHeiHe/
+  assets/
+    icons/
   manifest.json
+  CHROME_STORE.md
+  PRIVACY.md
+  README.md
+  scripts/
   src/
     content.js
 ```
@@ -76,4 +103,3 @@ GET https://api.xiaoheihe.cn/bbs/app/link/tree
 - 评论接口依赖当前网页登录态，未登录或登录态失效时可能无法展示评论。
 - 小黑盒网页结构或接口签名变化时，插件可能需要适配。
 - 本项目只在页面内做展示优化，不保存用户 Cookie 或登录凭据。
-
