@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "better-XiaoHeiHe",
+  "version": "0.1.0",
+  "description": "在小黑盒首页信息流右侧展示评论预览。",
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.xiaoheihe.cn/app/bbs",
+        "https://www.xiaoheihe.cn/app/bbs/*"
+      ],
+      "js": [
+        "src/content.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    }
+  ]
+}
