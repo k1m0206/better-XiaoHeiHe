@@ -11,6 +11,7 @@
   const ROW_CLASS = "better-xiaoheihe-feed-row";
   const PREVIEW_CLASS = "better-xiaoheihe-comment-preview";
   const API_PATH = "/bbs/app/link/tree";
+  const EMOJI_API_PATH = "/bbs/app/api/emojis/list";
   const API_ORIGIN = "https://api.xiaoheihe.cn";
   const CAPTURED_API_PARAM_KEYS = [
     "os_type",
@@ -27,8 +28,10 @@
   ];
 
   const commentCache = new Map();
+  const emojiCache = new Map();
   const capturedApiParams = {};
   let leftMenuOriginalPosition = null;
+  let emojiPromise = null;
   let scheduled = false;
   let previewObserver = null;
   let rowResizeObserver = null;
@@ -358,6 +361,21 @@
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-meta {
         margin-top: 3px;
         color: #a8afb7;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__emoji {
+        display: inline-block;
+        width: 1.45em;
+        height: 1.45em;
+        margin: 0 1px;
+        object-fit: contain;
+        vertical-align: -0.32em;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__emoji--big {
+        width: 2.6em;
+        height: 2.6em;
+        vertical-align: -0.9em;
       }
 
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__up {
@@ -757,7 +775,7 @@
     return params;
   }
 
-  function buildApiUrl(linkId) {
+  function buildCommentApiUrl(linkId) {
     const params = new URLSearchParams({
       ...getBaseApiParams(),
       ...createSignedParams(API_PATH),
@@ -772,6 +790,15 @@
     return `https://api.xiaoheihe.cn${API_PATH}?${params.toString().replace("&link_id=", "&h_src&link_id=")}`;
   }
 
+  function buildEmojiApiUrl() {
+    const params = new URLSearchParams({
+      ...getBaseApiParams(),
+      ...createSignedParams(EMOJI_API_PATH)
+    });
+
+    return `https://api.xiaoheihe.cn${EMOJI_API_PATH}?${params.toString()}`;
+  }
+
   function escapeHtml(value) {
     return String(value ?? "")
       .replaceAll("&", "&amp;")
@@ -783,6 +810,95 @@
 
   function normalizeCommentText(text) {
     return String(text || "").replace(/\[cube_([^\]]+)\]/g, "[$1]");
+  }
+
+  function normalizeEmojiToken(token) {
+    return String(token || "").replace(/^cube_/, "");
+  }
+
+  function getEmojiImageKey(img) {
+    try {
+      const pathname = new URL(img, window.location.href).pathname;
+      return pathname.split("/").pop()?.replace(/\.[^.]+$/, "") || "";
+    } catch {
+      return "";
+    }
+  }
+
+  function addEmojiMapEntry(key, emoji) {
+    if (!key || emojiCache.has(key)) {
+      return;
+    }
+
+    emojiCache.set(key, {
+      img: emoji.img,
+      code: emoji.code || emoji.name || key,
+      type: emoji.type
+    });
+  }
+
+  function normalizeEmojiData(data) {
+    const groups = Array.isArray(data?.result?.emoji_groups) ? data.result.emoji_groups : [];
+    groups.forEach((group) => {
+      const groupCode = group.group_code || group.group_name || "";
+      const emojis = Array.isArray(group.emojis) ? group.emojis : [];
+      emojis.forEach((emoji) => {
+        if (!emoji?.img) {
+          return;
+        }
+
+        const code = emoji.code || emoji.name;
+        const imageKey = getEmojiImageKey(emoji.img);
+        addEmojiMapEntry(code, emoji);
+        addEmojiMapEntry(`${groupCode}_${code}`, emoji);
+        addEmojiMapEntry(imageKey, emoji);
+        addEmojiMapEntry(`${groupCode}_${imageKey}`, emoji);
+      });
+    });
+  }
+
+  function loadEmojis() {
+    if (emojiCache.size) {
+      return Promise.resolve(emojiCache);
+    }
+
+    if (emojiPromise) {
+      return emojiPromise;
+    }
+
+    emojiPromise = fetch(buildEmojiApiUrl(), {
+      credentials: "include",
+      headers: {
+        accept: "*/*"
+      }
+    }).then((response) => response.json()).then((data) => {
+      if (data?.status === "ok") {
+        normalizeEmojiData(data);
+      }
+
+      return emojiCache;
+    }).catch(() => emojiCache);
+
+    return emojiPromise;
+  }
+
+  function renderEmojiImage(emoji) {
+    const className = emoji.type === 2
+      ? "better-comment-preview__emoji better-comment-preview__emoji--big"
+      : "better-comment-preview__emoji";
+    return `<img class="${className}" src="${escapeHtml(emoji.img)}" alt="[${escapeHtml(emoji.code)}]" title="${escapeHtml(emoji.code)}" loading="lazy">`;
+  }
+
+  function renderCommentText(text) {
+    return String(text || "").split(/(\[[^\]\r\n]{1,40}\])/g).map((part) => {
+      const matched = part.match(/^\[([^\]\r\n]{1,40})\]$/);
+      if (!matched) {
+        return escapeHtml(part);
+      }
+
+      const emoji = emojiCache.get(matched[1]) || emojiCache.get(normalizeEmojiToken(matched[1]));
+      return emoji ? renderEmojiImage(emoji) : escapeHtml(normalizeCommentText(part));
+    }).join("");
   }
 
   function formatCommentTime(timestamp) {
@@ -838,7 +954,7 @@
         <img class="better-comment-preview__avatar" src="${escapeHtml(user.avatar || user.avartar || "")}" alt="">
         <div class="better-comment-preview__body">
           <div>${renderCommentUser(user, comment.is_link_owner === 1)}</div>
-          <div class="better-comment-preview__text">${escapeHtml(normalizeCommentText(comment.text))}</div>
+          <div class="better-comment-preview__text">${renderCommentText(comment.text)}</div>
           <div class="better-comment-preview__time">${renderCommentMeta(comment)}</div>
         </div>
         <div class="better-comment-preview__up">
@@ -859,7 +975,7 @@
           ${renderCommentUser(user, comment.is_link_owner === 1)}
           ${replyTo ? `<span class="better-comment-preview__reply-meta">${escapeHtml(replyTo)}</span>` : ""}
         </div>
-        <div class="better-comment-preview__reply-text">${escapeHtml(normalizeCommentText(comment.text))}</div>
+        <div class="better-comment-preview__reply-text">${renderCommentText(comment.text)}</div>
         <div class="better-comment-preview__reply-meta">${renderCommentMeta(comment)}</div>
       </div>
     `;
@@ -920,12 +1036,15 @@
     commentCache.set(linkId, pending);
     renderPreview(preview, pending);
 
-    fetch(buildApiUrl(linkId), {
-      credentials: "include",
-      headers: {
-        accept: "*/*"
-      }
-    }).then((response) => response.json()).then((data) => {
+    Promise.all([
+      loadEmojis(),
+      fetch(buildCommentApiUrl(linkId), {
+        credentials: "include",
+        headers: {
+          accept: "*/*"
+        }
+      }).then((response) => response.json())
+    ]).then(([, data]) => {
       const state = data?.status === "ok"
         ? {
           commentGroups: normalizeCommentGroups(data),
