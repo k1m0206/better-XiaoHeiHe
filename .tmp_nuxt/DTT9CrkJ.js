@@ -1,0 +1,1 @@
+import{y as o,z as n}from"./c2sykE0H.js";const a=a=>{const i=a instanceof Array?a:[a],r=o();return{is_loading:n(()=>i.every(o=>r[o])),showLoading:function(){i.forEach(o=>{r.showLoading(o)})},hideLoading:function(){i.forEach(o=>{r.hideLoading(o)})}}};export{a as u};
