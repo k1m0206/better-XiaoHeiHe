@@ -1,8 +1,15 @@
 {
   "manifest_version": 3,
   "name": "better-XiaoHeiHe",
+  "short_name": "Better XHH",
   "version": "0.1.0",
   "description": "在小黑盒首页信息流右侧展示评论预览。",
+  "icons": {
+    "16": "assets/icons/icon16.png",
+    "32": "assets/icons/icon32.png",
+    "48": "assets/icons/icon48.png",
+    "128": "assets/icons/icon128.png"
+  },
   "content_scripts": [
     {
       "matches": [
