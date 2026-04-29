@@ -378,6 +378,22 @@
         color: #a8afb7;
       }
 
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-footer .better-comment-preview__reply-meta {
+        min-width: 0;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-footer .better-comment-preview__up {
+        flex: 0 0 auto;
+        font-size: 12px;
+      }
+
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__loading-more,
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__end,
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__load-failed {
@@ -1140,7 +1156,10 @@
           ${replyTo ? `<span class="better-comment-preview__reply-meta">${escapeHtml(replyTo)}</span>` : ""}
         </div>
         <div class="better-comment-preview__reply-text">${renderCommentText(comment.text)}</div>
-        <div class="better-comment-preview__reply-meta">${renderCommentMeta(comment)}</div>
+        <div class="better-comment-preview__reply-footer">
+          <div class="better-comment-preview__reply-meta">${renderCommentMeta(comment)}</div>
+          ${renderCommentSupportButton(comment)}
+        </div>
       </div>
     `;
   }
