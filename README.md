@@ -11,11 +11,21 @@
   - 评论内容
   - 发布时间
   - IP 属地
-  - 点赞数
+  - 点赞数，并支持直接点赞
   - 楼中楼回复
   - 作者标识
+- 评论预览支持滚动加载更多评论。
 - 首页左侧菜单会折叠到顶部栏按钮中，点击后展开。
 - 详情页保持小黑盒原始布局，不应用首页改造。
+
+## 更新记录
+
+### 0.1.2
+
+- 复用小黑盒原站头像、昵称和等级样式，点击用户信息可跳转到对应主页。
+- 右侧评论区支持滚动加载后续评论页。
+- 右侧评论区支持对评论点赞。
+- 等级标签复用原站 `level-*` 样式，保持不同等级颜色一致。
 
 ## 安装调试
 
@@ -80,6 +90,7 @@ better-XiaoHeiHe/
 ```text
 GET https://api.xiaoheihe.cn/bbs/app/link/tree
 GET https://api.xiaoheihe.cn/bbs/app/api/emojis/list
+POST https://api.xiaoheihe.cn/bbs/app/comment/support
 ```
 
 请求会复用页面中已出现过的基础参数，例如：
@@ -95,6 +106,8 @@ GET https://api.xiaoheihe.cn/bbs/app/api/emojis/list
 - `x_os_type`
 - `device_info`
 - `device_id`
+
+评论列表接口会按页请求，第一页使用 `is_first=1&page=1`，继续滚动时使用 `is_first=0&page=2/3/...`，每页 `limit=20`。评论点赞接口使用 `comment_id` 和 `support_type=1` 提交点赞。
 
 接口签名参数 `hkey`、`_time`、`nonce` 在 `src/content.js` 中生成。后续如果修改接口参数或签名逻辑，需要同步更新代码里的接口注释和本文档。
 评论文本中的表情标记会根据表情列表接口返回的 `code` 和 `img` 映射成图片展示；表情列表只做运行时内存缓存。
