@@ -11,6 +11,7 @@
   const ROW_CLASS = "better-xiaoheihe-feed-row";
   const PREVIEW_CLASS = "better-xiaoheihe-comment-preview";
   const API_PATH = "/bbs/app/link/tree";
+  const COMMENT_SUPPORT_API_PATH = "/bbs/app/comment/support";
   const EMOJI_API_PATH = "/bbs/app/api/emojis/list";
   const API_ORIGIN = "https://api.xiaoheihe.cn";
   const COMMENT_PAGE_LIMIT = 20;
@@ -390,9 +391,23 @@
         display: inline-flex;
         align-items: center;
         gap: 4px;
+        padding: 0;
+        border: 0;
+        background: transparent;
         color: #c3c8ce;
+        cursor: pointer;
         font-size: 12px;
         white-space: nowrap;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__up:hover,
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__up--active {
+        color: #2775d1;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__up:disabled {
+        cursor: default;
+        opacity: 0.75;
       }
 
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__up-icon {
@@ -807,6 +822,15 @@
     return `https://api.xiaoheihe.cn${EMOJI_API_PATH}?${params.toString()}`;
   }
 
+  function buildCommentSupportApiUrl() {
+    const params = new URLSearchParams({
+      ...getBaseApiParams(),
+      ...createSignedParams(COMMENT_SUPPORT_API_PATH)
+    });
+
+    return `https://api.xiaoheihe.cn${COMMENT_SUPPORT_API_PATH}?${params.toString()}`;
+  }
+
   function escapeHtml(value) {
     return String(value ?? "")
       .replaceAll("&", "&amp;")
@@ -999,6 +1023,39 @@
     `;
   }
 
+  function getCommentId(comment) {
+    return comment.comment_id
+      || comment.commentid
+      || comment.commentId
+      || comment.id
+      || comment.cid
+      || "";
+  }
+
+  function getCommentUpCount(comment) {
+    return Number(comment.up || comment.up_num || comment.support_num || 0);
+  }
+
+  function isCommentSupported(comment) {
+    return comment.is_support === 1
+      || comment.is_supported === 1
+      || comment.supported === true
+      || comment.is_support === true
+      || comment.is_supported === true
+      || comment.better_supported === true;
+  }
+
+  function renderCommentSupportButton(comment) {
+    const commentId = getCommentId(comment);
+    const supported = isCommentSupported(comment);
+    return `
+      <button class="better-comment-preview__up${supported ? " better-comment-preview__up--active" : ""}" type="button" data-comment-id="${escapeHtml(commentId)}"${commentId ? "" : " disabled"}>
+        <i class="hb-icon heybox-thumbs-up better-comment-preview__up-icon"></i>
+        <span>${escapeHtml(getCommentUpCount(comment))}</span>
+      </button>
+    `;
+  }
+
   function renderRootComment(comment) {
     const user = comment.user || {};
     return `
@@ -1008,10 +1065,7 @@
           <div class="better-comment-preview__text">${renderCommentText(comment.text)}</div>
           <div class="better-comment-preview__time">${renderCommentMeta(comment)}</div>
         </div>
-        <div class="better-comment-preview__up">
-          <i class="hb-icon heybox-thumbs-up better-comment-preview__up-icon"></i>
-          <span>${escapeHtml(comment.up || 0)}</span>
-        </div>
+        ${renderCommentSupportButton(comment)}
       </div>
     `;
   }
@@ -1092,6 +1146,7 @@
       </div>
       <a class="better-comment-preview__open" href="/app/bbs/link/${escapeHtml(linkId)}">查看全部 ${escapeHtml(count)} 条评论 ›</a>
     `;
+    bindPreviewActions(preview);
     bindPreviewListScroll(preview);
     scheduleRowHeightSync(preview.closest(`.${ROW_CLASS}`));
   }
@@ -1152,6 +1207,95 @@
       if (nextList) {
         nextList.scrollTop = scrollTop;
       }
+    });
+  }
+
+  function updateCachedComment(commentId, updater) {
+    let changedLinkId = "";
+    commentCache.forEach((state, linkId) => {
+      if (!state?.commentGroups?.length) {
+        return;
+      }
+
+      const changed = state.commentGroups.some((group) => {
+        const comments = [group.root, ...(group.replies || [])];
+        const comment = comments.find((item) => String(getCommentId(item)) === String(commentId));
+        if (!comment) {
+          return false;
+        }
+
+        updater(comment);
+        return true;
+      });
+
+      if (changed) {
+        changedLinkId = linkId;
+      }
+    });
+
+    if (changedLinkId) {
+      renderLinkedPreviews(changedLinkId);
+    }
+  }
+
+  function supportComment(commentId, button) {
+    if (!commentId || button.dataset.loading === "1") {
+      return;
+    }
+
+    button.dataset.loading = "1";
+    button.disabled = true;
+
+    fetch(buildCommentSupportApiUrl(), {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        accept: "application/json",
+        "content-type": "application/x-www-form-urlencoded;charset=utf-8"
+      },
+      body: new URLSearchParams({
+        comment_id: commentId,
+        support_type: "1"
+      }).toString()
+    }).then((response) => response.json()).then((data) => {
+      if (data?.status !== "ok") {
+        delete button.dataset.loading;
+        button.disabled = false;
+        return;
+      }
+
+      updateCachedComment(commentId, (comment) => {
+        if (!isCommentSupported(comment)) {
+          comment.up = getCommentUpCount(comment) + 1;
+        }
+        comment.is_support = 1;
+        comment.better_supported = true;
+      });
+    }).catch(() => {
+      delete button.dataset.loading;
+      button.disabled = false;
+    });
+  }
+
+  function bindPreviewActions(preview) {
+    if (preview.dataset.actionsBound === "1") {
+      return;
+    }
+
+    preview.dataset.actionsBound = "1";
+    preview.addEventListener("click", (event) => {
+      if (!(event.target instanceof Element)) {
+        return;
+      }
+
+      const supportButton = event.target.closest(".better-comment-preview__up");
+      if (!supportButton || !preview.contains(supportButton)) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      supportComment(supportButton.dataset.commentId, supportButton);
     });
   }
 
