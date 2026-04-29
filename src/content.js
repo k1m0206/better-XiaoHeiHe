@@ -12,6 +12,7 @@
   const PREVIEW_CLASS = "better-xiaoheihe-comment-preview";
   const API_PATH = "/bbs/app/link/tree";
   const COMMENT_SUPPORT_API_PATH = "/bbs/app/comment/support";
+  const LINK_AWARD_API_PATH = "/bbs/app/profile/award/link";
   const EMOJI_API_PATH = "/bbs/app/api/emojis/list";
   const API_ORIGIN = "https://api.xiaoheihe.cn";
   const COMMENT_PAGE_LIMIT = 20;
@@ -38,6 +39,7 @@
   let previewObserver = null;
   let rowResizeObserver = null;
   let topMenuOutsideClickBound = false;
+  let feedAwardCaptureBound = false;
 
   function isBbsPage() {
     return window.location.hostname === "www.xiaoheihe.cn"
@@ -204,6 +206,18 @@
         max-width: 100% !important;
       }
 
+      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} .content-list__like {
+        cursor: pointer;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} .content-list__like.better-link-award--active {
+        color: #2775d1;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} .content-list__like.better-link-award--loading {
+        opacity: 0.75;
+      }
+
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} {
         box-sizing: border-box;
         display: flex;
@@ -228,15 +242,6 @@
         margin-bottom: 10px;
         color: #59636e;
         font-size: 13px;
-      }
-
-      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__more {
-        border: 0;
-        background: transparent;
-        color: #a8afb7;
-        cursor: pointer;
-        font-size: 18px;
-        line-height: 1;
       }
 
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__list {
@@ -862,6 +867,15 @@
     return `https://api.xiaoheihe.cn${COMMENT_SUPPORT_API_PATH}?${params.toString()}`;
   }
 
+  function buildLinkAwardApiUrl() {
+    const params = new URLSearchParams({
+      ...getBaseApiParams(),
+      ...createSignedParams(LINK_AWARD_API_PATH)
+    });
+
+    return `https://api.xiaoheihe.cn${LINK_AWARD_API_PATH}?${params.toString()}`;
+  }
+
   function escapeHtml(value) {
     return String(value ?? "")
       .replaceAll("&", "&amp;")
@@ -1217,7 +1231,6 @@
     preview.innerHTML = `
       <div class="better-comment-preview__header">
         <span>评论 ${escapeHtml(count)}</span>
-        <button class="better-comment-preview__more" type="button">...</button>
       </div>
       <div class="better-comment-preview__list">
         ${renderCommentListContent(state, commentGroups)}
@@ -1355,6 +1368,87 @@
     });
   }
 
+  function getLinkAwardCountElement(linkAwardButton) {
+    return linkAwardButton.querySelector(".content-list__like-cnt");
+  }
+
+  function getLinkAwardCount(linkAwardButton) {
+    const count = Number(getLinkAwardCountElement(linkAwardButton)?.textContent?.trim() || 0);
+    return Number.isFinite(count) ? count : 0;
+  }
+
+  function updateLinkAwardButtons(linkId, updater) {
+    document.querySelectorAll(`.${ROW_CLASS}`).forEach((row) => {
+      const item = row.querySelector(":scope > .hb-cpt__bbs-list-content");
+      if (!item || getLinkIdFromItem(item) !== linkId) {
+        return;
+      }
+
+      const linkAwardButton = item.querySelector(".content-list__like");
+      if (linkAwardButton) {
+        updater(linkAwardButton);
+      }
+    });
+  }
+
+  function awardLink(linkId, linkAwardButton) {
+    if (!linkId || linkAwardButton.dataset.loading === "1") {
+      return;
+    }
+
+    const state = commentCache.get(linkId) || { commentGroups: [] };
+    if (state.linkAwarded) {
+      return;
+    }
+
+    linkAwardButton.dataset.loading = "1";
+    linkAwardButton.classList.add("better-link-award--loading");
+    state.linkAwarding = true;
+    commentCache.set(linkId, state);
+
+    fetch(buildLinkAwardApiUrl(), {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        accept: "application/json",
+        "content-type": "application/x-www-form-urlencoded;charset=utf-8"
+      },
+      body: new URLSearchParams({
+        link_id: linkId,
+        award_type: "1"
+      }).toString()
+    }).then((response) => response.json()).then((data) => {
+      const nextState = commentCache.get(linkId) || state;
+      nextState.linkAwarding = false;
+      if (data?.status === "ok") {
+        nextState.linkAwarded = true;
+        updateLinkAwardButtons(linkId, (button) => {
+          delete button.dataset.loading;
+          button.classList.remove("better-link-award--loading");
+          button.classList.add("better-link-award--active");
+          const countElement = getLinkAwardCountElement(button);
+          if (countElement) {
+            countElement.textContent = String(getLinkAwardCount(button) + 1);
+          }
+        });
+      } else {
+        updateLinkAwardButtons(linkId, (button) => {
+          delete button.dataset.loading;
+          button.classList.remove("better-link-award--loading");
+        });
+      }
+      commentCache.set(linkId, nextState);
+    }).catch(() => {
+      const nextState = commentCache.get(linkId) || state;
+      nextState.linkAwarding = false;
+      commentCache.set(linkId, nextState);
+      updateLinkAwardButtons(linkId, (button) => {
+        delete button.dataset.loading;
+        button.classList.remove("better-link-award--loading");
+      });
+    });
+  }
+
   function bindPreviewActions(preview) {
     if (preview.dataset.actionsBound === "1") {
       return;
@@ -1455,6 +1549,57 @@
     return item.querySelector(".content-list__comment-cnt")?.textContent?.trim() || "0";
   }
 
+  function bindFeedItemActions(item, linkId) {
+    if (item.dataset.betterActionsBound === "1") {
+      return;
+    }
+
+    item.dataset.betterActionsBound = "1";
+    item.addEventListener("click", (event) => {
+      if (!(event.target instanceof Element)) {
+        return;
+      }
+
+      const linkAwardButton = event.target.closest(".content-list__like");
+      if (!linkAwardButton || !item.contains(linkAwardButton)) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      awardLink(linkId, linkAwardButton);
+    });
+  }
+
+  function bindFeedAwardCapture() {
+    if (feedAwardCaptureBound) {
+      return;
+    }
+
+    feedAwardCaptureBound = true;
+    document.addEventListener("click", (event) => {
+      if (!(event.target instanceof Element)) {
+        return;
+      }
+
+      const linkAwardButton = event.target.closest(".content-list__like");
+      const item = linkAwardButton?.closest("a.hb-cpt__bbs-list-content.bbs-home__content-item");
+      if (!linkAwardButton || !item || !document.documentElement.classList.contains(HOME_LAYOUT_CLASS)) {
+        return;
+      }
+
+      const linkId = getLinkIdFromItem(item);
+      if (!linkId) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      awardLink(linkId, linkAwardButton);
+    }, true);
+  }
+
   function syncRowHeight(row) {
     if (!row) {
       return;
@@ -1515,6 +1660,8 @@
     if (!linkId) {
       return;
     }
+
+    bindFeedItemActions(item, linkId);
 
     const row = document.createElement("div");
     row.className = ROW_CLASS;
@@ -1714,6 +1861,7 @@
   function start() {
     installApiParamCapture();
     captureExistingApiEntries();
+    bindFeedAwardCapture();
     scheduleHandlePage();
     observePage();
     installRouteHooks();
