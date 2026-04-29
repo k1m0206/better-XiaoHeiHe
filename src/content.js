@@ -264,17 +264,22 @@
 
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__item {
         display: grid;
-        grid-template-columns: 24px minmax(0, 1fr) auto;
+        grid-template-columns: minmax(0, 1fr) auto;
         gap: 8px;
         align-items: start;
       }
 
-      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__avatar {
-        width: 24px;
-        height: 24px;
-        border-radius: 50%;
-        object-fit: cover;
-        background: #eef0f2;
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__user {
+        display: inline-flex;
+        max-width: 100%;
+        align-items: center;
+        color: inherit;
+        text-decoration: none;
+        vertical-align: top;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__user-avatar {
+        flex: 0 0 auto;
       }
 
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__body {
@@ -282,7 +287,7 @@
       }
 
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__name {
-        display: inline-flex;
+        display: block;
         max-width: 130px;
         overflow: hidden;
         color: #14191e;
@@ -949,11 +954,31 @@
     `;
   }
 
-  function renderCommentUser(user, isOwner) {
+  function getUserProfileId(user) {
+    return user.heybox_id || user.user_heybox_id || user.userid || user.user_id || user.uid || user.id || "";
+  }
+
+  function renderUserAvatar(user) {
+    const avatar = user.avatar || user.avartar || "";
     return `
-      <span class="better-comment-preview__name">${escapeHtml(user.username || "匿名用户")}</span>
+      <div class="hb-cpt-avatar list-content__avatar better-comment-preview__user-avatar" style="--hb-avatar-size: 18px; --hb-avatar-deraction-size: 32px;">
+        <img class="hb-avatar__image" src="${escapeHtml(avatar)}" alt="">
+      </div>
+    `;
+  }
+
+  function renderCommentUser(user, isOwner) {
+    const profileId = getUserProfileId(user);
+    const tagName = profileId ? "a" : "div";
+    const href = profileId ? ` href="/app/user/profile/${escapeHtml(profileId)}"` : "";
+
+    return `
+      <${tagName}${href} class="header__user better-comment-preview__user">
+        ${renderUserAvatar(user)}
+        <p class="list-content__username better-comment-preview__name">${escapeHtml(user.username || "匿名用户")}</p>
+        ${renderUserLevel(user.level_info?.level)}
+      </${tagName}>
       ${isOwner ? '<span class="better-comment-preview__owner">作者</span>' : ""}
-      ${renderUserLevel(user.level_info?.level)}
     `;
   }
 
@@ -968,7 +993,6 @@
     const user = comment.user || {};
     return `
       <div class="better-comment-preview__item">
-        <img class="better-comment-preview__avatar" src="${escapeHtml(user.avatar || user.avartar || "")}" alt="">
         <div class="better-comment-preview__body">
           <div>${renderCommentUser(user, comment.is_link_owner === 1)}</div>
           <div class="better-comment-preview__text">${renderCommentText(comment.text)}</div>
