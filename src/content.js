@@ -218,6 +218,15 @@
         opacity: 0.75;
       }
 
+      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} .better-link-publish-time {
+        flex: 0 0 auto;
+        margin-right: 8px;
+        color: #a8afb7;
+        font-size: 12px;
+        line-height: 20px;
+        white-space: nowrap;
+      }
+
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} {
         box-sizing: border-box;
         display: flex;
@@ -1041,6 +1050,10 @@
     return `${Math.floor(diff / day)}天前`;
   }
 
+  function getLinkCreateTime(link) {
+    return link?.create_at || link?.created_at || link?.publish_at || link?.time || "";
+  }
+
   function normalizeCommentGroups(data) {
     const groups = Array.isArray(data?.result?.comments) ? data.result.comments : [];
     return groups.map((group) => {
@@ -1266,12 +1279,14 @@
       const pageGroups = normalizeCommentGroups(data);
       state.commentGroups = page === 1 ? pageGroups : state.commentGroups.concat(pageGroups);
       state.commentCount = data.result?.link?.comment_num || data.result?.total_floor_num || state.commentCount;
+      state.linkCreateAt = getLinkCreateTime(data.result?.link) || state.linkCreateAt;
       state.page = page;
       state.failed = false;
       state.loadMoreFailed = false;
       state.loadingMore = false;
       state.hasMore = pageGroups.length >= COMMENT_PAGE_LIMIT;
       commentCache.set(linkId, state);
+      updateFeedItemPublishTime(linkId, state.linkCreateAt);
       renderLinkedPreviews(linkId);
     }).catch(() => {
       const state = commentCache.get(linkId) || { commentGroups: [] };
@@ -1549,6 +1564,45 @@
     return item.querySelector(".content-list__comment-cnt")?.textContent?.trim() || "0";
   }
 
+  function ensureFeedItemPublishTime(item) {
+    const bottomRight = item.querySelector(".content-list__bottom--right");
+    if (!bottomRight) {
+      return null;
+    }
+
+    let timeElement = bottomRight.querySelector(".better-link-publish-time");
+    if (!timeElement) {
+      timeElement = document.createElement("span");
+      timeElement.className = "better-link-publish-time";
+      bottomRight.insertBefore(timeElement, bottomRight.firstChild);
+    }
+
+    return timeElement;
+  }
+
+  function setFeedItemPublishTime(item, timestamp) {
+    const timeElement = ensureFeedItemPublishTime(item);
+    if (!timeElement) {
+      return;
+    }
+
+    timeElement.textContent = timestamp ? formatCommentTime(timestamp) : "";
+    timeElement.hidden = !timestamp;
+  }
+
+  function updateFeedItemPublishTime(linkId, timestamp) {
+    if (!timestamp) {
+      return;
+    }
+
+    document.querySelectorAll(`.${ROW_CLASS}`).forEach((row) => {
+      const item = row.querySelector(":scope > .hb-cpt__bbs-list-content");
+      if (item && getLinkIdFromItem(item) === linkId) {
+        setFeedItemPublishTime(item, timestamp);
+      }
+    });
+  }
+
   function bindFeedItemActions(item, linkId) {
     if (item.dataset.betterActionsBound === "1") {
       return;
@@ -1662,6 +1716,7 @@
     }
 
     bindFeedItemActions(item, linkId);
+    setFeedItemPublishTime(item, commentCache.get(linkId)?.linkCreateAt);
 
     const row = document.createElement("div");
     row.className = ROW_CLASS;
