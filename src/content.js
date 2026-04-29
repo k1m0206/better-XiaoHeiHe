@@ -332,6 +332,17 @@
         word-break: break-word;
       }
 
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__text a,
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-text a {
+        color: #2775d1;
+        text-decoration: none;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__text a:hover,
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-text a:hover {
+        text-decoration: underline;
+      }
+
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__time {
         margin-top: 4px;
         color: #a8afb7;
@@ -925,7 +936,7 @@
     return `<img class="${className}" src="${escapeHtml(emoji.img)}" alt="[${escapeHtml(emoji.code)}]" title="${escapeHtml(emoji.code)}" loading="lazy">`;
   }
 
-  function renderCommentText(text) {
+  function renderPlainCommentText(text) {
     return String(text || "").split(/(\[[^\]\r\n]{1,40}\])/g).map((part) => {
       const matched = part.match(/^\[([^\]\r\n]{1,40})\]$/);
       if (!matched) {
@@ -935,6 +946,50 @@
       const emoji = emojiCache.get(matched[1]) || emojiCache.get(normalizeEmojiToken(matched[1]));
       return emoji ? renderEmojiImage(emoji) : escapeHtml(normalizeCommentText(part));
     }).join("");
+  }
+
+  function isSafeCommentLink(href) {
+    return /^(heybox|https?):\/\//i.test(href);
+  }
+
+  function normalizeCommentLinkHref(href) {
+    if (!href.toLowerCase().startsWith("heybox://")) {
+      return href;
+    }
+
+    return href.replace(/%(?!25)([0-9a-f]{2})/gi, "%25$1");
+  }
+
+  function renderCommentLink(node) {
+    const href = node.getAttribute("href") || "";
+    const linkType = node.getAttribute("data-link-type") || "";
+    if (!href || !isSafeCommentLink(href)) {
+      return renderPlainCommentText(node.textContent || "");
+    }
+
+    return `<a href="${escapeHtml(normalizeCommentLinkHref(href))}"${linkType ? ` data-link-type="${escapeHtml(linkType)}"` : ""}>${renderPlainCommentText(node.textContent || "")}</a>`;
+  }
+
+  function renderCommentNode(node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      return renderPlainCommentText(node.textContent || "");
+    }
+
+    if (node.nodeType !== Node.ELEMENT_NODE) {
+      return "";
+    }
+
+    if (node.tagName.toLowerCase() === "a") {
+      return renderCommentLink(node);
+    }
+
+    return renderPlainCommentText(node.textContent || "");
+  }
+
+  function renderCommentText(text) {
+    const template = document.createElement("template");
+    template.innerHTML = String(text || "");
+    return Array.from(template.content.childNodes).map(renderCommentNode).join("");
   }
 
   function formatCommentTime(timestamp) {
