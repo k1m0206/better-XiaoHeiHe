@@ -305,15 +305,8 @@
       }
 
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__level {
-        display: inline-block;
+        display: inline-block !important;
         margin-left: 4px;
-        padding: 0 3px;
-        border-radius: 2px;
-        background: #ff4778;
-        color: #fff;
-        font-size: 10px;
-        font-weight: 700;
-        line-height: 14px;
         vertical-align: top;
       }
 
@@ -931,12 +924,36 @@
     }).filter((group) => group.root);
   }
 
+  function normalizeUserLevel(level) {
+    const value = Number(level);
+    if (!Number.isInteger(value) || value <= 0) {
+      return "";
+    }
+    return String(value);
+  }
+
+  function getLevelTagWidth(level) {
+    return 11.5 + level.length * 5;
+  }
+
+  function renderUserLevel(level) {
+    const normalizedLevel = normalizeUserLevel(level);
+    if (!normalizedLevel) {
+      return "";
+    }
+
+    return `
+      <div class="hb-cpt__level-tag list-content__level better-comment-preview__level" style="width: ${getLevelTagWidth(normalizedLevel)}px;">
+        <div class="level-tag__wrapper level-${escapeHtml(normalizedLevel)}"> Lv.${escapeHtml(normalizedLevel)}</div>
+      </div>
+    `;
+  }
+
   function renderCommentUser(user, isOwner) {
-    const level = user.level_info?.level;
     return `
       <span class="better-comment-preview__name">${escapeHtml(user.username || "匿名用户")}</span>
       ${isOwner ? '<span class="better-comment-preview__owner">作者</span>' : ""}
-      ${level ? `<span class="better-comment-preview__level">Lv.${escapeHtml(level)}</span>` : ""}
+      ${renderUserLevel(user.level_info?.level)}
     `;
   }
 
