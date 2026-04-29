@@ -13,6 +13,7 @@
   const API_PATH = "/bbs/app/link/tree";
   const EMOJI_API_PATH = "/bbs/app/api/emojis/list";
   const API_ORIGIN = "https://api.xiaoheihe.cn";
+  const COMMENT_PAGE_LIMIT = 20;
   const CAPTURED_API_PARAM_KEYS = [
     "os_type",
     "app",
@@ -359,6 +360,15 @@
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-meta {
         margin-top: 3px;
         color: #a8afb7;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__loading-more,
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__end,
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__load-failed {
+        color: #a8afb7;
+        font-size: 12px;
+        line-height: 18px;
+        text-align: center;
       }
 
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__emoji {
@@ -773,15 +783,15 @@
     return params;
   }
 
-  function buildCommentApiUrl(linkId) {
+  function buildCommentApiUrl(linkId, page) {
     const params = new URLSearchParams({
       ...getBaseApiParams(),
       ...createSignedParams(API_PATH),
       link_id: linkId,
-      is_first: "1",
-      page: "1",
+      is_first: page === 1 ? "1" : "0",
+      page: String(page),
       index: "1",
-      limit: "3",
+      limit: String(COMMENT_PAGE_LIMIT),
       owner_only: "0"
     });
 
@@ -1031,6 +1041,29 @@
     `;
   }
 
+  function renderCommentListFooter(state) {
+    if (state.loadingMore) {
+      return '<div class="better-comment-preview__loading-more">评论加载中</div>';
+    }
+    if (state.loadMoreFailed) {
+      return '<div class="better-comment-preview__load-failed">更多评论加载失败</div>';
+    }
+    if (state.commentGroups?.length && !state.hasMore) {
+      return '<div class="better-comment-preview__end">没有更多评论了</div>';
+    }
+    return "";
+  }
+
+  function renderCommentListContent(state, commentGroups) {
+    if (!commentGroups.length && state.loadingMore) {
+      return '<div class="better-comment-preview__loading-more">评论加载中</div>';
+    }
+    if (!commentGroups.length) {
+      return '<div class="better-comment-preview__empty">暂无评论</div>';
+    }
+    return `${commentGroups.map(renderCommentGroup).join("")}${renderCommentListFooter(state)}`;
+  }
+
   function renderPreview(preview, state) {
     const linkId = preview.dataset.linkId || "";
     const count = state?.commentCount || preview.dataset.commentCount || "0";
@@ -1055,11 +1088,101 @@
         <button class="better-comment-preview__more" type="button">...</button>
       </div>
       <div class="better-comment-preview__list">
-        ${commentGroups.length ? commentGroups.map(renderCommentGroup).join("") : '<div class="better-comment-preview__empty">暂无评论</div>'}
+        ${renderCommentListContent(state, commentGroups)}
       </div>
       <a class="better-comment-preview__open" href="/app/bbs/link/${escapeHtml(linkId)}">查看全部 ${escapeHtml(count)} 条评论 ›</a>
     `;
+    bindPreviewListScroll(preview);
     scheduleRowHeightSync(preview.closest(`.${ROW_CLASS}`));
+  }
+
+  function fetchCommentPage(linkId, page) {
+    Promise.all([
+      loadEmojis(),
+      fetch(buildCommentApiUrl(linkId, page), {
+        credentials: "include",
+        headers: {
+          accept: "*/*"
+        }
+      }).then((response) => response.json())
+    ]).then(([, data]) => {
+      const state = commentCache.get(linkId) || { commentGroups: [] };
+      if (data?.status !== "ok") {
+        state.failed = page === 1;
+        state.loadingMore = false;
+        state.loadMoreFailed = page > 1;
+        state.hasMore = false;
+        commentCache.set(linkId, state);
+        renderLinkedPreviews(linkId);
+        return;
+      }
+
+      const pageGroups = normalizeCommentGroups(data);
+      state.commentGroups = page === 1 ? pageGroups : state.commentGroups.concat(pageGroups);
+      state.commentCount = data.result?.link?.comment_num || data.result?.total_floor_num || state.commentCount;
+      state.page = page;
+      state.failed = false;
+      state.loadMoreFailed = false;
+      state.loadingMore = false;
+      state.hasMore = pageGroups.length >= COMMENT_PAGE_LIMIT;
+      commentCache.set(linkId, state);
+      renderLinkedPreviews(linkId);
+    }).catch(() => {
+      const state = commentCache.get(linkId) || { commentGroups: [] };
+      state.failed = page === 1;
+      state.loadingMore = false;
+      state.loadMoreFailed = page > 1;
+      state.hasMore = false;
+      commentCache.set(linkId, state);
+      renderLinkedPreviews(linkId);
+    });
+  }
+
+  function renderLinkedPreviews(linkId) {
+    const state = commentCache.get(linkId);
+    document.querySelectorAll(`.${PREVIEW_CLASS}`).forEach((node) => {
+      if (node.dataset.linkId !== linkId) {
+        return;
+      }
+
+      const list = node.querySelector(".better-comment-preview__list");
+      const scrollTop = list?.scrollTop || 0;
+      renderPreview(node, state);
+      const nextList = node.querySelector(".better-comment-preview__list");
+      if (nextList) {
+        nextList.scrollTop = scrollTop;
+      }
+    });
+  }
+
+  function loadMorePreviewComments(preview) {
+    const linkId = preview.dataset.linkId;
+    const state = commentCache.get(linkId);
+    if (!linkId || !state || state.loadingMore || !state.hasMore) {
+      return;
+    }
+
+    state.loadingMore = true;
+    commentCache.set(linkId, state);
+    renderLinkedPreviews(linkId);
+    fetchCommentPage(linkId, (state.page || 1) + 1);
+  }
+
+  function bindPreviewListScroll(preview) {
+    const list = preview.querySelector(".better-comment-preview__list");
+    if (!list) {
+      return;
+    }
+
+    const loadMoreIfNearBottom = () => {
+      const distanceToBottom = list.scrollHeight - list.scrollTop - list.clientHeight;
+      if (distanceToBottom <= 80) {
+        loadMorePreviewComments(preview);
+      }
+    };
+
+    list.addEventListener("scroll", loadMoreIfNearBottom);
+    window.requestAnimationFrame(loadMoreIfNearBottom);
   }
 
   function loadPreviewComments(preview) {
@@ -1073,38 +1196,15 @@
       return;
     }
 
-    const pending = { commentGroups: [] };
+    const pending = {
+      commentGroups: [],
+      page: 0,
+      hasMore: true,
+      loadingMore: true
+    };
     commentCache.set(linkId, pending);
     renderPreview(preview, pending);
-
-    Promise.all([
-      loadEmojis(),
-      fetch(buildCommentApiUrl(linkId), {
-        credentials: "include",
-        headers: {
-          accept: "*/*"
-        }
-      }).then((response) => response.json())
-    ]).then(([, data]) => {
-      const state = data?.status === "ok"
-        ? {
-          commentGroups: normalizeCommentGroups(data),
-          commentCount: data.result?.link?.comment_num || data.result?.total_floor_num
-        }
-        : { commentGroups: [], failed: true };
-      commentCache.set(linkId, state);
-      document.querySelectorAll(`.${PREVIEW_CLASS}`).forEach((node) => {
-        if (node.dataset.linkId !== linkId) {
-          return;
-        }
-
-        renderPreview(node, state);
-      });
-    }).catch(() => {
-      const state = { commentGroups: [], failed: true };
-      commentCache.set(linkId, state);
-      renderPreview(preview, state);
-    });
+    fetchCommentPage(linkId, 1);
   }
 
   function observePreview(preview) {
