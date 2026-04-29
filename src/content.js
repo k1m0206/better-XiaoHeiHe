@@ -37,6 +37,7 @@
   let scheduled = false;
   let previewObserver = null;
   let rowResizeObserver = null;
+  let topMenuOutsideClickBound = false;
 
   function isBbsPage() {
     return window.location.hostname === "www.xiaoheihe.cn"
@@ -156,9 +157,12 @@
       }
 
       .${HOME_LAYOUT_CLASS} .${TOP_MENU_CLASS} .hb-website__post-btn {
+        display: inline-flex !important;
         width: 100% !important;
         height: 40px !important;
         min-width: 0;
+        align-items: center !important;
+        justify-content: center !important;
         margin: 0 !important;
         padding: 0 14px !important;
         border-radius: 6px !important;
@@ -1464,6 +1468,32 @@
       || null;
   }
 
+  function setTopMenuOpen(topMenu, isOpen) {
+    topMenu.classList.toggle(TOP_MENU_OPEN_CLASS, isOpen);
+    topMenu.querySelector(`.${TOP_MENU_TOGGLE_CLASS}`)?.setAttribute("aria-expanded", String(isOpen));
+  }
+
+  function closeTopMenus() {
+    document.querySelectorAll(`.${TOP_MENU_CLASS}.${TOP_MENU_OPEN_CLASS}`).forEach((topMenu) => {
+      setTopMenuOpen(topMenu, false);
+    });
+  }
+
+  function bindTopMenuOutsideClick() {
+    if (topMenuOutsideClickBound) {
+      return;
+    }
+
+    topMenuOutsideClickBound = true;
+    document.addEventListener("click", (event) => {
+      if (event.target instanceof Element && event.target.closest(`.${TOP_MENU_CLASS}`)) {
+        return;
+      }
+
+      closeTopMenus();
+    });
+  }
+
   function ensureTopMenuParts(topMenu) {
     let toggle = topMenu.querySelector(`.${TOP_MENU_TOGGLE_CLASS}`);
     if (!toggle) {
@@ -1476,8 +1506,7 @@
       toggle.innerHTML = '<i class="hb-icon heybox-common_list2_line_24x24"></i>';
       toggle.addEventListener("click", (event) => {
         event.stopPropagation();
-        const isOpen = topMenu.classList.toggle(TOP_MENU_OPEN_CLASS);
-        toggle.setAttribute("aria-expanded", String(isOpen));
+        setTopMenuOpen(topMenu, !topMenu.classList.contains(TOP_MENU_OPEN_CLASS));
       });
       topMenu.appendChild(toggle);
     }
@@ -1492,6 +1521,7 @@
       topMenu.appendChild(panel);
     }
 
+    bindTopMenuOutsideClick();
     return panel;
   }
 
@@ -1535,6 +1565,8 @@
 
   function restoreLeftMenu() {
     const leftMenu = document.querySelector(`.${TOP_MENU_CLASS} .hb-websit__left-section`);
+
+    closeTopMenus();
 
     if (leftMenu && leftMenuOriginalPosition?.parent?.isConnected) {
       leftMenuOriginalPosition.parent.insertBefore(
