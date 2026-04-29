@@ -91,6 +91,7 @@ better-XiaoHeiHe/
 GET https://api.xiaoheihe.cn/bbs/app/link/tree
 GET https://api.xiaoheihe.cn/bbs/app/api/emojis/list
 POST https://api.xiaoheihe.cn/bbs/app/comment/support
+POST https://api.xiaoheihe.cn/bbs/app/profile/award/link
 ```
 
 请求会复用页面中已出现过的基础参数，例如：
@@ -107,7 +108,7 @@ POST https://api.xiaoheihe.cn/bbs/app/comment/support
 - `device_info`
 - `device_id`
 
-评论列表接口会按页请求，第一页使用 `is_first=1&page=1`，继续滚动时使用 `is_first=0&page=2/3/...`，每页 `limit=20`。评论点赞接口使用 `comment_id` 和 `support_type=1` 提交点赞。
+评论列表接口会按页请求，第一页使用 `is_first=1&page=1`，继续滚动时使用 `is_first=0&page=2/3/...`，每页 `limit=20`。评论点赞接口使用 `comment_id` 和 `support_type=1` 提交点赞；内容点赞接口使用 `link_id` 和 `award_type=1` 提交点赞。
 
 接口签名参数 `hkey`、`_time`、`nonce` 在 `src/content.js` 中生成。后续如果修改接口参数或签名逻辑，需要同步更新代码里的接口注释和本文档。
 评论文本中的表情标记会根据表情列表接口返回的 `code` 和 `img` 映射成图片展示；表情列表只做运行时内存缓存。
