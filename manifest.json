@@ -16,7 +16,9 @@
         "https://www.xiaoheihe.cn/app/bbs",
         "https://www.xiaoheihe.cn/app/bbs/*",
         "https://www.xiaoheihe.cn/app/topic/link",
-        "https://www.xiaoheihe.cn/app/topic/link/*"
+        "https://www.xiaoheihe.cn/app/topic/link/*",
+        "https://www.xiaoheihe.cn/app/user/profile",
+        "https://www.xiaoheihe.cn/app/user/profile/*"
       ],
       "js": [
         "src/content.js"
