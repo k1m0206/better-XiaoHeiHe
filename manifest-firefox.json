@@ -10,7 +10,7 @@
     "128": "assets/icons/icon128.png"
   },
   "permissions": [],
-  "optional_permissions": ["storage", "tabs", "activeTab"],
+  "optional_permissions": ["tabs", "activeTab"],
   "browser_specific_settings": {
     "gecko": {
       "id": "better-xiaoheihe@example.com",
