@@ -12,6 +12,7 @@
   const HOT_SEARCH_SIDEBAR_OPEN_CLASS = "better-xiaoheihe-hot-search-sidebar--open";
   const HOT_SEARCH_SIDEBAR_TOGGLE_CLASS = "better-xiaoheihe-hot-search-sidebar__toggle";
   const HOT_SEARCH_SIDEBAR_PANEL_CLASS = "better-xiaoheihe-hot-search-sidebar__panel";
+  const HIDE_CY_COMMENTS_STORAGE_KEY = "better-xiaoheihe-hide-cy-comments";
   const ROW_CLASS = "better-xiaoheihe-feed-row";
   const PREVIEW_CLASS = "better-xiaoheihe-comment-preview";
   const IMAGE_VIEWER_CLASS = "better-xiaoheihe-image-viewer";
@@ -40,6 +41,7 @@
   const commentCache = new Map();
   const emojiCache = new Map();
   const capturedApiParams = {};
+  let hideCyComments = localStorage.getItem(HIDE_CY_COMMENTS_STORAGE_KEY) === "1";
   let hotSearchPromise = null;
   let leftMenuOriginalPosition = null;
   let emojiPromise = null;
@@ -441,6 +443,66 @@
         font-size: 13px;
       }
 
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__toolbar {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__filtered-count {
+        color: #a8afb7;
+        font-size: 12px;
+        white-space: nowrap;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__cy-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: #8a9299;
+        cursor: pointer;
+        font-size: 12px;
+        white-space: nowrap;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__cy-toggle-switch {
+        position: relative;
+        width: 28px;
+        height: 16px;
+        flex: 0 0 auto;
+        border-radius: 999px;
+        background: #d8dde2;
+        transition: background 0.16s ease;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__cy-toggle-switch::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 1px 3px rgba(20, 25, 30, 0.18);
+        transition: transform 0.16s ease;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__cy-toggle[aria-pressed="true"] {
+        color: #2775d1;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__cy-toggle[aria-pressed="true"] .better-comment-preview__cy-toggle-switch {
+        background: #2775d1;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__cy-toggle[aria-pressed="true"] .better-comment-preview__cy-toggle-switch::after {
+        transform: translateX(12px);
+      }
+
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__list {
         display: flex;
         min-height: 0;
@@ -527,11 +589,27 @@
         display: -webkit-box;
         overflow: hidden;
         margin-top: 4px;
+        position: relative;
         color: #333a42;
         line-height: 1.45;
         -webkit-box-orient: vertical;
         -webkit-line-clamp: 2;
         word-break: break-word;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .comment-item__content.cy {
+        min-height: 22px;
+        text-indent: 20px;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .comment-item__content.cy::before {
+        content: "";
+        position: absolute;
+        top: 3px;
+        left: 0;
+        width: 16px;
+        height: 16px;
+        background: 0 0 / 100% 100% url(https://imgheybox.max-c.com/oa/2024/10/31/ce360d2affd7976e27e5c68a3de676c7.png);
       }
 
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__text a,
@@ -602,9 +680,14 @@
         display: -webkit-box;
         overflow: hidden;
         margin-top: 3px;
+        position: relative;
         -webkit-box-orient: vertical;
         -webkit-line-clamp: 2;
         word-break: break-word;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-text.comment-item__content.cy::before {
+        top: 1px;
       }
 
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-meta {
@@ -1691,13 +1774,17 @@
     `;
   }
 
+  function getCommentContentClass(comment, previewClass) {
+    return `${previewClass} comment-item__content${isCyComment(comment) ? " cy" : ""}`;
+  }
+
   function renderRootComment(comment) {
     const user = comment.user || {};
     return `
       <div class="better-comment-preview__item">
         <div class="better-comment-preview__body">
           <div>${renderCommentUser(user, comment.is_link_owner === 1)}</div>
-          <div class="better-comment-preview__text">${renderCommentText(comment.text)}</div>
+          <div class="${getCommentContentClass(comment, "better-comment-preview__text")}">${renderCommentText(comment.text)}</div>
           ${renderCommentImages(comment)}
           <div class="better-comment-preview__time">${renderCommentMeta(comment)}</div>
         </div>
@@ -1716,7 +1803,7 @@
           ${renderCommentUser(user, comment.is_link_owner === 1)}
           ${replyTo ? `<span class="better-comment-preview__reply-meta">${escapeHtml(replyTo)}</span>` : ""}
         </div>
-        <div class="better-comment-preview__reply-text">${renderCommentText(comment.text)}</div>
+        <div class="${getCommentContentClass(comment, "better-comment-preview__reply-text")}">${renderCommentText(comment.text)}</div>
         ${renderCommentImages(comment)}
         <div class="better-comment-preview__reply-footer">
           <div class="better-comment-preview__reply-meta">${renderCommentMeta(comment)}</div>
@@ -1735,6 +1822,39 @@
     `;
   }
 
+  function isCyComment(comment) {
+    return comment?.is_cy === 1 || comment?.is_cy === true || comment?.is_cy === "1";
+  }
+
+  function countCommentGroupItems(groups) {
+    return groups.reduce((sum, group) => sum + 1 + (group.replies?.length || 0), 0);
+  }
+
+  function getVisibleCommentGroups(commentGroups) {
+    if (!hideCyComments) {
+      return commentGroups;
+    }
+
+    return commentGroups
+      .filter((group) => !isCyComment(group.root))
+      .map((group) => ({
+        ...group,
+        replies: (group.replies || []).filter((reply) => !isCyComment(reply))
+      }));
+  }
+
+  function renderCyToggle(hiddenCount) {
+    return `
+      <div class="better-comment-preview__toolbar">
+        ${hideCyComments && hiddenCount ? `<span class="better-comment-preview__filtered-count">已屏蔽 ${escapeHtml(hiddenCount)} 条</span>` : ""}
+        <button class="better-comment-preview__cy-toggle" type="button" aria-pressed="${hideCyComments ? "true" : "false"}" title="${hideCyComments ? "显示插眼评论" : "屏蔽插眼评论"}">
+          <span class="better-comment-preview__cy-toggle-switch" aria-hidden="true"></span>
+          <span>屏蔽CY</span>
+        </button>
+      </div>
+    `;
+  }
+
   function renderCommentListFooter(state) {
     if (state.loadingMore) {
       return '<div class="better-comment-preview__loading-more">评论加载中</div>';
@@ -1748,9 +1868,12 @@
     return "";
   }
 
-  function renderCommentListContent(state, commentGroups) {
+  function renderCommentListContent(state, commentGroups, hiddenCount) {
     if (!commentGroups.length && state.loadingMore) {
       return '<div class="better-comment-preview__loading-more">评论加载中</div>';
+    }
+    if (!commentGroups.length && hiddenCount) {
+      return '<div class="better-comment-preview__empty">插眼评论已屏蔽</div>';
     }
     if (!commentGroups.length) {
       return '<div class="better-comment-preview__empty">暂无评论</div>';
@@ -1761,7 +1884,9 @@
   function renderPreview(preview, state) {
     const linkId = preview.dataset.linkId || "";
     const count = state?.commentCount || preview.dataset.commentCount || "0";
-    const commentGroups = state?.commentGroups || [];
+    const allCommentGroups = state?.commentGroups || [];
+    const commentGroups = getVisibleCommentGroups(allCommentGroups);
+    const hiddenCount = countCommentGroupItems(allCommentGroups) - countCommentGroupItems(commentGroups);
     const failed = state?.failed;
 
     if (!state) {
@@ -1779,9 +1904,10 @@
     preview.innerHTML = `
       <div class="better-comment-preview__header">
         <span>评论 ${escapeHtml(count)}</span>
+        ${renderCyToggle(hiddenCount)}
       </div>
       <div class="better-comment-preview__list">
-        ${renderCommentListContent(state, commentGroups)}
+        ${renderCommentListContent(state, commentGroups, hiddenCount)}
       </div>
       <a class="better-comment-preview__open" href="/app/bbs/link/${escapeHtml(linkId)}">查看全部 ${escapeHtml(count)} 条评论 ›</a>
     `;
@@ -1849,6 +1975,30 @@
         nextList.scrollTop = scrollTop;
       }
     });
+  }
+
+  function renderAllPreviews() {
+    document.querySelectorAll(`.${PREVIEW_CLASS}`).forEach((node) => {
+      const linkId = node.dataset.linkId || "";
+      const state = commentCache.get(linkId);
+      if (!state) {
+        return;
+      }
+
+      const list = node.querySelector(".better-comment-preview__list");
+      const scrollTop = list?.scrollTop || 0;
+      renderPreview(node, state);
+      const nextList = node.querySelector(".better-comment-preview__list");
+      if (nextList) {
+        nextList.scrollTop = scrollTop;
+      }
+    });
+  }
+
+  function setHideCyComments(isHidden) {
+    hideCyComments = isHidden;
+    localStorage.setItem(HIDE_CY_COMMENTS_STORAGE_KEY, isHidden ? "1" : "0");
+    renderAllPreviews();
   }
 
   function updateCachedComment(commentId, updater) {
@@ -2124,6 +2274,14 @@
         event.preventDefault();
         event.stopPropagation();
         openCommentImageViewer(imageLink);
+        return;
+      }
+
+      const cyToggle = event.target.closest(".better-comment-preview__cy-toggle");
+      if (cyToggle && preview.contains(cyToggle)) {
+        event.preventDefault();
+        event.stopPropagation();
+        setHideCyComments(!hideCyComments);
         return;
       }
 
