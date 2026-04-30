@@ -9,6 +9,24 @@
     "48": "assets/icons/icon48.png",
     "128": "assets/icons/icon128.png"
   },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.xiaoheihe.cn/app/bbs",
+        "https://www.xiaoheihe.cn/app/bbs/*",
+        "https://www.xiaoheihe.cn/app/topic/link",
+        "https://www.xiaoheihe.cn/app/topic/link/*",
+        "https://www.xiaoheihe.cn/app/user/profile",
+        "https://www.xiaoheihe.cn/app/user/profile/*",
+        "https://www.xiaoheihe.cn/app/search",
+        "https://www.xiaoheihe.cn/app/search*"
+      ],
+      "js": [
+        "src/content.js"
+      ],
+      "run_at": "document_start"
+    }
+  ],
   "permissions": [],
   "optional_permissions": ["tabs", "activeTab"],
   "browser_specific_settings": {
