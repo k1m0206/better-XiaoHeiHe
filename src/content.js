@@ -1,5 +1,5 @@
 (function () {
-  const ENHANCED_PATH_PREFIXES = ["/app/bbs", "/app/topic/link"];
+  const ENHANCED_PATH_PREFIXES = ["/app/bbs", "/app/topic/link", "/app/user/profile"];
   const LINK_PATH_REGEXP = /^\/app\/bbs\/link\/(\d+)/;
   const RIGHT_CONTENT_SELECTOR = ".hb-layout__content--right";
   const STYLE_ID = "better-xiaoheihe-bbs-layout-style";
@@ -11,6 +11,7 @@
   const ROW_CLASS = "better-xiaoheihe-feed-row";
   const PREVIEW_CLASS = "better-xiaoheihe-comment-preview";
   const IMAGE_VIEWER_CLASS = "better-xiaoheihe-image-viewer";
+  const FEED_ITEM_SELECTOR = 'a.hb-cpt__bbs-list-content[href*="/app/bbs/link/"], a.hb-cpt__bbs-content[href*="/app/bbs/link/"]';
   const API_PATH = "/bbs/app/link/tree";
   const COMMENT_SUPPORT_API_PATH = "/bbs/app/comment/support";
   const LINK_AWARD_API_PATH = "/bbs/app/profile/award/link";
@@ -185,7 +186,8 @@
         overflow: hidden;
       }
 
-      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} > .hb-cpt__bbs-list-content {
+      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} > .hb-cpt__bbs-list-content,
+      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} > .hb-cpt__bbs-content {
         box-sizing: border-box !important;
         min-width: 0 !important;
         max-width: 100% !important;
@@ -194,20 +196,28 @@
         border-bottom: 0 !important;
       }
 
-      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} > .hb-cpt__bbs-list-content * {
+      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} > .hb-cpt__bbs-list-content *,
+      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} > .hb-cpt__bbs-content * {
         min-width: 0 !important;
       }
 
       .${HOME_LAYOUT_CLASS} .${ROW_CLASS} > .hb-cpt__bbs-list-content img,
       .${HOME_LAYOUT_CLASS} .${ROW_CLASS} > .hb-cpt__bbs-list-content video,
-      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} > .hb-cpt__bbs-list-content canvas {
+      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} > .hb-cpt__bbs-list-content canvas,
+      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} > .hb-cpt__bbs-content img,
+      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} > .hb-cpt__bbs-content video,
+      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} > .hb-cpt__bbs-content canvas {
         max-width: 100% !important;
       }
 
       .${HOME_LAYOUT_CLASS} .${ROW_CLASS} > .hb-cpt__bbs-list-content [class*="image"],
       .${HOME_LAYOUT_CLASS} .${ROW_CLASS} > .hb-cpt__bbs-list-content [class*="img"],
       .${HOME_LAYOUT_CLASS} .${ROW_CLASS} > .hb-cpt__bbs-list-content [class*="media"],
-      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} > .hb-cpt__bbs-list-content [class*="picture"] {
+      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} > .hb-cpt__bbs-list-content [class*="picture"],
+      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} > .hb-cpt__bbs-content [class*="image"],
+      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} > .hb-cpt__bbs-content [class*="img"],
+      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} > .hb-cpt__bbs-content [class*="media"],
+      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} > .hb-cpt__bbs-content [class*="picture"] {
         max-width: 100% !important;
       }
 
@@ -1543,7 +1553,7 @@
 
   function updateLinkAwardButtons(linkId, updater) {
     document.querySelectorAll(`.${ROW_CLASS}`).forEach((row) => {
-      const item = row.querySelector(":scope > .hb-cpt__bbs-list-content");
+      const item = getRowFeedItem(row);
       if (!item || getLinkIdFromItem(item) !== linkId) {
         return;
       }
@@ -1862,7 +1872,7 @@
     }
 
     document.querySelectorAll(`.${ROW_CLASS}`).forEach((row) => {
-      const item = row.querySelector(":scope > .hb-cpt__bbs-list-content");
+      const item = getRowFeedItem(row);
       if (item && getLinkIdFromItem(item) === linkId) {
         setFeedItemPublishTime(item, timestamp);
       }
@@ -1903,7 +1913,7 @@
       }
 
       const linkAwardButton = event.target.closest(".content-list__like");
-      const item = linkAwardButton?.closest('a.hb-cpt__bbs-list-content[href*="/app/bbs/link/"]');
+      const item = linkAwardButton?.closest(FEED_ITEM_SELECTOR);
       if (!linkAwardButton || !item || !document.documentElement.classList.contains(HOME_LAYOUT_CLASS)) {
         return;
       }
@@ -1925,7 +1935,7 @@
       return;
     }
 
-    const item = row.querySelector(":scope > .hb-cpt__bbs-list-content");
+    const item = getRowFeedItem(row);
     if (!item) {
       return;
     }
@@ -1971,6 +1981,12 @@
     scheduleRowHeightSync(row);
   }
 
+  function getRowFeedItem(row) {
+    return row?.querySelector(":scope > .hb-cpt__bbs-list-content")
+      || row?.querySelector(":scope > .hb-cpt__bbs-content")
+      || null;
+  }
+
   function enhanceFeedItem(item) {
     if (item.closest(`.${ROW_CLASS}`)) {
       return;
@@ -2001,7 +2017,7 @@
   }
 
   function enhanceFeed() {
-    document.querySelectorAll('a.hb-cpt__bbs-list-content[href*="/app/bbs/link/"]').forEach(enhanceFeedItem);
+    document.querySelectorAll(FEED_ITEM_SELECTOR).forEach(enhanceFeedItem);
   }
 
   function getTopMenuMountPoint() {
