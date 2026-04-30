@@ -41,7 +41,7 @@
   const commentCache = new Map();
   const emojiCache = new Map();
   const capturedApiParams = {};
-  let hideCyComments = localStorage.getItem(HIDE_CY_COMMENTS_STORAGE_KEY) === "1";
+  let hideCyComments = readHideCyCommentsState();
   let hotSearchPromise = null;
   let leftMenuOriginalPosition = null;
   let emojiPromise = null;
@@ -66,6 +66,32 @@
 
   function isSearchPage() {
     return window.location.pathname.startsWith("/app/search");
+  }
+
+  function readHideCyCommentsState() {
+    try {
+      return localStorage.getItem(HIDE_CY_COMMENTS_STORAGE_KEY) === "1";
+    } catch {
+      return false;
+    }
+  }
+
+  function writeHideCyCommentsState(isHidden) {
+    try {
+      localStorage.setItem(HIDE_CY_COMMENTS_STORAGE_KEY, isHidden ? "1" : "0");
+    } catch {
+      // Ignore storage failures; the in-memory switch still works for the current page.
+    }
+  }
+
+  function syncHideCyCommentsState() {
+    const savedState = readHideCyCommentsState();
+    if (savedState === hideCyComments) {
+      return;
+    }
+
+    hideCyComments = savedState;
+    renderAllPreviews();
   }
 
   function injectLayoutStyle() {
@@ -1997,7 +2023,7 @@
 
   function setHideCyComments(isHidden) {
     hideCyComments = isHidden;
-    localStorage.setItem(HIDE_CY_COMMENTS_STORAGE_KEY, isHidden ? "1" : "0");
+    writeHideCyCommentsState(isHidden);
     renderAllPreviews();
   }
 
@@ -2738,10 +2764,21 @@
     };
   }
 
+  function installHideCyCommentsStateSync() {
+    window.addEventListener("storage", (event) => {
+      if (event.key !== HIDE_CY_COMMENTS_STORAGE_KEY) {
+        return;
+      }
+
+      syncHideCyCommentsState();
+    });
+  }
+
   function start() {
     installApiParamCapture();
     captureExistingApiEntries();
     bindFeedAwardCapture();
+    installHideCyCommentsStateSync();
     scheduleHandlePage();
     observePage();
     installRouteHooks();
