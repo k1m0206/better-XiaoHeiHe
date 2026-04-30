@@ -1,5 +1,5 @@
 (function () {
-  const ENHANCED_PATH_PREFIXES = ["/app/bbs", "/app/topic/link", "/app/user/profile"];
+  const ENHANCED_PATH_PREFIXES = ["/app/bbs", "/app/topic/link", "/app/user/profile", "/app/search"];
   const LINK_PATH_REGEXP = /^\/app\/bbs\/link\/(\d+)/;
   const RIGHT_CONTENT_SELECTOR = ".hb-layout__content--right";
   const STYLE_ID = "better-xiaoheihe-bbs-layout-style";
@@ -8,6 +8,10 @@
   const TOP_MENU_OPEN_CLASS = "better-xiaoheihe-top-menu--open";
   const TOP_MENU_TOGGLE_CLASS = "better-xiaoheihe-top-menu__toggle";
   const TOP_MENU_PANEL_CLASS = "better-xiaoheihe-top-menu__panel";
+  const HOT_SEARCH_SIDEBAR_CLASS = "better-xiaoheihe-hot-search-sidebar";
+  const HOT_SEARCH_SIDEBAR_OPEN_CLASS = "better-xiaoheihe-hot-search-sidebar--open";
+  const HOT_SEARCH_SIDEBAR_TOGGLE_CLASS = "better-xiaoheihe-hot-search-sidebar__toggle";
+  const HOT_SEARCH_SIDEBAR_PANEL_CLASS = "better-xiaoheihe-hot-search-sidebar__panel";
   const ROW_CLASS = "better-xiaoheihe-feed-row";
   const PREVIEW_CLASS = "better-xiaoheihe-comment-preview";
   const IMAGE_VIEWER_CLASS = "better-xiaoheihe-image-viewer";
@@ -16,6 +20,7 @@
   const COMMENT_SUPPORT_API_PATH = "/bbs/app/comment/support";
   const LINK_AWARD_API_PATH = "/bbs/app/profile/award/link";
   const EMOJI_API_PATH = "/bbs/app/api/emojis/list";
+  const SEARCH_WELCOME_API_PATH = "/bbs/app/api/search/welcome_page/v2";
   const API_ORIGIN = "https://api.xiaoheihe.cn";
   const COMMENT_PAGE_LIMIT = 20;
   const CAPTURED_API_PARAM_KEYS = [
@@ -35,6 +40,7 @@
   const commentCache = new Map();
   const emojiCache = new Map();
   const capturedApiParams = {};
+  let hotSearchPromise = null;
   let leftMenuOriginalPosition = null;
   let emojiPromise = null;
   let scheduled = false;
@@ -54,6 +60,10 @@
 
   function isLinkPage() {
     return LINK_PATH_REGEXP.test(window.location.pathname);
+  }
+
+  function isSearchPage() {
+    return window.location.pathname.startsWith("/app/search");
   }
 
   function injectLayoutStyle() {
@@ -176,6 +186,165 @@
         border-radius: 6px !important;
       }
 
+      .${HOT_SEARCH_SIDEBAR_CLASS} {
+        box-sizing: border-box;
+        position: fixed;
+        top: 96px;
+        bottom: 24px;
+        left: 0;
+        z-index: 9998;
+        width: 40px;
+        max-width: calc(100vw - 16px);
+        overflow: hidden;
+        transition: width 0.18s ease;
+      }
+
+      .${HOT_SEARCH_SIDEBAR_CLASS}.${HOT_SEARCH_SIDEBAR_OPEN_CLASS} {
+        width: min(280px, calc(100vw - 16px));
+      }
+
+      .${HOT_SEARCH_SIDEBAR_TOGGLE_CLASS} {
+        box-sizing: border-box;
+        position: absolute;
+        top: 12px;
+        left: 0;
+        width: 40px;
+        min-height: 96px;
+        border: 1px solid #eef0f2;
+        border-left: 0;
+        border-radius: 0 8px 8px 0;
+        background: #fff;
+        color: #14191e;
+        cursor: pointer;
+        box-shadow: 0 8px 24px rgba(20, 25, 30, 0.1);
+        writing-mode: vertical-rl;
+        letter-spacing: 0;
+        font-size: 13px;
+        transition: left 0.18s ease;
+      }
+
+      .${HOT_SEARCH_SIDEBAR_CLASS}.${HOT_SEARCH_SIDEBAR_OPEN_CLASS} .${HOT_SEARCH_SIDEBAR_TOGGLE_CLASS} {
+        left: 240px;
+      }
+
+      .${HOT_SEARCH_SIDEBAR_TOGGLE_CLASS}:hover {
+        background: #f7f8f9;
+      }
+
+      .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} {
+        box-sizing: border-box;
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        width: 240px;
+        max-width: calc(100vw - 56px);
+        overflow: auto;
+        padding: 12px;
+        border: 1px solid #eef0f2;
+        border-left: 0;
+        border-radius: 0 8px 8px 0;
+        background: #fff;
+        box-shadow: 0 12px 32px rgba(20, 25, 30, 0.12);
+        transform: translateX(-240px);
+        transition: transform 0.18s ease;
+      }
+
+      .${HOT_SEARCH_SIDEBAR_CLASS}.${HOT_SEARCH_SIDEBAR_OPEN_CLASS} .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} {
+        transform: translateX(0);
+      }
+
+      .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} .game-rank__aside-hot-game {
+        margin: 0 !important;
+      }
+
+      .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} .aside-hot-gmae__header {
+        margin-top: 0 !important;
+      }
+
+      .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} .better-hot-search__loading,
+      .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} .better-hot-search__empty,
+      .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} .better-hot-search__error {
+        padding: 18px 8px;
+        color: #8a9299;
+        font-size: 13px;
+        line-height: 20px;
+        text-align: center;
+      }
+
+      .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} .better-hot-search__tabs {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 10px;
+        overflow-x: auto;
+      }
+
+      .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} .better-hot-search__tab {
+        flex: 0 0 auto;
+        padding: 0 0 6px;
+        border: 0;
+        border-bottom: 2px solid transparent;
+        background: transparent;
+        color: #8a9299;
+        cursor: pointer;
+        font-size: 13px;
+        line-height: 18px;
+      }
+
+      .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} .better-hot-search__tab--active {
+        border-bottom-color: #2775d1;
+        color: #14191e;
+        font-weight: 600;
+      }
+
+      .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} .better-hot-search__list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} .better-hot-search__item {
+        display: grid;
+        grid-template-columns: 22px minmax(0, 1fr);
+        gap: 8px;
+        align-items: start;
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} .better-hot-search__index {
+        display: inline-flex;
+        width: 22px;
+        height: 22px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        background: #f3f4f5;
+        color: #59636e;
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} .better-hot-search__name {
+        overflow: hidden;
+        color: #14191e;
+        font-size: 13px;
+        line-height: 20px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} .better-hot-search__desc {
+        display: -webkit-box;
+        overflow: hidden;
+        margin-top: 2px;
+        color: #8a9299;
+        font-size: 12px;
+        line-height: 17px;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+      }
+
       .${HOME_LAYOUT_CLASS} .${ROW_CLASS} {
         display: grid;
         grid-template-columns: minmax(0, 1fr) clamp(300px, 30vw, 380px);
@@ -184,6 +353,10 @@
         margin: 0;
         border-bottom: 1px solid #f1f2f4;
         overflow: hidden;
+      }
+
+      .${HOME_LAYOUT_CLASS} .search-result__link.${ROW_CLASS} {
+        border-bottom: 0;
       }
 
       .${HOME_LAYOUT_CLASS} .${ROW_CLASS} > .hb-cpt__bbs-list-content,
@@ -611,6 +784,209 @@
     document.querySelectorAll(RIGHT_CONTENT_SELECTOR).forEach((node) => {
       node.remove();
     });
+  }
+
+  function setHotSearchSidebarOpen(sidebar, isOpen) {
+    sidebar.classList.toggle(HOT_SEARCH_SIDEBAR_OPEN_CLASS, isOpen);
+    const toggle = sidebar.querySelector(`.${HOT_SEARCH_SIDEBAR_TOGGLE_CLASS}`);
+    toggle?.setAttribute("aria-expanded", String(isOpen));
+    toggle?.setAttribute("aria-label", isOpen ? "收起黑盒热搜" : "展开黑盒热搜");
+    toggle?.setAttribute("title", isOpen ? "收起黑盒热搜" : "展开黑盒热搜");
+  }
+
+  function removeHotSearchSidebar() {
+    document.querySelectorAll(`.${HOT_SEARCH_SIDEBAR_CLASS}`).forEach((node) => {
+      node.remove();
+    });
+  }
+
+  function ensureHotSearchSidebar() {
+    let sidebar = document.querySelector(`.${HOT_SEARCH_SIDEBAR_CLASS}`);
+    if (!sidebar) {
+      sidebar = document.createElement("aside");
+      sidebar.className = HOT_SEARCH_SIDEBAR_CLASS;
+
+      const panel = document.createElement("div");
+      panel.className = HOT_SEARCH_SIDEBAR_PANEL_CLASS;
+      sidebar.appendChild(panel);
+
+      const toggle = document.createElement("button");
+      toggle.className = HOT_SEARCH_SIDEBAR_TOGGLE_CLASS;
+      toggle.type = "button";
+      toggle.textContent = "黑盒热搜";
+      toggle.title = "展开黑盒热搜";
+      toggle.setAttribute("aria-label", "展开黑盒热搜");
+      toggle.setAttribute("aria-expanded", "false");
+      toggle.addEventListener("click", () => {
+        setHotSearchSidebarOpen(sidebar, !sidebar.classList.contains(HOT_SEARCH_SIDEBAR_OPEN_CLASS));
+      });
+      sidebar.appendChild(toggle);
+
+      document.body.appendChild(sidebar);
+    }
+
+    return sidebar;
+  }
+
+  function findSearchHotList() {
+    return document.querySelector(".game-rank__aside-hot-game")
+      || document.querySelector(".search__hot-rank")
+      || null;
+  }
+
+  function buildSearchWelcomeApiUrl() {
+    const params = new URLSearchParams({
+      ...getBaseApiParams(),
+      ...createSignedParams(SEARCH_WELCOME_API_PATH)
+    });
+
+    return `https://api.xiaoheihe.cn${SEARCH_WELCOME_API_PATH}?${params.toString()}`;
+  }
+
+  function fetchSearchWelcomeData() {
+    if (!hotSearchPromise) {
+      hotSearchPromise = fetch(buildSearchWelcomeApiUrl(), {
+        credentials: "include",
+        headers: {
+          accept: "application/json, text/plain, */*"
+        }
+      })
+        .then((response) => response.json())
+        .then((data) => {
+          if (data?.status !== "ok") {
+            throw new Error(data?.msg || "黑盒热搜加载失败");
+          }
+
+          return Array.isArray(data?.result?.Lists) ? data.result.Lists : [];
+        })
+        .catch((error) => {
+          hotSearchPromise = null;
+          throw error;
+        });
+    }
+
+    return hotSearchPromise;
+  }
+
+  function getHotSearchItemHref(item) {
+    const text = item?.text || "";
+    if (!text) {
+      return "/app/search";
+    }
+
+    return `/app/search?q=${encodeURIComponent(text)}`;
+  }
+
+  function renderHotSearchRank(panel, ranks, activeTabType) {
+    panel.replaceChildren();
+
+    if (!ranks.length) {
+      const empty = document.createElement("div");
+      empty.className = "better-hot-search__empty";
+      empty.textContent = "暂无热搜";
+      panel.appendChild(empty);
+      return;
+    }
+
+    const activeRank = ranks.find((rank) => rank.tab_type === activeTabType) || ranks[0];
+    const tabs = document.createElement("div");
+    tabs.className = "better-hot-search__tabs";
+    ranks.forEach((rank) => {
+      const tab = document.createElement("button");
+      tab.className = "better-hot-search__tab";
+      if (rank === activeRank) {
+        tab.classList.add("better-hot-search__tab--active");
+      }
+      tab.type = "button";
+      tab.textContent = rank.is_hot ? "热搜" : (rank.head_text || "榜单");
+      tab.addEventListener("click", () => {
+        renderHotSearchRank(panel, ranks, rank.tab_type);
+      });
+      tabs.appendChild(tab);
+    });
+    panel.appendChild(tabs);
+
+    const list = document.createElement("div");
+    list.className = "better-hot-search__list";
+    (activeRank.items || []).forEach((item, index) => {
+      const link = document.createElement("a");
+      link.className = "better-hot-search__item";
+      link.href = getHotSearchItemHref(item);
+
+      const rankIndex = document.createElement("span");
+      rankIndex.className = "better-hot-search__index";
+      rankIndex.textContent = String(index + 1);
+      link.appendChild(rankIndex);
+
+      const content = document.createElement("span");
+      const name = document.createElement("span");
+      name.className = "better-hot-search__name";
+      name.textContent = item?.text || "";
+      content.appendChild(name);
+
+      if (item?.desc) {
+        const desc = document.createElement("span");
+        desc.className = "better-hot-search__desc";
+        desc.textContent = item.desc;
+        content.appendChild(desc);
+      }
+
+      link.appendChild(content);
+      list.appendChild(link);
+    });
+    panel.appendChild(list);
+  }
+
+  function renderHotSearchFallback(panel) {
+    if (panel.dataset.betterHotSearchFallback === "loaded" || panel.dataset.betterHotSearchFallback === "loading") {
+      return;
+    }
+
+    panel.dataset.betterHotSearchFallback = "loading";
+    const loading = document.createElement("div");
+    loading.className = "better-hot-search__loading";
+    loading.textContent = "热搜加载中";
+    panel.replaceChildren(loading);
+
+    fetchSearchWelcomeData()
+      .then((ranks) => {
+        panel.dataset.betterHotSearchFallback = "loaded";
+        renderHotSearchRank(panel, ranks);
+      })
+      .catch(() => {
+        panel.dataset.betterHotSearchFallback = "failed";
+        const error = document.createElement("div");
+        error.className = "better-hot-search__error";
+        error.textContent = "热搜加载失败";
+        panel.replaceChildren(error);
+      });
+  }
+
+  function moveSearchHotListToLeftSidebar() {
+    if (!isSearchPage()) {
+      removeHotSearchSidebar();
+      return;
+    }
+
+    const sidebar = ensureHotSearchSidebar();
+    const panel = sidebar.querySelector(`.${HOT_SEARCH_SIDEBAR_PANEL_CLASS}`);
+    if (!panel) {
+      return;
+    }
+
+    const hotSearch = findSearchHotList();
+    if (hotSearch && panel.contains(hotSearch)) {
+      return;
+    }
+
+    if (hotSearch && hotSearch.parentElement !== panel) {
+      panel.dataset.betterHotSearchFallback = "";
+      panel.replaceChildren();
+      panel.appendChild(hotSearch);
+      return;
+    }
+
+    renderHotSearchFallback(panel);
   }
 
   function getCookie(name) {
@@ -2000,16 +2376,21 @@
     bindFeedItemActions(item, linkId);
     setFeedItemPublishTime(item, commentCache.get(linkId)?.linkCreateAt);
 
-    const row = document.createElement("div");
-    row.className = ROW_CLASS;
+    const searchResultRow = item.parentElement?.classList.contains("search-result__link")
+      ? item.parentElement
+      : null;
+    const row = searchResultRow || document.createElement("div");
+    row.classList.add(ROW_CLASS);
 
     const preview = document.createElement("aside");
     preview.className = PREVIEW_CLASS;
     preview.dataset.linkId = linkId;
     preview.dataset.commentCount = getCommentCountFromItem(item);
 
-    item.parentNode.insertBefore(row, item);
-    row.appendChild(item);
+    if (!searchResultRow) {
+      item.parentNode.insertBefore(row, item);
+      row.appendChild(item);
+    }
     row.appendChild(preview);
     renderPreview(preview, null);
     observeRowHeight(row, item);
@@ -2140,6 +2521,7 @@
     if (!isEnhancedPage()) {
       document.documentElement.classList.remove(HOME_LAYOUT_CLASS);
       restoreLeftMenu();
+      removeHotSearchSidebar();
       return;
     }
 
@@ -2148,11 +2530,13 @@
     if (isLinkPage()) {
       document.documentElement.classList.remove(HOME_LAYOUT_CLASS);
       restoreLeftMenu();
+      removeHotSearchSidebar();
       return;
     }
 
     document.documentElement.classList.add(HOME_LAYOUT_CLASS);
     moveLeftMenuToTop();
+    moveSearchHotListToLeftSidebar();
     removeRightContent();
     enhanceFeed();
   }

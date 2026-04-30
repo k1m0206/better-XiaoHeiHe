@@ -4,9 +4,9 @@
 
 ## 功能
 
-- 在小黑盒社区首页、话题链接页和个人主页的信息流右侧展示评论预览。
+- 在小黑盒社区首页、话题链接页、个人主页和搜索页的信息流右侧展示评论预览。
 - 右侧评论区高度跟随左侧帖子内容，评论过多时在右侧内部裁切，避免撑高帖子列表。
-- 首页、话题链接页和个人主页帖子底部展示发布时间，并支持直接点击原点赞区域给内容点赞。
+- 首页、话题链接页、个人主页和搜索页帖子底部展示发布时间，并支持直接点击原点赞区域给内容点赞。
 - 评论预览支持展示：
   - 用户头像、昵称、等级
   - 评论内容
@@ -28,7 +28,8 @@
 - 评论预览支持展示评论区图片。
 - 评论图片支持点击后在当前页面打开大图预览。
 - 同一条评论内多张图片支持左右切换，并支持点击遮罩或按 `Esc` 关闭预览。
-- 话题链接页和个人主页也会在帖子右侧展示同样的评论预览。
+- 话题链接页、个人主页和搜索页也会在帖子右侧展示同样的评论预览。
+- 搜索页原右侧“黑盒热搜”会移动到左侧可收纳侧边栏。
 
 ### 0.1.2
 
@@ -47,7 +48,7 @@
 2. 开启开发者模式。
 3. 选择“加载解压缩的扩展程序”。
 4. 选择本项目目录。
-5. 打开 `https://www.xiaoheihe.cn/app/bbs/home`、`https://www.xiaoheihe.cn/app/topic/link` 或 `https://www.xiaoheihe.cn/app/user/profile` 查看效果。
+5. 打开 `https://www.xiaoheihe.cn/app/bbs/home`、`https://www.xiaoheihe.cn/app/topic/link`、`https://www.xiaoheihe.cn/app/user/profile` 或 `https://www.xiaoheihe.cn/app/search` 查看效果。
 
 修改代码后，在扩展管理页面点击重新加载插件，再刷新小黑盒页面。
 
@@ -92,7 +93,7 @@ better-XiaoHeiHe/
 插件通过 content script 注入到小黑盒网页中：
 
 - 监听小黑盒 BBS 页面路由变化。
-- 首页、话题链接页和个人主页时调整信息流布局，移除原右侧推荐栏。
+- 首页、话题链接页、个人主页和搜索页时调整信息流布局，移除原右侧推荐栏。
 - 识别每条帖子链接 ID，请求评论接口并缓存结果。
 - 根据左侧帖子实际高度同步右侧评论预览高度。
 - 离开适配页面或进入详情页时恢复原始左侧菜单位置。
@@ -129,7 +130,7 @@ POST https://api.xiaoheihe.cn/bbs/app/profile/award/link
 
 ## 注意事项
 
-- 插件匹配 `https://www.xiaoheihe.cn/app/bbs`、`https://www.xiaoheihe.cn/app/topic/link`、`https://www.xiaoheihe.cn/app/user/profile` 和它们的子路径。
+- 插件匹配 `https://www.xiaoheihe.cn/app/bbs`、`https://www.xiaoheihe.cn/app/topic/link`、`https://www.xiaoheihe.cn/app/user/profile`、`https://www.xiaoheihe.cn/app/search` 和它们的子路径。
 - 评论接口依赖当前网页登录态，未登录或登录态失效时可能无法展示评论。
 - 小黑盒网页结构或接口签名变化时，插件可能需要适配。
 - 本项目只在页面内做展示优化，不保存用户 Cookie 或登录凭据。
