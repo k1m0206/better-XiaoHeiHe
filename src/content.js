@@ -10,6 +10,7 @@
   const TOP_MENU_PANEL_CLASS = "better-xiaoheihe-top-menu__panel";
   const ROW_CLASS = "better-xiaoheihe-feed-row";
   const PREVIEW_CLASS = "better-xiaoheihe-comment-preview";
+  const IMAGE_VIEWER_CLASS = "better-xiaoheihe-image-viewer";
   const API_PATH = "/bbs/app/link/tree";
   const COMMENT_SUPPORT_API_PATH = "/bbs/app/comment/support";
   const LINK_AWARD_API_PATH = "/bbs/app/profile/award/link";
@@ -40,6 +41,10 @@
   let rowResizeObserver = null;
   let topMenuOutsideClickBound = false;
   let feedAwardCaptureBound = false;
+  let imageViewerKeydownBound = false;
+  let activeImageViewerImages = [];
+  let activeImageViewerIndex = 0;
+  let documentOverflowBeforeImageViewer = "";
 
   function isBbsPage() {
     return window.location.hostname === "www.xiaoheihe.cn"
@@ -363,6 +368,38 @@
         font-size: 12px;
       }
 
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__images {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 6px;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__image-link {
+        display: block;
+        overflow: hidden;
+        max-width: min(160px, 100%);
+        border-radius: 6px;
+        background: #f3f4f5;
+        cursor: zoom-in;
+        line-height: 0;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply .better-comment-preview__image-link {
+        max-width: min(132px, 100%);
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__image {
+        display: block;
+        width: 100%;
+        max-height: 150px;
+        object-fit: cover;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply .better-comment-preview__image {
+        max-height: 120px;
+      }
+
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__ip::before {
         content: "·";
         margin: 0 2px;
@@ -474,6 +511,77 @@
         margin: auto;
         color: #a8afb7;
         text-align: center;
+      }
+
+      .${IMAGE_VIEWER_CLASS} {
+        position: fixed;
+        inset: 0;
+        z-index: 2147483647;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.82);
+      }
+
+      .${IMAGE_VIEWER_CLASS}[hidden] {
+        display: none !important;
+      }
+
+      .${IMAGE_VIEWER_CLASS} .better-image-viewer__image {
+        display: block;
+        max-width: min(92vw, 1280px);
+        max-height: 88vh;
+        object-fit: contain;
+      }
+
+      .${IMAGE_VIEWER_CLASS} .better-image-viewer__close,
+      .${IMAGE_VIEWER_CLASS} .better-image-viewer__prev,
+      .${IMAGE_VIEWER_CLASS} .better-image-viewer__next {
+        position: absolute;
+        display: inline-flex;
+        width: 42px;
+        height: 42px;
+        align-items: center;
+        justify-content: center;
+        border: 0;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.16);
+        color: #fff;
+        cursor: pointer;
+        font-size: 24px;
+        line-height: 1;
+      }
+
+      .${IMAGE_VIEWER_CLASS} .better-image-viewer__close:hover,
+      .${IMAGE_VIEWER_CLASS} .better-image-viewer__prev:hover,
+      .${IMAGE_VIEWER_CLASS} .better-image-viewer__next:hover {
+        background: rgba(255, 255, 255, 0.24);
+      }
+
+      .${IMAGE_VIEWER_CLASS} .better-image-viewer__close {
+        top: 24px;
+        right: 28px;
+      }
+
+      .${IMAGE_VIEWER_CLASS} .better-image-viewer__prev {
+        left: 28px;
+      }
+
+      .${IMAGE_VIEWER_CLASS} .better-image-viewer__next {
+        right: 28px;
+      }
+
+      .${IMAGE_VIEWER_CLASS} .better-image-viewer__counter {
+        position: absolute;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: rgba(0, 0, 0, 0.36);
+        color: #fff;
+        font-size: 13px;
+        line-height: 20px;
       }
 
       @media (max-width: 1180px) {
@@ -991,6 +1099,10 @@
     return /^(heybox|https?):\/\//i.test(href);
   }
 
+  function isSafeCommentImageUrl(url) {
+    return /^https?:\/\//i.test(url);
+  }
+
   function normalizeCommentLinkHref(href) {
     if (!href.toLowerCase().startsWith("heybox://")) {
       return href;
@@ -1029,6 +1141,41 @@
     const template = document.createElement("template");
     template.innerHTML = String(text || "");
     return Array.from(template.content.childNodes).map(renderCommentNode).join("");
+  }
+
+  function getCommentImages(comment) {
+    return Array.isArray(comment?.imgs) ? comment.imgs : [];
+  }
+
+  function renderCommentImages(comment) {
+    const images = getCommentImages(comment).filter((image) => {
+      const src = image?.thumb || image?.url || "";
+      const url = image?.url || image?.thumb || "";
+      return src && url && isSafeCommentImageUrl(src) && isSafeCommentImageUrl(url);
+    });
+
+    if (!images.length) {
+      return "";
+    }
+
+    return `
+      <div class="better-comment-preview__images">
+        ${images.map((image, index) => {
+          const src = image.thumb || image.url;
+          const url = image.url || image.thumb;
+          const width = Number(image.width) || "";
+          const height = Number(image.height) || "";
+          const sizeAttrs = width && height
+            ? ` width="${escapeHtml(width)}" height="${escapeHtml(height)}"`
+            : "";
+          return `
+            <a class="better-comment-preview__image-link" href="${escapeHtml(url)}" data-preview-src="${escapeHtml(url)}">
+              <img class="better-comment-preview__image" src="${escapeHtml(src)}" alt="评论图片 ${escapeHtml(index + 1)}" loading="lazy"${sizeAttrs}>
+            </a>
+          `;
+        }).join("")}
+      </div>
+    `;
   }
 
   function formatCommentTime(timestamp) {
@@ -1165,6 +1312,7 @@
         <div class="better-comment-preview__body">
           <div>${renderCommentUser(user, comment.is_link_owner === 1)}</div>
           <div class="better-comment-preview__text">${renderCommentText(comment.text)}</div>
+          ${renderCommentImages(comment)}
           <div class="better-comment-preview__time">${renderCommentMeta(comment)}</div>
         </div>
         ${renderCommentSupportButton(comment)}
@@ -1183,6 +1331,7 @@
           ${replyTo ? `<span class="better-comment-preview__reply-meta">${escapeHtml(replyTo)}</span>` : ""}
         </div>
         <div class="better-comment-preview__reply-text">${renderCommentText(comment.text)}</div>
+        ${renderCommentImages(comment)}
         <div class="better-comment-preview__reply-footer">
           <div class="better-comment-preview__reply-meta">${renderCommentMeta(comment)}</div>
           ${renderCommentSupportButton(comment)}
@@ -1464,6 +1613,115 @@
     });
   }
 
+  function ensureImageViewer() {
+    let viewer = document.querySelector(`.${IMAGE_VIEWER_CLASS}`);
+    if (viewer) {
+      return viewer;
+    }
+
+    viewer = document.createElement("div");
+    viewer.className = IMAGE_VIEWER_CLASS;
+    viewer.hidden = true;
+    viewer.innerHTML = `
+      <button class="better-image-viewer__close" type="button" aria-label="关闭图片预览">×</button>
+      <button class="better-image-viewer__prev" type="button" aria-label="上一张">‹</button>
+      <img class="better-image-viewer__image" alt="">
+      <button class="better-image-viewer__next" type="button" aria-label="下一张">›</button>
+      <div class="better-image-viewer__counter"></div>
+    `;
+    viewer.addEventListener("click", (event) => {
+      if (!(event.target instanceof Element)) {
+        return;
+      }
+
+      if (event.target === viewer || event.target.closest(".better-image-viewer__close")) {
+        closeImageViewer();
+        return;
+      }
+
+      if (event.target.closest(".better-image-viewer__prev")) {
+        showImageViewerAt(activeImageViewerIndex - 1);
+        return;
+      }
+
+      if (event.target.closest(".better-image-viewer__next")) {
+        showImageViewerAt(activeImageViewerIndex + 1);
+      }
+    });
+    document.body.appendChild(viewer);
+    bindImageViewerKeydown();
+    return viewer;
+  }
+
+  function bindImageViewerKeydown() {
+    if (imageViewerKeydownBound) {
+      return;
+    }
+
+    imageViewerKeydownBound = true;
+    document.addEventListener("keydown", (event) => {
+      const viewer = document.querySelector(`.${IMAGE_VIEWER_CLASS}`);
+      if (!viewer || viewer.hidden) {
+        return;
+      }
+
+      if (event.key === "Escape") {
+        closeImageViewer();
+      } else if (event.key === "ArrowLeft") {
+        showImageViewerAt(activeImageViewerIndex - 1);
+      } else if (event.key === "ArrowRight") {
+        showImageViewerAt(activeImageViewerIndex + 1);
+      }
+    });
+  }
+
+  function showImageViewerAt(index) {
+    if (!activeImageViewerImages.length) {
+      return;
+    }
+
+    const viewer = ensureImageViewer();
+    const image = viewer.querySelector(".better-image-viewer__image");
+    const counter = viewer.querySelector(".better-image-viewer__counter");
+    const prev = viewer.querySelector(".better-image-viewer__prev");
+    const next = viewer.querySelector(".better-image-viewer__next");
+    activeImageViewerIndex = (index + activeImageViewerImages.length) % activeImageViewerImages.length;
+    image.src = activeImageViewerImages[activeImageViewerIndex];
+    counter.textContent = activeImageViewerImages.length > 1
+      ? `${activeImageViewerIndex + 1} / ${activeImageViewerImages.length}`
+      : "";
+    prev.hidden = activeImageViewerImages.length <= 1;
+    next.hidden = activeImageViewerImages.length <= 1;
+    if (viewer.hidden) {
+      documentOverflowBeforeImageViewer = document.documentElement.style.overflow;
+    }
+    viewer.hidden = false;
+    document.documentElement.style.overflow = "hidden";
+  }
+
+  function closeImageViewer() {
+    const viewer = document.querySelector(`.${IMAGE_VIEWER_CLASS}`);
+    if (!viewer) {
+      return;
+    }
+
+    viewer.hidden = true;
+    const image = viewer.querySelector(".better-image-viewer__image");
+    if (image) {
+      image.removeAttribute("src");
+    }
+    document.documentElement.style.overflow = documentOverflowBeforeImageViewer;
+    documentOverflowBeforeImageViewer = "";
+  }
+
+  function openCommentImageViewer(imageLink) {
+    const imageGroup = imageLink.closest(".better-comment-preview__images");
+    const links = Array.from(imageGroup?.querySelectorAll(".better-comment-preview__image-link") || [imageLink]);
+    activeImageViewerImages = links.map((link) => link.dataset.previewSrc || link.href).filter(isSafeCommentImageUrl);
+    const index = Math.max(0, links.indexOf(imageLink));
+    showImageViewerAt(index);
+  }
+
   function bindPreviewActions(preview) {
     if (preview.dataset.actionsBound === "1") {
       return;
@@ -1472,6 +1730,14 @@
     preview.dataset.actionsBound = "1";
     preview.addEventListener("click", (event) => {
       if (!(event.target instanceof Element)) {
+        return;
+      }
+
+      const imageLink = event.target.closest(".better-comment-preview__image-link");
+      if (imageLink && preview.contains(imageLink)) {
+        event.preventDefault();
+        event.stopPropagation();
+        openCommentImageViewer(imageLink);
         return;
       }
 
