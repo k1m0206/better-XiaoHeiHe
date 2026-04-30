@@ -3,7 +3,7 @@
   "name": "更好的小黑盒",
   "short_name": "更好小黑盒",
   "version": "0.1.3",
-  "description": "在小黑盒首页信息流右侧展示评论预览。",
+  "description": "在小黑盒社区信息流右侧展示评论预览。",
   "icons": {
     "16": "assets/icons/icon16.png",
     "32": "assets/icons/icon32.png",
@@ -14,7 +14,9 @@
     {
       "matches": [
         "https://www.xiaoheihe.cn/app/bbs",
-        "https://www.xiaoheihe.cn/app/bbs/*"
+        "https://www.xiaoheihe.cn/app/bbs/*",
+        "https://www.xiaoheihe.cn/app/topic/link",
+        "https://www.xiaoheihe.cn/app/topic/link/*"
       ],
       "js": [
         "src/content.js"

@@ -1,5 +1,5 @@
 (function () {
-  const BBS_PATH_PREFIX = "/app/bbs";
+  const ENHANCED_PATH_PREFIXES = ["/app/bbs", "/app/topic/link"];
   const LINK_PATH_REGEXP = /^\/app\/bbs\/link\/(\d+)/;
   const RIGHT_CONTENT_SELECTOR = ".hb-layout__content--right";
   const STYLE_ID = "better-xiaoheihe-bbs-layout-style";
@@ -46,9 +46,9 @@
   let activeImageViewerIndex = 0;
   let documentOverflowBeforeImageViewer = "";
 
-  function isBbsPage() {
+  function isEnhancedPage() {
     return window.location.hostname === "www.xiaoheihe.cn"
-      && window.location.pathname.startsWith(BBS_PATH_PREFIX);
+      && ENHANCED_PATH_PREFIXES.some((prefix) => window.location.pathname.startsWith(prefix));
   }
 
   function isLinkPage() {
@@ -1903,7 +1903,7 @@
       }
 
       const linkAwardButton = event.target.closest(".content-list__like");
-      const item = linkAwardButton?.closest("a.hb-cpt__bbs-list-content.bbs-home__content-item");
+      const item = linkAwardButton?.closest('a.hb-cpt__bbs-list-content[href*="/app/bbs/link/"]');
       if (!linkAwardButton || !item || !document.documentElement.classList.contains(HOME_LAYOUT_CLASS)) {
         return;
       }
@@ -2000,8 +2000,8 @@
     observePreview(preview);
   }
 
-  function enhanceHomeFeed() {
-    document.querySelectorAll("a.hb-cpt__bbs-list-content.bbs-home__content-item").forEach(enhanceFeedItem);
+  function enhanceFeed() {
+    document.querySelectorAll('a.hb-cpt__bbs-list-content[href*="/app/bbs/link/"]').forEach(enhanceFeedItem);
   }
 
   function getTopMenuMountPoint() {
@@ -2121,7 +2121,8 @@
   }
 
   function handlePage() {
-    if (!isBbsPage()) {
+    if (!isEnhancedPage()) {
+      document.documentElement.classList.remove(HOME_LAYOUT_CLASS);
       restoreLeftMenu();
       return;
     }
@@ -2137,7 +2138,7 @@
     document.documentElement.classList.add(HOME_LAYOUT_CLASS);
     moveLeftMenuToTop();
     removeRightContent();
-    enhanceHomeFeed();
+    enhanceFeed();
   }
 
   function scheduleHandlePage() {
