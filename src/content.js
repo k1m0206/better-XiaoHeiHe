@@ -78,7 +78,8 @@
 
   function readHideCyCommentsState() {
     try {
-      return localStorage.getItem(HIDE_CY_COMMENTS_STORAGE_KEY) === "1";
+      const savedValue = localStorage.getItem(HIDE_CY_COMMENTS_STORAGE_KEY);
+      return savedValue === "1" || savedValue === "true";
     } catch {
       return false;
     }
@@ -2295,16 +2296,35 @@
     return groups.reduce((sum, group) => sum + 1 + (group.replies?.length || 0), 0);
   }
 
+  function countCyCommentGroupItems(groups) {
+    return groups.reduce((sum, group) => {
+      const rootCount = isCyComment(group.root) ? 1 : 0;
+      const replyCount = (group.replies || []).filter(isCyComment).length;
+      return sum + rootCount + replyCount;
+    }, 0);
+  }
+
+  function shouldHideComment(comment) {
+    return (hideCyComments && isCyComment(comment)) || isBlockedByKeyword(comment);
+  }
+
   function getVisibleCommentGroups(commentGroups) {
     return commentGroups
-      .filter((group) => !(hideCyComments && isCyComment(group.root)))
-      .filter((group) => !isBlockedByKeyword(group.root))
-      .map((group) => ({
-        ...group,
-        replies: (group.replies || [])
-          .filter((reply) => !(hideCyComments && isCyComment(reply)))
-          .filter((reply) => !isBlockedByKeyword(reply))
-      }));
+      .filter((group) => !shouldHideComment(group.root))
+      .map((group) => {
+        const replies = group.replies || [];
+        const visibleReplies = replies.filter((reply) => !shouldHideComment(reply));
+        const hiddenLoadedReplyCount = replies.length - visibleReplies.length;
+        const originalReplyCount = Math.max(Number(group.replyCount) || 0, replies.length);
+        const visibleReplyCount = Math.max(0, originalReplyCount - hiddenLoadedReplyCount);
+
+        return {
+          ...group,
+          replies: visibleReplies,
+          replyCount: visibleReplyCount,
+          repliesHasMore: Boolean(group.repliesHasMore && visibleReplyCount > visibleReplies.length)
+        };
+      });
   }
 
   function renderCyToggle(hiddenCount) {
@@ -2357,7 +2377,8 @@
     const count = state?.commentCount || preview.dataset.commentCount || "0";
     const allCommentGroups = state?.commentGroups || [];
     const commentGroups = getVisibleCommentGroups(allCommentGroups);
-    const hiddenCount = countCommentGroupItems(allCommentGroups) - countCommentGroupItems(commentGroups);
+    const totalHiddenCount = countCommentGroupItems(allCommentGroups) - countCommentGroupItems(commentGroups);
+    const cyHiddenCount = hideCyComments ? countCyCommentGroupItems(allCommentGroups) : 0;
     const failed = state?.failed;
 
     if (!state) {
@@ -2375,10 +2396,10 @@
     preview.innerHTML = `
       <div class="better-comment-preview__header">
         <span>评论 ${escapeHtml(count)}</span>
-        ${renderCyToggle(hiddenCount)}
+        ${renderCyToggle(cyHiddenCount)}
       </div>
       <div class="better-comment-preview__list">
-        ${renderCommentListContent(state, commentGroups, hiddenCount)}
+        ${renderCommentListContent(state, commentGroups, totalHiddenCount)}
       </div>
       <a class="better-comment-preview__open" href="/app/bbs/link/${escapeHtml(linkId)}">查看全部 ${escapeHtml(count)} 条评论 ›</a>
     `;
