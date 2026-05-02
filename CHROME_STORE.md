@@ -22,19 +22,23 @@ better-XiaoHeiHe 是一个面向小黑盒网页社区的浏览体验优化插件
 它会在社区首页的信息流右侧展示评论预览，让你不用频繁进入详情页也能快速浏览讨论内容。插件还会把左侧菜单折叠到顶部栏，并隐藏右侧推荐栏，释放页面横向空间。
 
 主要功能：
-- 首页帖子右侧展示评论预览
+- 首页、话题链接页、个人主页、收藏页和搜索页帖子右侧展示评论预览
 - 支持头像、昵称、等级、IP 属地、点赞数、楼中楼回复和作者标识
 - 点击用户信息可跳转到对应主页
 - 支持评论中的游戏链接展示
 - 评论区域固定在帖子高度内，可上下滚动加载更多评论
 - 支持在右侧评论区直接点赞主评论和楼中楼回复
+- 支持点击“全部 N 条回复”继续加载楼中楼回复
 - 支持在首页帖子底部直接给内容点赞
 - 帖子底部显示发布时间
 - 多图帖子不会压住评论区
 - 左侧菜单折叠到顶部栏，点击页面其他区域可关闭
 - 适配页面隐藏原右侧推荐栏
 - 收藏页同样适配顶部菜单和右侧栏隐藏
+- 顶部栏新增收藏入口，可直接跳转到个人收藏内容页
+- 支持屏蔽插眼评论，并在开关右侧显示本次屏蔽数量
 - 顶部栏设置支持添加评论屏蔽关键词，并本地记录每个关键词的屏蔽生效次数
+- 被屏蔽的楼中楼回复不会继续显示在“全部 N 条回复”的数量中
 
 隐私说明：
 插件不收集、不上传用户个人数据。评论数据来自小黑盒网页自身接口，只用于当前页面展示；屏蔽关键词及其本地生效次数仅保存在浏览器本地。
@@ -61,6 +65,14 @@ Productivity
 ```text
 https://www.xiaoheihe.cn/app/bbs
 https://www.xiaoheihe.cn/app/bbs/*
+https://www.xiaoheihe.cn/app/topic/link
+https://www.xiaoheihe.cn/app/topic/link/*
+https://www.xiaoheihe.cn/app/user/profile
+https://www.xiaoheihe.cn/app/user/profile/*
+https://www.xiaoheihe.cn/app/user/favour
+https://www.xiaoheihe.cn/app/user/favour/*
+https://www.xiaoheihe.cn/app/search
+https://www.xiaoheihe.cn/app/search*
 ```
 
 用途说明：
