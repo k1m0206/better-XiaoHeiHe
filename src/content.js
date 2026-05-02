@@ -18,12 +18,14 @@
   const IMAGE_VIEWER_CLASS = "better-xiaoheihe-image-viewer";
   const FEED_ITEM_SELECTOR = 'a.hb-cpt__bbs-list-content[href*="/app/bbs/link/"], a.hb-cpt__bbs-content[href*="/app/bbs/link/"]';
   const API_PATH = "/bbs/app/link/tree";
+  const SUB_COMMENT_API_PATH = "/bbs/app/comment/sub/comments";
   const COMMENT_SUPPORT_API_PATH = "/bbs/app/comment/support";
   const LINK_AWARD_API_PATH = "/bbs/app/profile/award/link";
   const EMOJI_API_PATH = "/bbs/app/api/emojis/list";
   const SEARCH_WELCOME_API_PATH = "/bbs/app/api/search/welcome_page/v2";
   const API_ORIGIN = "https://api.xiaoheihe.cn";
   const COMMENT_PAGE_LIMIT = 20;
+  const SUB_COMMENT_PAGE_LIMIT = 20;
   const CAPTURED_API_PARAM_KEYS = [
     "os_type",
     "app",
@@ -559,14 +561,37 @@
       }
 
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__item {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
+        min-width: 0;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__text-row {
+        display: flex;
+        align-items: flex-start;
         gap: 8px;
-        align-items: start;
+        min-width: 0;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__text-row .better-comment-preview__text {
+        flex: 1 1 auto;
+        min-width: 0;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__text-row .better-comment-preview__up {
+        flex: 0 0 auto;
+        margin-top: 4px;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__user-header {
+        display: flex;
+        min-width: 0;
+        height: auto;
+        align-items: center;
+        justify-content: flex-start;
       }
 
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__user {
         display: inline-flex;
+        min-width: 0;
         max-width: 100%;
         align-items: center;
         color: inherit;
@@ -576,6 +601,7 @@
 
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__user-avatar {
         flex: 0 0 auto;
+        margin-right: 4px;
       }
 
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__body {
@@ -586,8 +612,10 @@
         display: block;
         max-width: 130px;
         overflow: hidden;
+        margin: 0;
         color: #14191e;
         font-weight: 600;
+        line-height: 18px;
         text-overflow: ellipsis;
         white-space: nowrap;
         vertical-align: top;
@@ -716,25 +744,54 @@
         top: 1px;
       }
 
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-text-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        min-width: 0;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-text-row .better-comment-preview__reply-text {
+        flex: 1 1 auto;
+        min-width: 0;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-text-row .better-comment-preview__up {
+        flex: 0 0 auto;
+        margin-top: 3px;
+        font-size: 12px;
+      }
+
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-meta {
         margin-top: 3px;
         color: #a8afb7;
-      }
-
-      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-footer {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 8px;
       }
 
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-footer .better-comment-preview__reply-meta {
         min-width: 0;
       }
 
-      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-footer .better-comment-preview__up {
-        flex: 0 0 auto;
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-more {
+        display: inline-flex;
+        align-items: center;
+        margin: 7px 0 0 32px;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: #2775d1;
+        cursor: pointer;
         font-size: 12px;
+        line-height: 18px;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-more:hover {
+        text-decoration: underline;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-more:disabled {
+        color: #a8afb7;
+        cursor: default;
+        text-decoration: none;
       }
 
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__loading-more,
@@ -1461,6 +1518,18 @@
     return `https://api.xiaoheihe.cn${API_PATH}?${params.toString().replace("&link_id=", "&h_src&link_id=")}`;
   }
 
+  function buildSubCommentApiUrl(rootCommentId, lastval) {
+    const params = new URLSearchParams({
+      ...getBaseApiParams(),
+      ...createSignedParams(SUB_COMMENT_API_PATH),
+      root_comment_id: rootCommentId,
+      lastval: lastval || rootCommentId,
+      limit: String(SUB_COMMENT_PAGE_LIMIT)
+    });
+
+    return `https://api.xiaoheihe.cn${SUB_COMMENT_API_PATH}?${params.toString()}`;
+  }
+
   function buildEmojiApiUrl() {
     const params = new URLSearchParams({
       ...getBaseApiParams(),
@@ -1696,15 +1765,62 @@
     return link?.create_at || link?.created_at || link?.publish_at || link?.time || "";
   }
 
+  function pickFirstNumber(...values) {
+    const value = values.find((item) => item !== undefined && item !== null && item !== "");
+    const number = Number(value);
+    return Number.isFinite(number) ? number : 0;
+  }
+
+  function getRootReplyCount(root, group) {
+    return pickFirstNumber(
+      root?.sub_comment_num,
+      root?.sub_comments_count,
+      root?.reply_num,
+      root?.reply_count,
+      root?.reply_cnt,
+      root?.child_num,
+      root?.child_comment_num,
+      group?.sub_comment_num,
+      group?.sub_comments_count,
+      group?.reply_num,
+      group?.reply_count,
+      group?.reply_cnt,
+      group?.child_num
+    );
+  }
+
   function normalizeCommentGroups(data) {
     const groups = Array.isArray(data?.result?.comments) ? data.result.comments : [];
     return groups.map((group) => {
       const list = Array.isArray(group.comment) ? group.comment : [];
+      const root = list[0];
+      const replies = list.slice(1, 2);
       return {
-        root: list[0],
-        replies: list.slice(1, 2)
+        root,
+        replies,
+        replyCount: getRootReplyCount(root, group),
+        repliesHasMore: root?.has_more === 1 || root?.has_more === true || getRootReplyCount(root, group) > replies.length,
+        repliesLoading: false,
+        repliesFailed: false
       };
     }).filter((group) => group.root);
+  }
+
+  function normalizeSubComments(data, rootCommentId) {
+    const result = data?.result || {};
+    const candidates = [
+      result.comments,
+      result.comment,
+      result.sub_comments,
+      result.subComments,
+      result.list,
+      result.items,
+      data?.comments
+    ];
+    const comments = candidates.find(Array.isArray) || [];
+    return comments
+      .flatMap((item) => Array.isArray(item?.comment) ? item.comment : [item])
+      .filter((comment) => comment && String(getCommentId(comment)) !== String(rootCommentId));
   }
 
   function normalizeUserLevel(level) {
@@ -1750,13 +1866,16 @@
     const tagName = profileId ? "a" : "div";
     const href = profileId ? ` href="/app/user/profile/${escapeHtml(profileId)}"` : "";
 
+    const owner = isOwner ? '<span class="better-comment-preview__owner">作者</span>' : "";
     return `
+      <div class="bbs-list-content__header better-comment-preview__user-header">
       <${tagName}${href} class="header__user better-comment-preview__user">
         ${renderUserAvatar(user)}
         <p class="list-content__username better-comment-preview__name">${escapeHtml(user.username || "匿名用户")}</p>
         ${renderUserLevel(user.level_info?.level)}
       </${tagName}>
-      ${isOwner ? '<span class="better-comment-preview__owner">作者</span>' : ""}
+        ${owner}
+      </div>
     `;
   }
 
@@ -1777,7 +1896,21 @@
   }
 
   function getCommentUpCount(comment) {
-    return Number(comment.up || comment.up_num || comment.support_num || 0);
+    return pickFirstNumber(
+      comment?.up,
+      comment?.up_num,
+      comment?.up_count,
+      comment?.upCount,
+      comment?.support_num,
+      comment?.support_count,
+      comment?.supportCount,
+      comment?.like_num,
+      comment?.like_count,
+      comment?.likeCount,
+      comment?.liked_num,
+      comment?.liked_count,
+      comment?.likedCount
+    );
   }
 
   function isCommentSupported(comment) {
@@ -1810,11 +1943,13 @@
       <div class="better-comment-preview__item">
         <div class="better-comment-preview__body">
           <div>${renderCommentUser(user, comment.is_link_owner === 1)}</div>
-          <div class="${getCommentContentClass(comment, "better-comment-preview__text")}">${renderCommentText(comment.text)}</div>
+          <div class="better-comment-preview__text-row">
+            <div class="${getCommentContentClass(comment, "better-comment-preview__text")}">${renderCommentText(comment.text)}</div>
+            ${renderCommentSupportButton(comment)}
+          </div>
           ${renderCommentImages(comment)}
           <div class="better-comment-preview__time">${renderCommentMeta(comment)}</div>
         </div>
-        ${renderCommentSupportButton(comment)}
       </div>
     `;
   }
@@ -1829,13 +1964,39 @@
           ${renderCommentUser(user, comment.is_link_owner === 1)}
           ${replyTo ? `<span class="better-comment-preview__reply-meta">${escapeHtml(replyTo)}</span>` : ""}
         </div>
-        <div class="${getCommentContentClass(comment, "better-comment-preview__reply-text")}">${renderCommentText(comment.text)}</div>
+        <div class="better-comment-preview__reply-text-row">
+          <div class="${getCommentContentClass(comment, "better-comment-preview__reply-text")}">${renderCommentText(comment.text)}</div>
+          ${renderCommentSupportButton(comment)}
+        </div>
         ${renderCommentImages(comment)}
         <div class="better-comment-preview__reply-footer">
           <div class="better-comment-preview__reply-meta">${renderCommentMeta(comment)}</div>
-          ${renderCommentSupportButton(comment)}
         </div>
       </div>
+    `;
+  }
+
+  function renderReplyMoreButton(group) {
+    const rootCommentId = getCommentId(group.root);
+    const loadedCount = group.replies?.length || 0;
+    const replyCount = Math.max(Number(group.replyCount) || 0, loadedCount);
+    const hasMore = group.repliesHasMore || replyCount > loadedCount;
+
+    if (!rootCommentId || (!hasMore && !group.repliesFailed && !group.repliesLoading)) {
+      return "";
+    }
+
+    let label = replyCount > 0 ? `全部 ${replyCount} 条回复` : "更多回复";
+    if (group.repliesLoading) {
+      label = "回复加载中";
+    } else if (group.repliesFailed) {
+      label = "回复加载失败，点击重试";
+    }
+
+    return `
+      <button class="better-comment-preview__reply-more" type="button" data-root-comment-id="${escapeHtml(rootCommentId)}"${group.repliesLoading ? " disabled" : ""}>
+        ${escapeHtml(label)}
+      </button>
     `;
   }
 
@@ -1844,6 +2005,7 @@
       <div class="better-comment-preview__group">
         ${renderRootComment(group.root)}
         ${group.replies.map(renderReplyComment).join("")}
+        ${renderReplyMoreButton(group)}
       </div>
     `;
   }
@@ -1986,6 +2148,88 @@
     });
   }
 
+  function getLastReplyValue(group) {
+    const lastReply = group.replies?.at(-1);
+    return getCommentId(lastReply) || getCommentId(group.root);
+  }
+
+  function findCommentGroup(linkId, rootCommentId) {
+    const state = commentCache.get(linkId);
+    const group = state?.commentGroups?.find((item) => {
+      return String(getCommentId(item.root)) === String(rootCommentId);
+    });
+
+    return { state, group };
+  }
+
+  function mergeReplyComments(group, replies) {
+    const existingIds = new Set((group.replies || []).map((reply) => String(getCommentId(reply))));
+    const nextReplies = replies.filter((reply) => {
+      const replyId = String(getCommentId(reply));
+      if (!replyId || existingIds.has(replyId)) {
+        return false;
+      }
+      existingIds.add(replyId);
+      return true;
+    });
+
+    group.replies = (group.replies || []).concat(nextReplies);
+    group.replyCount = Math.max(Number(group.replyCount) || 0, group.replies.length);
+    group.repliesHasMore = nextReplies.length > 0
+      && (nextReplies.length >= SUB_COMMENT_PAGE_LIMIT || group.replies.length < group.replyCount);
+  }
+
+  function loadMoreReplyComments(preview, rootCommentId) {
+    const linkId = preview.dataset.linkId;
+    const { state, group } = findCommentGroup(linkId, rootCommentId);
+    if (!linkId || !state || !group || group.repliesLoading) {
+      return;
+    }
+
+    group.repliesLoading = true;
+    group.repliesFailed = false;
+    commentCache.set(linkId, state);
+    renderLinkedPreviews(linkId);
+
+    Promise.all([
+      loadEmojis(),
+      fetch(buildSubCommentApiUrl(rootCommentId, getLastReplyValue(group)), {
+        credentials: "include",
+        headers: {
+          accept: "*/*"
+        }
+      }).then((response) => response.json())
+    ]).then(([, data]) => {
+      const { state: nextState, group: nextGroup } = findCommentGroup(linkId, rootCommentId);
+      if (!nextState || !nextGroup) {
+        return;
+      }
+
+      nextGroup.repliesLoading = false;
+      if (data?.status !== "ok") {
+        nextGroup.repliesFailed = true;
+        commentCache.set(linkId, nextState);
+        renderLinkedPreviews(linkId);
+        return;
+      }
+
+      mergeReplyComments(nextGroup, normalizeSubComments(data, rootCommentId));
+      nextGroup.repliesFailed = false;
+      commentCache.set(linkId, nextState);
+      renderLinkedPreviews(linkId);
+    }).catch(() => {
+      const { state: nextState, group: nextGroup } = findCommentGroup(linkId, rootCommentId);
+      if (!nextState || !nextGroup) {
+        return;
+      }
+
+      nextGroup.repliesLoading = false;
+      nextGroup.repliesFailed = true;
+      commentCache.set(linkId, nextState);
+      renderLinkedPreviews(linkId);
+    });
+  }
+
   function renderLinkedPreviews(linkId) {
     const state = commentCache.get(linkId);
     document.querySelectorAll(`.${PREVIEW_CLASS}`).forEach((node) => {
@@ -2053,6 +2297,18 @@
     if (changedLinkId) {
       renderLinkedPreviews(changedLinkId);
     }
+
+    return Boolean(changedLinkId);
+  }
+
+  function updateSupportButton(button, count, supported) {
+    const countElement = button.querySelector("span");
+    if (countElement) {
+      countElement.textContent = String(count);
+    }
+    button.classList.toggle("better-comment-preview__up--active", supported);
+    button.disabled = false;
+    delete button.dataset.loading;
   }
 
   function supportComment(commentId, button) {
@@ -2081,13 +2337,17 @@
         return;
       }
 
-      updateCachedComment(commentId, (comment) => {
+      const changed = updateCachedComment(commentId, (comment) => {
         if (!isCommentSupported(comment)) {
           comment.up = getCommentUpCount(comment) + 1;
         }
         comment.is_support = 1;
         comment.better_supported = true;
       });
+
+      if (!changed) {
+        updateSupportButton(button, getCommentUpCount({ up: button.querySelector("span")?.textContent }) + 1, true);
+      }
     }).catch(() => {
       delete button.dataset.loading;
       button.disabled = false;
@@ -2308,6 +2568,14 @@
         event.preventDefault();
         event.stopPropagation();
         setHideCyComments(!hideCyComments);
+        return;
+      }
+
+      const replyMoreButton = event.target.closest(".better-comment-preview__reply-more");
+      if (replyMoreButton && preview.contains(replyMoreButton)) {
+        event.preventDefault();
+        event.stopPropagation();
+        loadMoreReplyComments(preview, replyMoreButton.dataset.rootCommentId);
         return;
       }
 
