@@ -8,6 +8,7 @@
   const TOP_MENU_OPEN_CLASS = "better-xiaoheihe-top-menu--open";
   const TOP_MENU_TOGGLE_CLASS = "better-xiaoheihe-top-menu__toggle";
   const TOP_MENU_PANEL_CLASS = "better-xiaoheihe-top-menu__panel";
+  const FAVORITE_ENTRY_CLASS = "better-xiaoheihe-favorite-entry";
   const HOT_SEARCH_SIDEBAR_CLASS = "better-xiaoheihe-hot-search-sidebar";
   const HOT_SEARCH_SIDEBAR_OPEN_CLASS = "better-xiaoheihe-hot-search-sidebar--open";
   const HOT_SEARCH_SIDEBAR_TOGGLE_CLASS = "better-xiaoheihe-hot-search-sidebar__toggle";
@@ -145,6 +146,34 @@
 
       .${HOME_LAYOUT_CLASS} .${TOP_MENU_TOGGLE_CLASS}:hover {
         background: #eceff2;
+      }
+
+      .${FAVORITE_ENTRY_CLASS} {
+        box-sizing: border-box;
+        display: inline-flex;
+        min-width: 0;
+        height: 32px;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        margin-left: 8px;
+        padding: 0 10px;
+        border-radius: 6px;
+        color: #59636e;
+        font-size: 13px;
+        line-height: 32px;
+        text-decoration: none;
+        white-space: nowrap;
+      }
+
+      .${FAVORITE_ENTRY_CLASS}:hover {
+        background: #f3f4f5;
+        color: #14191e;
+      }
+
+      .${FAVORITE_ENTRY_CLASS} .better-xiaoheihe-favorite-entry__icon {
+        font-size: 16px;
+        line-height: 1;
       }
 
       .${HOME_LAYOUT_CLASS} .${TOP_MENU_PANEL_CLASS} {
@@ -2969,15 +2998,49 @@
     removeDuplicateTopMenus(null);
   }
 
+  function getCurrentUserId() {
+    return getCookie("user_heybox_id") || getCookie("heybox_id") || "";
+  }
+
+  function removeFavoriteEntry() {
+    document.querySelectorAll(`.${FAVORITE_ENTRY_CLASS}`).forEach((entry) => {
+      entry.remove();
+    });
+  }
+
+  function ensureFavoriteEntry() {
+    const messageButton = document.querySelector(".hb-view-header .message-center__btn");
+    if (!messageButton) {
+      removeFavoriteEntry();
+      return;
+    }
+
+    let entry = document.querySelector(`.${FAVORITE_ENTRY_CLASS}`);
+    if (!entry) {
+      entry = document.createElement("a");
+      entry.className = FAVORITE_ENTRY_CLASS;
+      entry.innerHTML = '<i class="hb-icon heybox-bbs_favorite_filled_24x24 better-xiaoheihe-favorite-entry__icon" aria-hidden="true">★</i><span>收藏</span>';
+      entry.title = "查看收藏";
+      entry.setAttribute("aria-label", "查看收藏");
+    }
+
+    entry.href = "/app/user/favour/content";
+    if (entry.previousElementSibling !== messageButton) {
+      messageButton.insertAdjacentElement("afterend", entry);
+    }
+  }
+
   function handlePage() {
     if (!isEnhancedPage()) {
       document.documentElement.classList.remove(HOME_LAYOUT_CLASS);
       restoreLeftMenu();
       removeHotSearchSidebar();
+      removeFavoriteEntry();
       return;
     }
 
     injectLayoutStyle();
+    ensureFavoriteEntry();
 
     if (isLinkPage()) {
       document.documentElement.classList.remove(HOME_LAYOUT_CLASS);
