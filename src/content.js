@@ -1,5 +1,5 @@
 (function () {
-  const ENHANCED_PATH_PREFIXES = ["/app/bbs", "/app/topic/link", "/app/user/profile", "/app/search"];
+  const ENHANCED_PATH_PREFIXES = ["/app/bbs", "/app/topic/link", "/app/user/profile", "/app/user/favour", "/app/search"];
   const LINK_PATH_REGEXP = /^\/app\/bbs\/link\/(\d+)/;
   const RIGHT_CONTENT_SELECTOR = ".hb-layout__content--right";
   const STYLE_ID = "better-xiaoheihe-bbs-layout-style";
@@ -115,7 +115,9 @@
         width: 100% !important;
       }
 
-      .${HOME_LAYOUT_CLASS} .hb-website__container > .hb-layout-main__container--left {
+      .${HOME_LAYOUT_CLASS} .hb-website__container > .hb-layout-main__container--left,
+      .${HOME_LAYOUT_CLASS} .hb-layout__main > .hb-layout-main__container--left:has(.hb-websit__left-section),
+      .${HOME_LAYOUT_CLASS} .hb-page__app .hb-layout-main__container--left:has(.hb-websit__left-section) {
         display: none !important;
       }
 
@@ -2953,8 +2955,13 @@
     });
   }
 
+  function findLeftMenu() {
+    const menus = Array.from(document.querySelectorAll(".hb-websit__left-section"));
+    return menus.find((menu) => !menu.closest(`.${TOP_MENU_CLASS}`)) || menus[0] || null;
+  }
+
   function moveLeftMenuToTop() {
-    const leftMenu = document.querySelector(".hb-websit__left-section");
+    const leftMenu = findLeftMenu();
     const mountPoint = getTopMenuMountPoint();
 
     if (!leftMenu || !mountPoint) {
@@ -2998,10 +3005,6 @@
     removeDuplicateTopMenus(null);
   }
 
-  function getCurrentUserId() {
-    return getCookie("user_heybox_id") || getCookie("heybox_id") || "";
-  }
-
   function removeFavoriteEntry() {
     document.querySelectorAll(`.${FAVORITE_ENTRY_CLASS}`).forEach((entry) => {
       entry.remove();
@@ -3042,18 +3045,13 @@
     injectLayoutStyle();
     ensureFavoriteEntry();
 
-    if (isLinkPage()) {
-      document.documentElement.classList.remove(HOME_LAYOUT_CLASS);
-      restoreLeftMenu();
-      removeHotSearchSidebar();
-      return;
-    }
-
     document.documentElement.classList.add(HOME_LAYOUT_CLASS);
     moveLeftMenuToTop();
     moveSearchHotListToLeftSidebar();
     removeRightContent();
-    enhanceFeed();
+    if (!isLinkPage()) {
+      enhanceFeed();
+    }
   }
 
   function scheduleHandlePage() {
