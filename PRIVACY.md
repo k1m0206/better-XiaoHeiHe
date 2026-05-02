@@ -4,13 +4,13 @@ better-XiaoHeiHe 是一个用于优化小黑盒网页社区首页展示效果的
 
 ## 数据处理
 
-本插件不会收集、存储、出售或向第三方传输用户个人数据。
+本插件不会收集、出售或向第三方传输用户个人数据。
 
 插件只在用户访问小黑盒网页社区时运行，用于调整页面布局并展示评论预览。评论数据来自小黑盒网页自身使用的接口，请求会携带浏览器当前页面已有的登录态 Cookie，由浏览器直接发送给小黑盒域名。
 
 ## 本地存储
 
-本插件当前不使用 `chrome.storage`、`localStorage`、`IndexedDB` 或其他持久化存储保存用户数据。
+本插件使用 `localStorage` 在当前浏览器本地保存用户主动设置的偏好，包括是否屏蔽 CY 评论、评论屏蔽关键词列表，以及每个屏蔽关键词在本地生效的次数。屏蔽关键词仅用于当前浏览器内的评论过滤，不会发送到小黑盒或其他服务器。
 
 ## 网络请求
 
@@ -33,6 +33,14 @@ https://api.xiaoheihe.cn/bbs/app/profile/award/link
 ```text
 https://www.xiaoheihe.cn/app/bbs
 https://www.xiaoheihe.cn/app/bbs/*
+https://www.xiaoheihe.cn/app/topic/link
+https://www.xiaoheihe.cn/app/topic/link/*
+https://www.xiaoheihe.cn/app/user/profile
+https://www.xiaoheihe.cn/app/user/profile/*
+https://www.xiaoheihe.cn/app/user/favour
+https://www.xiaoheihe.cn/app/user/favour/*
+https://www.xiaoheihe.cn/app/search
+https://www.xiaoheihe.cn/app/search*
 ```
 
 插件不申请额外浏览器权限。
