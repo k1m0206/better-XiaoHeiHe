@@ -18,10 +18,13 @@ better-XiaoHeiHe 是一个用于优化小黑盒网页社区首页展示效果的
 
 ```text
 https://api.xiaoheihe.cn/bbs/app/link/tree
+https://api.xiaoheihe.cn/bbs/app/comment/sub/comments
 https://api.xiaoheihe.cn/bbs/app/api/emojis/list
+https://api.xiaoheihe.cn/bbs/app/comment/support
+https://api.xiaoheihe.cn/bbs/app/profile/award/link
 ```
 
-请求仅用于获取当前首页帖子对应的评论数据和评论表情图片映射，不会发送到小黑盒以外的服务器。
+请求仅用于获取当前首页帖子对应的评论数据、楼中楼回复、评论表情图片映射，以及向小黑盒提交用户主动触发的点赞操作，不会发送到小黑盒以外的服务器。
 
 ## 权限说明
 
