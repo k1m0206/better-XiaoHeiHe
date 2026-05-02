@@ -9,11 +9,14 @@
   const TOP_MENU_TOGGLE_CLASS = "better-xiaoheihe-top-menu__toggle";
   const TOP_MENU_PANEL_CLASS = "better-xiaoheihe-top-menu__panel";
   const FAVORITE_ENTRY_CLASS = "better-xiaoheihe-favorite-entry";
+  const SETTINGS_ENTRY_CLASS = "better-xiaoheihe-settings-entry";
+  const SETTINGS_PANEL_CLASS = "better-xiaoheihe-settings-panel";
   const HOT_SEARCH_SIDEBAR_CLASS = "better-xiaoheihe-hot-search-sidebar";
   const HOT_SEARCH_SIDEBAR_OPEN_CLASS = "better-xiaoheihe-hot-search-sidebar--open";
   const HOT_SEARCH_SIDEBAR_TOGGLE_CLASS = "better-xiaoheihe-hot-search-sidebar__toggle";
   const HOT_SEARCH_SIDEBAR_PANEL_CLASS = "better-xiaoheihe-hot-search-sidebar__panel";
   const HIDE_CY_COMMENTS_STORAGE_KEY = "better-xiaoheihe-hide-cy-comments";
+  const BLOCKED_KEYWORDS_STORAGE_KEY = "better-xiaoheihe-blocked-keywords";
   const ROW_CLASS = "better-xiaoheihe-feed-row";
   const PREVIEW_CLASS = "better-xiaoheihe-comment-preview";
   const IMAGE_VIEWER_CLASS = "better-xiaoheihe-image-viewer";
@@ -43,8 +46,10 @@
 
   const commentCache = new Map();
   const emojiCache = new Map();
+  const blockedKeywordHitKeys = new Set();
   const capturedApiParams = {};
   let hideCyComments = readHideCyCommentsState();
+  let blockedKeywords = readBlockedKeywordsState();
   let hotSearchPromise = null;
   let leftMenuOriginalPosition = null;
   let emojiPromise = null;
@@ -94,6 +99,67 @@
     }
 
     hideCyComments = savedState;
+    renderAllPreviews();
+  }
+
+  function normalizeBlockedKeyword(keyword) {
+    return String(keyword || "").trim();
+  }
+
+  function normalizeBlockedKeywords(keywords) {
+    const seen = new Set();
+    return (Array.isArray(keywords) ? keywords : [])
+      .map((item) => {
+        const keyword = normalizeBlockedKeyword(typeof item === "string" ? item : item?.keyword);
+        const count = Math.max(0, Number.parseInt(typeof item === "object" && item ? item.count : 0, 10) || 0);
+        return { keyword, count };
+      })
+      .filter((item) => {
+        const key = item.keyword.toLowerCase();
+        if (!key || seen.has(key)) {
+          return false;
+        }
+        seen.add(key);
+        return true;
+      });
+  }
+
+  function serializeBlockedKeywordsState() {
+    return blockedKeywords.map((item) => ({
+      keyword: item.keyword,
+      count: Math.max(0, Number.parseInt(item.count, 10) || 0)
+    }));
+  }
+
+  function persistBlockedKeywordsState() {
+    try {
+      localStorage.setItem(BLOCKED_KEYWORDS_STORAGE_KEY, JSON.stringify(serializeBlockedKeywordsState()));
+    } catch {
+      // Keep the in-memory keywords for the current page if localStorage is unavailable.
+    }
+  }
+
+  function readBlockedKeywordsState() {
+    try {
+      return normalizeBlockedKeywords(JSON.parse(localStorage.getItem(BLOCKED_KEYWORDS_STORAGE_KEY) || "[]"));
+    } catch {
+      return [];
+    }
+  }
+
+  function writeBlockedKeywordsState(keywords) {
+    blockedKeywords = normalizeBlockedKeywords(keywords);
+    persistBlockedKeywordsState();
+  }
+
+  function syncBlockedKeywordsState() {
+    const savedKeywords = readBlockedKeywordsState();
+    if (JSON.stringify(savedKeywords) === JSON.stringify(blockedKeywords)) {
+      return;
+    }
+
+    blockedKeywords = savedKeywords;
+    renderSettingsPanel();
     renderAllPreviews();
   }
 
@@ -176,6 +242,154 @@
       .${FAVORITE_ENTRY_CLASS} .better-xiaoheihe-favorite-entry__icon {
         font-size: 16px;
         line-height: 1;
+      }
+
+      .${SETTINGS_ENTRY_CLASS} {
+        box-sizing: border-box;
+        display: inline-flex;
+        width: 36px;
+        height: 36px;
+        align-items: center;
+        justify-content: center;
+        margin-left: 6px;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: #14191e;
+        cursor: pointer;
+        font-size: 22px;
+        font-weight: 700;
+        line-height: 1;
+      }
+
+      .${SETTINGS_ENTRY_CLASS}:hover,
+      .${SETTINGS_ENTRY_CLASS}[aria-expanded="true"] {
+        background: #f3f4f5;
+        color: #000;
+      }
+
+      .${SETTINGS_ENTRY_CLASS} i {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #000;
+        font-size: 22px;
+        font-style: normal;
+        font-weight: 800;
+        line-height: 1;
+      }
+
+      .${SETTINGS_PANEL_CLASS} {
+        box-sizing: border-box;
+        position: fixed;
+        z-index: 10000;
+        width: 280px;
+        padding: 12px;
+        border: 1px solid #eef0f2;
+        border-radius: 8px;
+        background: #fff;
+        box-shadow: 0 10px 30px rgba(20, 25, 30, 0.14);
+        color: #14191e;
+        font-size: 13px;
+      }
+
+      .${SETTINGS_PANEL_CLASS}[hidden] {
+        display: none !important;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__title {
+        margin-bottom: 10px;
+        color: #14191e;
+        font-weight: 600;
+        line-height: 18px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__form {
+        display: flex;
+        gap: 8px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__input {
+        box-sizing: border-box;
+        min-width: 0;
+        height: 32px;
+        flex: 1 1 auto;
+        padding: 0 10px;
+        border: 1px solid #dde2e7;
+        border-radius: 6px;
+        outline: none;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__input:focus {
+        border-color: #2775d1;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__add {
+        height: 32px;
+        flex: 0 0 auto;
+        padding: 0 10px;
+        border: 0;
+        border-radius: 6px;
+        background: #2775d1;
+        color: #fff;
+        cursor: pointer;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__list {
+        display: flex;
+        max-height: 190px;
+        overflow-y: auto;
+        flex-direction: column;
+        gap: 6px;
+        margin-top: 10px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__keyword {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 6px 8px;
+        border-radius: 6px;
+        background: #f7f8f9;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__keyword-text {
+        min-width: 0;
+        flex: 1 1 auto;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__keyword-actions {
+        display: inline-flex;
+        flex: 0 0 auto;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__keyword-count {
+        color: #8a9299;
+        font-size: 12px;
+        line-height: 18px;
+        white-space: nowrap;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__remove {
+        flex: 0 0 auto;
+        border: 0;
+        background: transparent;
+        color: #8a9299;
+        cursor: pointer;
+        font-size: 14px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__empty {
+        margin-top: 10px;
+        color: #a8afb7;
+        line-height: 18px;
       }
 
       .${HOME_LAYOUT_CLASS} .${TOP_MENU_PANEL_CLASS} {
@@ -2045,27 +2259,55 @@
     return comment?.is_cy === 1 || comment?.is_cy === true || comment?.is_cy === "1";
   }
 
+  function getBlockedKeywordHitKey(keyword, comment) {
+    const commentKey = getCommentId(comment)
+      || `${comment?.userid || ""}:${comment?.create_at || ""}:${normalizeCommentText(comment?.text)}`;
+    return `${keyword.toLowerCase()}:${commentKey}`;
+  }
+
+  function recordBlockedKeywordHit(keywordItem, comment) {
+    const hitKey = getBlockedKeywordHitKey(keywordItem.keyword, comment);
+    if (blockedKeywordHitKeys.has(hitKey)) {
+      return;
+    }
+
+    blockedKeywordHitKeys.add(hitKey);
+    keywordItem.count = Math.max(0, Number.parseInt(keywordItem.count, 10) || 0) + 1;
+    persistBlockedKeywordsState();
+    renderSettingsPanel();
+  }
+
+  function isBlockedByKeyword(comment) {
+    if (!blockedKeywords.length) {
+      return false;
+    }
+
+    const text = normalizeCommentText(comment?.text).toLowerCase();
+    const matchedKeywords = blockedKeywords.filter((item) => text.includes(item.keyword.toLowerCase()));
+    matchedKeywords.forEach((item) => recordBlockedKeywordHit(item, comment));
+    return matchedKeywords.length > 0;
+  }
+
   function countCommentGroupItems(groups) {
     return groups.reduce((sum, group) => sum + 1 + (group.replies?.length || 0), 0);
   }
 
   function getVisibleCommentGroups(commentGroups) {
-    if (!hideCyComments) {
-      return commentGroups;
-    }
-
     return commentGroups
-      .filter((group) => !isCyComment(group.root))
+      .filter((group) => !(hideCyComments && isCyComment(group.root)))
+      .filter((group) => !isBlockedByKeyword(group.root))
       .map((group) => ({
         ...group,
-        replies: (group.replies || []).filter((reply) => !isCyComment(reply))
+        replies: (group.replies || [])
+          .filter((reply) => !(hideCyComments && isCyComment(reply)))
+          .filter((reply) => !isBlockedByKeyword(reply))
       }));
   }
 
   function renderCyToggle(hiddenCount) {
     return `
       <div class="better-comment-preview__toolbar">
-        ${hideCyComments && hiddenCount ? `<span class="better-comment-preview__filtered-count">已屏蔽 ${escapeHtml(hiddenCount)} 条</span>` : ""}
+        ${hiddenCount ? `<span class="better-comment-preview__filtered-count">已屏蔽 ${escapeHtml(hiddenCount)} 条</span>` : ""}
         <button class="better-comment-preview__cy-toggle" type="button" aria-pressed="${hideCyComments ? "true" : "false"}" title="${hideCyComments ? "显示插眼评论" : "屏蔽插眼评论"}">
           <span class="better-comment-preview__cy-toggle-switch" aria-hidden="true"></span>
           <span>屏蔽CY</span>
@@ -2912,7 +3154,15 @@
         return;
       }
 
+      if (event.target instanceof Element && (
+        event.target.closest(`.${SETTINGS_ENTRY_CLASS}`)
+        || event.target.closest(`.${SETTINGS_PANEL_CLASS}`)
+      )) {
+        return;
+      }
+
       closeTopMenus();
+      closeSettingsPanel();
     });
   }
 
@@ -3011,6 +3261,126 @@
     });
   }
 
+  function removeSettingsEntry() {
+    document.querySelectorAll(`.${SETTINGS_ENTRY_CLASS}`).forEach((entry) => {
+      entry.remove();
+    });
+    document.querySelector(`.${SETTINGS_PANEL_CLASS}`)?.remove();
+  }
+
+  function addBlockedKeyword(keyword) {
+    const normalized = normalizeBlockedKeyword(keyword);
+    if (!normalized) {
+      return;
+    }
+
+    writeBlockedKeywordsState([...blockedKeywords, { keyword: normalized, count: 0 }]);
+    renderSettingsPanel();
+    renderAllPreviews();
+  }
+
+  function removeBlockedKeyword(keyword) {
+    const normalized = normalizeBlockedKeyword(keyword).toLowerCase();
+    writeBlockedKeywordsState(blockedKeywords.filter((item) => item.keyword.toLowerCase() !== normalized));
+    renderSettingsPanel();
+    renderAllPreviews();
+  }
+
+  function positionSettingsPanel(panel, button) {
+    const rect = button.getBoundingClientRect();
+    const margin = 8;
+    const left = Math.min(window.innerWidth - panel.offsetWidth - margin, Math.max(margin, rect.right - panel.offsetWidth));
+    panel.style.left = `${left}px`;
+    panel.style.top = `${rect.bottom + margin}px`;
+  }
+
+  function renderSettingsPanel() {
+    const panel = document.querySelector(`.${SETTINGS_PANEL_CLASS}`);
+    if (!panel) {
+      return;
+    }
+
+    const listHtml = blockedKeywords.length
+      ? `<div class="better-settings__list">
+          ${blockedKeywords.map((item) => `
+            <div class="better-settings__keyword">
+              <span class="better-settings__keyword-text" title="${escapeHtml(item.keyword)}">${escapeHtml(item.keyword)}</span>
+              <span class="better-settings__keyword-actions">
+                <span class="better-settings__keyword-count" title="屏蔽生效次数">${escapeHtml(item.count)} 次</span>
+                <button class="better-settings__remove" type="button" data-keyword="${escapeHtml(item.keyword)}" aria-label="删除关键词 ${escapeHtml(item.keyword)}">×</button>
+              </span>
+            </div>
+          `).join("")}
+        </div>`
+      : '<div class="better-settings__empty">暂无屏蔽关键词</div>';
+
+    panel.innerHTML = `
+      <div class="better-settings__title">屏蔽关键词</div>
+      <form class="better-settings__form">
+        <input class="better-settings__input" type="text" placeholder="输入关键词">
+        <button class="better-settings__add" type="submit">添加</button>
+      </form>
+      ${listHtml}
+    `;
+  }
+
+  function ensureSettingsPanel() {
+    let panel = document.querySelector(`.${SETTINGS_PANEL_CLASS}`);
+    if (panel) {
+      return panel;
+    }
+
+    panel = document.createElement("div");
+    panel.className = SETTINGS_PANEL_CLASS;
+    panel.hidden = true;
+    panel.addEventListener("click", (event) => {
+      event.stopPropagation();
+      if (!(event.target instanceof Element)) {
+        return;
+      }
+
+      const removeButton = event.target.closest(".better-settings__remove");
+      if (removeButton && panel.contains(removeButton)) {
+        removeBlockedKeyword(removeButton.dataset.keyword);
+      }
+    });
+    panel.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const input = panel.querySelector(".better-settings__input");
+      if (!input) {
+        return;
+      }
+
+      addBlockedKeyword(input.value);
+      input.value = "";
+      input.focus();
+    });
+    document.body.appendChild(panel);
+    renderSettingsPanel();
+    return panel;
+  }
+
+  function closeSettingsPanel() {
+    const panel = document.querySelector(`.${SETTINGS_PANEL_CLASS}`);
+    const button = document.querySelector(`.${SETTINGS_ENTRY_CLASS}`);
+    if (panel) {
+      panel.hidden = true;
+    }
+    button?.setAttribute("aria-expanded", "false");
+  }
+
+  function toggleSettingsPanel(button) {
+    const panel = ensureSettingsPanel();
+    const isOpening = panel.hidden;
+    panel.hidden = !isOpening;
+    button.setAttribute("aria-expanded", String(isOpening));
+    if (isOpening) {
+      renderSettingsPanel();
+      positionSettingsPanel(panel, button);
+      panel.querySelector(".better-settings__input")?.focus();
+    }
+  }
+
   function ensureFavoriteEntry() {
     const messageButton = document.querySelector(".hb-view-header .message-center__btn");
     if (!messageButton) {
@@ -3033,17 +3403,49 @@
     }
   }
 
+  function ensureSettingsEntry() {
+    const favoriteEntry = document.querySelector(`.${FAVORITE_ENTRY_CLASS}`);
+    const messageButton = document.querySelector(".hb-view-header .message-center__btn");
+    const anchor = favoriteEntry || messageButton;
+    if (!anchor) {
+      removeSettingsEntry();
+      return;
+    }
+
+    let entry = document.querySelector(`.${SETTINGS_ENTRY_CLASS}`);
+    if (!entry) {
+      entry = document.createElement("button");
+      entry.className = SETTINGS_ENTRY_CLASS;
+      entry.type = "button";
+      entry.title = "设置";
+      entry.setAttribute("aria-label", "设置");
+      entry.setAttribute("aria-expanded", "false");
+      entry.innerHTML = '<i class="hb-icon heybox-common_setting_line_24x24" aria-hidden="true">⚙</i>';
+      entry.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        toggleSettingsPanel(entry);
+      });
+    }
+
+    if (entry.previousElementSibling !== anchor) {
+      anchor.insertAdjacentElement("afterend", entry);
+    }
+  }
+
   function handlePage() {
     if (!isEnhancedPage()) {
       document.documentElement.classList.remove(HOME_LAYOUT_CLASS);
       restoreLeftMenu();
       removeHotSearchSidebar();
       removeFavoriteEntry();
+      removeSettingsEntry();
       return;
     }
 
     injectLayoutStyle();
     ensureFavoriteEntry();
+    ensureSettingsEntry();
 
     document.documentElement.classList.add(HOME_LAYOUT_CLASS);
     moveLeftMenuToTop();
@@ -3093,13 +3495,14 @@
     };
   }
 
-  function installHideCyCommentsStateSync() {
+  function installLocalSettingsStateSync() {
     window.addEventListener("storage", (event) => {
-      if (event.key !== HIDE_CY_COMMENTS_STORAGE_KEY) {
-        return;
+      if (event.key === HIDE_CY_COMMENTS_STORAGE_KEY) {
+        syncHideCyCommentsState();
       }
-
-      syncHideCyCommentsState();
+      if (event.key === BLOCKED_KEYWORDS_STORAGE_KEY) {
+        syncBlockedKeywordsState();
+      }
     });
   }
 
@@ -3107,7 +3510,7 @@
     installApiParamCapture();
     captureExistingApiEntries();
     bindFeedAwardCapture();
-    installHideCyCommentsStateSync();
+    installLocalSettingsStateSync();
     scheduleHandlePage();
     observePage();
     installRouteHooks();
