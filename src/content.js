@@ -95,10 +95,12 @@
   function syncHideCyCommentsState() {
     const savedState = readHideCyCommentsState();
     if (savedState === hideCyComments) {
+      syncCyToggleControls();
       return;
     }
 
     hideCyComments = savedState;
+    syncCyToggleControls();
     renderAllPreviews();
   }
 
@@ -723,8 +725,9 @@
       }
 
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__filtered-count {
-        color: #a8afb7;
+        color: #8a9299;
         font-size: 12px;
+        line-height: 16px;
         white-space: nowrap;
       }
 
@@ -2307,13 +2310,20 @@
   function renderCyToggle(hiddenCount) {
     return `
       <div class="better-comment-preview__toolbar">
-        ${hiddenCount ? `<span class="better-comment-preview__filtered-count">已屏蔽 ${escapeHtml(hiddenCount)} 条</span>` : ""}
         <button class="better-comment-preview__cy-toggle" type="button" aria-pressed="${hideCyComments ? "true" : "false"}" title="${hideCyComments ? "显示插眼评论" : "屏蔽插眼评论"}">
           <span class="better-comment-preview__cy-toggle-switch" aria-hidden="true"></span>
           <span>屏蔽CY</span>
         </button>
+        ${hiddenCount ? `<span class="better-comment-preview__filtered-count" title="屏蔽CY的数量">${escapeHtml(hiddenCount)}</span>` : ""}
       </div>
     `;
+  }
+
+  function syncCyToggleControls() {
+    document.querySelectorAll(".better-comment-preview__cy-toggle").forEach((toggle) => {
+      toggle.setAttribute("aria-pressed", hideCyComments ? "true" : "false");
+      toggle.setAttribute("title", hideCyComments ? "显示插眼评论" : "屏蔽插眼评论");
+    });
   }
 
   function renderCommentListFooter(state) {
@@ -2372,6 +2382,7 @@
       </div>
       <a class="better-comment-preview__open" href="/app/bbs/link/${escapeHtml(linkId)}">查看全部 ${escapeHtml(count)} 条评论 ›</a>
     `;
+    syncCyToggleControls();
     bindPreviewActions(preview);
     bindPreviewListScroll(preview);
     scheduleRowHeightSync(preview.closest(`.${ROW_CLASS}`));
@@ -2518,6 +2529,7 @@
         nextList.scrollTop = scrollTop;
       }
     });
+    syncCyToggleControls();
   }
 
   function renderAllPreviews() {
@@ -2536,11 +2548,13 @@
         nextList.scrollTop = scrollTop;
       }
     });
+    syncCyToggleControls();
   }
 
   function setHideCyComments(isHidden) {
     hideCyComments = isHidden;
     writeHideCyCommentsState(isHidden);
+    syncCyToggleControls();
     renderAllPreviews();
   }
 
