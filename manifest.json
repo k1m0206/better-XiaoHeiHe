@@ -19,6 +19,8 @@
         "https://www.xiaoheihe.cn/app/topic/link/*",
         "https://www.xiaoheihe.cn/app/user/profile",
         "https://www.xiaoheihe.cn/app/user/profile/*",
+        "https://www.xiaoheihe.cn/app/user/favour",
+        "https://www.xiaoheihe.cn/app/user/favour/*",
         "https://www.xiaoheihe.cn/app/search",
         "https://www.xiaoheihe.cn/app/search*"
       ],

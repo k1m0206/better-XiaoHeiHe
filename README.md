@@ -18,8 +18,8 @@
   - 楼中楼回复
   - 作者标识
 - 评论预览支持滚动加载更多评论。
-- 首页左侧菜单会折叠到顶部栏按钮中，点击后展开；点击页面其他区域可关闭菜单。
-- 详情页保持小黑盒原始布局，不应用首页改造。
+- 适配页面的左侧菜单会折叠到顶部栏按钮中，点击后展开；点击页面其他区域可关闭菜单。
+- 适配页面的原右侧推荐栏会隐藏，释放页面横向空间；帖子详情页不会额外生成右侧评论预览。
 
 ## 更新记录
 
@@ -49,7 +49,7 @@
 2. 开启开发者模式。
 3. 选择“加载解压缩的扩展程序”。
 4. 选择本项目目录。
-5. 打开 `https://www.xiaoheihe.cn/app/bbs/home`、`https://www.xiaoheihe.cn/app/topic/link`、`https://www.xiaoheihe.cn/app/user/profile` 或 `https://www.xiaoheihe.cn/app/search` 查看效果。
+5. 打开 `https://www.xiaoheihe.cn/app/bbs/home`、`https://www.xiaoheihe.cn/app/topic/link`、`https://www.xiaoheihe.cn/app/user/profile`、`https://www.xiaoheihe.cn/app/user/favour/content` 或 `https://www.xiaoheihe.cn/app/search` 查看效果。
 
 修改代码后，在扩展管理页面点击重新加载插件，再刷新小黑盒页面。
 
@@ -94,10 +94,10 @@ better-XiaoHeiHe/
 插件通过 content script 注入到小黑盒网页中：
 
 - 监听小黑盒 BBS 页面路由变化。
-- 首页、话题链接页、个人主页和搜索页时调整信息流布局，移除原右侧推荐栏。
+- 首页、帖子详情页、话题链接页、个人主页和搜索页时调整页面布局，移除原右侧推荐栏。
 - 识别每条帖子链接 ID，请求评论接口并缓存结果。
 - 根据左侧帖子实际高度同步右侧评论预览高度。
-- 离开适配页面或进入详情页时恢复原始左侧菜单位置。
+- 离开适配页面时恢复原始左侧菜单位置。
 
 ## 接口说明
 
@@ -132,7 +132,7 @@ POST https://api.xiaoheihe.cn/bbs/app/profile/award/link
 
 ## 注意事项
 
-- 插件匹配 `https://www.xiaoheihe.cn/app/bbs`、`https://www.xiaoheihe.cn/app/topic/link`、`https://www.xiaoheihe.cn/app/user/profile`、`https://www.xiaoheihe.cn/app/search` 和它们的子路径。
+- 插件匹配 `https://www.xiaoheihe.cn/app/bbs`、`https://www.xiaoheihe.cn/app/topic/link`、`https://www.xiaoheihe.cn/app/user/profile`、`https://www.xiaoheihe.cn/app/user/favour`、`https://www.xiaoheihe.cn/app/search` 和它们的子路径。
 - 评论接口依赖当前网页登录态，未登录或登录态失效时可能无法展示评论。
 - 小黑盒网页结构或接口签名变化时，插件可能需要适配。
 - 本项目只在页面内做展示优化，不保存用户 Cookie 或登录凭据。
