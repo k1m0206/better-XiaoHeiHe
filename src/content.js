@@ -620,7 +620,7 @@
         font-size: 12px;
         line-height: 17px;
         -webkit-box-orient: vertical;
-        -webkit-line-clamp: 2;
+
       }
 
       .${HOME_LAYOUT_CLASS} .${ROW_CLASS} {
@@ -830,6 +830,38 @@
         margin-top: 4px;
       }
 
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__text-wrapper {
+        position: relative;
+        flex: 1 1 auto;
+        min-width: 0;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__expand-button {
+        position: absolute;
+        bottom: 0;
+        right: 0;
+        display: none;
+        padding: 0 2px 0 8px;
+        border: 0;
+        background: linear-gradient(to right, rgba(255, 255, 255, 0), #fff 25%, #fff);
+        color: #2775d1;
+        cursor: pointer;
+        font-size: 13px;
+        line-height: 1.45;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__expand-button.is-expanded {
+        position: static;
+        display: block;
+        margin-top: 4px;
+        padding: 0;
+        background: transparent;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__expand-button:hover {
+        text-decoration: underline;
+      }
+
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__user-header {
         display: flex;
         min-width: 0;
@@ -896,7 +928,7 @@
         color: #333a42;
         line-height: 1.45;
         -webkit-box-orient: vertical;
-        -webkit-line-clamp: 2;
+        -webkit-line-clamp: 3;
         word-break: break-word;
       }
 
@@ -985,7 +1017,7 @@
         margin-top: 3px;
         position: relative;
         -webkit-box-orient: vertical;
-        -webkit-line-clamp: 2;
+        -webkit-line-clamp: 3;
         word-break: break-word;
       }
 
@@ -2193,7 +2225,10 @@
         <div class="better-comment-preview__body">
           <div>${renderCommentUser(user, comment.is_link_owner === 1)}</div>
           <div class="better-comment-preview__text-row">
-            <div class="${getCommentContentClass(comment, "better-comment-preview__text")}">${renderCommentText(comment.text)}</div>
+            <div class="better-comment-preview__text-wrapper">
+              <div class="${getCommentContentClass(comment, "better-comment-preview__text")}" data-expanded="false">${renderCommentText(comment.text)}</div>
+              <button class="better-comment-preview__expand-button" style="display: none;">展开</button>
+            </div>
             ${renderCommentSupportButton(comment)}
           </div>
           ${renderCommentImages(comment)}
@@ -2214,7 +2249,10 @@
           ${replyTo ? `<span class="better-comment-preview__reply-meta">${escapeHtml(replyTo)}</span>` : ""}
         </div>
         <div class="better-comment-preview__reply-text-row">
-          <div class="${getCommentContentClass(comment, "better-comment-preview__reply-text")}">${renderCommentText(comment.text)}</div>
+          <div class="better-comment-preview__text-wrapper">
+            <div class="${getCommentContentClass(comment, "better-comment-preview__reply-text")}" data-expanded="false">${renderCommentText(comment.text)}</div>
+            <button class="better-comment-preview__expand-button" style="display: none;">展开</button>
+          </div>
           ${renderCommentSupportButton(comment)}
         </div>
         ${renderCommentImages(comment)}
@@ -2403,6 +2441,7 @@
       </div>
       <a class="better-comment-preview__open" href="/app/bbs/link/${escapeHtml(linkId)}">查看全部 ${escapeHtml(count)} 条评论 ›</a>
     `;
+    preview.querySelectorAll(".better-comment-preview__text, .better-comment-preview__reply-text").forEach(updateExpandButton);
     syncCyToggleControls();
     bindPreviewActions(preview);
     bindPreviewListScroll(preview);
@@ -2844,6 +2883,31 @@
     documentOverflowBeforeImageViewer = "";
   }
 
+  function updateExpandButton(textElement) {
+    const expandButton = textElement.nextElementSibling;
+    if (textElement.scrollHeight > textElement.clientHeight) {
+      expandButton.style.display = "block";
+    }
+  }
+
+  function toggleCommentExpansion(textElement) {
+    const isExpanded = textElement.dataset.expanded === "true";
+    const expandButton = textElement.nextElementSibling;
+    if (isExpanded) {
+      // collapse
+      textElement.dataset.expanded = "false";
+      textElement.style.webkitLineClamp = "3";
+      expandButton.textContent = "展开";
+      expandButton.classList.remove("is-expanded");
+    } else {
+      // expand
+      textElement.dataset.expanded = "true";
+      textElement.style.webkitLineClamp = "none";
+      expandButton.textContent = "收起";
+      expandButton.classList.add("is-expanded");
+    }
+  }
+
   function openCommentImageViewer(imageLink) {
     const imageGroup = imageLink.closest(".better-comment-preview__images");
     const links = Array.from(imageGroup?.querySelectorAll(".better-comment-preview__image-link") || [imageLink]);
@@ -2884,6 +2948,14 @@
         event.preventDefault();
         event.stopPropagation();
         loadMoreReplyComments(preview, replyMoreButton.dataset.rootCommentId);
+        return;
+      }
+
+      const expandButton = event.target.closest(".better-comment-preview__expand-button");
+      if (expandButton && preview.contains(expandButton)) {
+        event.preventDefault();
+        event.stopPropagation();
+        toggleCommentExpansion(expandButton.previousElementSibling);
         return;
       }
 
