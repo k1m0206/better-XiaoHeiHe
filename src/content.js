@@ -102,7 +102,7 @@
 
     hideCyComments = savedState;
     syncCyToggleControls();
-    renderAllPreviews();
+    refreshAllCommentFilters();
   }
 
   function normalizeBlockedKeyword(keyword) {
@@ -163,7 +163,7 @@
 
     blockedKeywords = savedKeywords;
     renderSettingsPanel();
-    renderAllPreviews();
+    refreshAllCommentFilters();
   }
 
   function injectLayoutStyle() {
@@ -719,20 +719,23 @@
         font-size: 13px;
       }
 
-      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__toolbar {
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__toolbar,
+      .${HOME_LAYOUT_CLASS} .link-comment .better-comment-preview__toolbar {
         display: inline-flex;
         align-items: center;
         gap: 8px;
       }
 
-      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__filtered-count {
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__filtered-count,
+      .${HOME_LAYOUT_CLASS} .link-comment .better-comment-preview__filtered-count {
         color: #8a9299;
         font-size: 12px;
         line-height: 16px;
         white-space: nowrap;
       }
 
-      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__cy-toggle {
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__cy-toggle,
+      .${HOME_LAYOUT_CLASS} .link-comment .better-comment-preview__cy-toggle {
         display: inline-flex;
         align-items: center;
         gap: 6px;
@@ -745,7 +748,8 @@
         white-space: nowrap;
       }
 
-      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__cy-toggle-switch {
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__cy-toggle-switch,
+      .${HOME_LAYOUT_CLASS} .link-comment .better-comment-preview__cy-toggle-switch {
         position: relative;
         width: 28px;
         height: 16px;
@@ -755,7 +759,8 @@
         transition: background 0.16s ease;
       }
 
-      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__cy-toggle-switch::after {
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__cy-toggle-switch::after,
+      .${HOME_LAYOUT_CLASS} .link-comment .better-comment-preview__cy-toggle-switch::after {
         content: "";
         position: absolute;
         top: 2px;
@@ -768,15 +773,18 @@
         transition: transform 0.16s ease;
       }
 
-      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__cy-toggle[aria-pressed="true"] {
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__cy-toggle[aria-pressed="true"],
+      .${HOME_LAYOUT_CLASS} .link-comment .better-comment-preview__cy-toggle[aria-pressed="true"] {
         color: #2775d1;
       }
 
-      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__cy-toggle[aria-pressed="true"] .better-comment-preview__cy-toggle-switch {
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__cy-toggle[aria-pressed="true"] .better-comment-preview__cy-toggle-switch,
+      .${HOME_LAYOUT_CLASS} .link-comment .better-comment-preview__cy-toggle[aria-pressed="true"] .better-comment-preview__cy-toggle-switch {
         background: #2775d1;
       }
 
-      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__cy-toggle[aria-pressed="true"] .better-comment-preview__cy-toggle-switch::after {
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__cy-toggle[aria-pressed="true"] .better-comment-preview__cy-toggle-switch::after,
+      .${HOME_LAYOUT_CLASS} .link-comment .better-comment-preview__cy-toggle[aria-pressed="true"] .better-comment-preview__cy-toggle-switch::after {
         transform: translateX(12px);
       }
 
@@ -2615,7 +2623,7 @@
     hideCyComments = isHidden;
     writeHideCyCommentsState(isHidden);
     syncCyToggleControls();
-    renderAllPreviews();
+    refreshAllCommentFilters();
   }
 
   function updateCachedComment(commentId, updater) {
@@ -3383,14 +3391,14 @@
 
     writeBlockedKeywordsState([...blockedKeywords, { keyword: normalized, count: 0 }]);
     renderSettingsPanel();
-    renderAllPreviews();
+    refreshAllCommentFilters();
   }
 
   function removeBlockedKeyword(keyword) {
     const normalized = normalizeBlockedKeyword(keyword).toLowerCase();
     writeBlockedKeywordsState(blockedKeywords.filter((item) => item.keyword.toLowerCase() !== normalized));
     renderSettingsPanel();
-    renderAllPreviews();
+    refreshAllCommentFilters();
   }
 
   function positionSettingsPanel(panel, button) {
@@ -3540,6 +3548,127 @@
     }
   }
 
+
+
+  function filterLinkPageComments() {
+    if (!isLinkPage()) {
+      return 0;
+    }
+
+    let hiddenCount = 0;
+
+    // Iterate over all top-level comment containers
+    document.querySelectorAll('.link-comment__list .link-comment__comment-item').forEach(topLevelItem => {
+      // Reset display style for the top-level item and all its replies before re-evaluating
+      topLevelItem.style.display = '';
+      topLevelItem.querySelectorAll('.comment-children-item').forEach(reply => {
+        reply.style.display = '';
+      });
+
+      // Check the top-level comment itself
+      const topLevelUsernameEl = topLevelItem.querySelector('.info-box__username');
+      const topLevelContentEl = topLevelItem.querySelector('.comment-item__content');
+      const topLevelUsername = topLevelUsernameEl?.textContent?.trim() || '';
+      const topLevelContentText = topLevelContentEl?.textContent?.trim() || '';
+      
+      // A comment is considered "CY" if its content has the 'cy' class or the username contains 'cy'
+      const isTopLevelCy = topLevelContentEl?.classList.contains('cy') || topLevelUsername.toLowerCase().includes('cy');
+      const isTopLevelBlocked = isBlockedByKeyword({ text: topLevelContentText, user: { username: topLevelUsername } });
+
+      if ((hideCyComments && isTopLevelCy) || isTopLevelBlocked) {
+        topLevelItem.style.display = 'none';
+        hiddenCount++; // Count the hidden top-level comment
+      } else {
+        // If top-level is not hidden, check its replies individually
+        topLevelItem.querySelectorAll('.comment-children-item').forEach(replyItem => {
+          const replyUsernameEl = replyItem.querySelector('.children-item__comment-creator');
+          const replyContentEl = replyItem.querySelector('.children-item__comment-content');
+          const replyUsername = replyUsernameEl?.textContent?.trim() || '';
+          const replyContentText = replyContentEl?.textContent?.trim() || '';
+
+          const isReplyCy = replyContentEl?.classList.contains('cy') || replyUsername.toLowerCase().includes('cy');
+          const isReplyBlocked = isBlockedByKeyword({ text: replyContentText, user: { username: replyUsername } });
+
+          if ((hideCyComments && isReplyCy) || isReplyBlocked) {
+            replyItem.style.display = 'none';
+            hiddenCount++; // Count each hidden reply
+          }
+        });
+      }
+    });
+
+    return hiddenCount;
+  }
+
+  function updateLinkPageFilterControls() {
+    if (!isLinkPage()) {
+      return;
+    }
+
+    const toggleButton = document.querySelector('.link-comment .better-comment-preview__cy-toggle');
+    if (!toggleButton) {
+      return;
+    }
+
+    toggleButton.setAttribute('aria-pressed', hideCyComments ? 'true' : 'false');
+    toggleButton.setAttribute('title', hideCyComments ? '显示插眼及屏蔽评论' : '隐藏插眼及屏蔽评论');
+
+    const hiddenCount = filterLinkPageComments();
+
+    const countSpan = document.querySelector('.link-comment .better-comment-preview__filtered-count');
+    if (countSpan) {
+      countSpan.textContent = hiddenCount > 0 ? `${hiddenCount}` : '';
+      countSpan.title = `已屏蔽 ${hiddenCount} 条评论`;
+    }
+  }
+
+  function addFilterToBbsLink() {
+    if (!isLinkPage()) {
+      return;
+    }
+
+    const mountPoint = document.querySelector('.link-comment .hb-cpt__pagination-inner');
+    if (!mountPoint) {
+      return;
+    }
+
+    if (!mountPoint.querySelector('.better-comment-preview__toolbar')) {
+      const toolbar = document.createElement('div');
+      toolbar.className = 'better-comment-preview__toolbar';
+      toolbar.style.cssText = 'margin-left: 24px;'; // Position next to the tabs
+
+      const toggleButton = document.createElement('button');
+      toggleButton.className = 'better-comment-preview__cy-toggle';
+      toggleButton.type = 'button';
+
+      const switchSpan = document.createElement('span');
+      switchSpan.className = 'better-comment-preview__cy-toggle-switch';
+      switchSpan.setAttribute('aria-hidden', 'true');
+
+      const labelSpan = document.createElement('span');
+      labelSpan.textContent = '屏蔽CY';
+
+      const countSpan = document.createElement('span');
+      countSpan.className = 'better-comment-preview__filtered-count';
+
+      toggleButton.append(switchSpan, labelSpan);
+      toolbar.append(toggleButton, countSpan);
+
+      toggleButton.addEventListener('click', () => {
+        setHideCyComments(!hideCyComments);
+      });
+
+      mountPoint.append(toolbar);
+    }
+
+    updateLinkPageFilterControls();
+  }
+
+  function refreshAllCommentFilters() {
+    renderAllPreviews();
+    updateLinkPageFilterControls();
+  }
+
   function handlePage() {
     if (!isEnhancedPage()) {
       document.documentElement.classList.remove(HOME_LAYOUT_CLASS);
@@ -3558,9 +3687,12 @@
     moveLeftMenuToTop();
     moveSearchHotListToLeftSidebar();
     removeRightContent();
-    if (!isLinkPage()) {
+    if (isLinkPage()) {
+      addFilterToBbsLink();
+    } else {
       enhanceFeed();
     }
+
   }
 
   function scheduleHandlePage() {
