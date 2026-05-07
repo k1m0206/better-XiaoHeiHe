@@ -1,9 +1,10 @@
 {
   "manifest_version": 3,
-  "name": "更好的小黑盒",
-  "short_name": "更好小黑盒",
+  "name": "__MSG_extensionName__",
+  "short_name": "__MSG_extensionShortName__",
   "version": "0.1.3.1",
-  "description": "在小黑盒社区信息流右侧展示评论预览。",
+  "description": "__MSG_extensionDescription__",
+  "default_locale": "zh_CN",
   "icons": {
     "16": "assets/icons/icon16.png",
     "32": "assets/icons/icon32.png",
@@ -13,16 +14,7 @@
   "content_scripts": [
     {
       "matches": [
-        "https://www.xiaoheihe.cn/app/bbs",
-        "https://www.xiaoheihe.cn/app/bbs/*",
-        "https://www.xiaoheihe.cn/app/topic/link",
-        "https://www.xiaoheihe.cn/app/topic/link/*",
-        "https://www.xiaoheihe.cn/app/user/profile",
-        "https://www.xiaoheihe.cn/app/user/profile/*",
-        "https://www.xiaoheihe.cn/app/user/favour",
-        "https://www.xiaoheihe.cn/app/user/favour/*",
-        "https://www.xiaoheihe.cn/app/search",
-        "https://www.xiaoheihe.cn/app/search*"
+        "https://www.xiaoheihe.cn/*"
       ],
       "js": [
         "src/content.js"
