@@ -15,7 +15,8 @@ $items = @(
   "PRIVACY.md",
   "CHROME_STORE.md",
   "src",
-  "assets"
+  "assets",
+  "_locales"
 )
 
 $paths = $items | ForEach-Object { Join-Path $root $_ }
