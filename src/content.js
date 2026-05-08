@@ -11,12 +11,21 @@
   const FAVORITE_ENTRY_CLASS = "better-xiaoheihe-favorite-entry";
   const SETTINGS_ENTRY_CLASS = "better-xiaoheihe-settings-entry";
   const SETTINGS_PANEL_CLASS = "better-xiaoheihe-settings-panel";
+  const TOPIC_BLOCK_MENU_CLASS = "better-xiaoheihe-topic-block-menu";
   const HOT_SEARCH_SIDEBAR_CLASS = "better-xiaoheihe-hot-search-sidebar";
   const HOT_SEARCH_SIDEBAR_OPEN_CLASS = "better-xiaoheihe-hot-search-sidebar--open";
   const HOT_SEARCH_SIDEBAR_TOGGLE_CLASS = "better-xiaoheihe-hot-search-sidebar__toggle";
   const HOT_SEARCH_SIDEBAR_PANEL_CLASS = "better-xiaoheihe-hot-search-sidebar__panel";
   const HIDE_CY_COMMENTS_STORAGE_KEY = "better-xiaoheihe-hide-cy-comments";
   const BLOCKED_KEYWORDS_STORAGE_KEY = "better-xiaoheihe-blocked-keywords";
+  const BLOCKED_KEYWORD_SCOPES = {
+    COMMENT: "comment",
+    FEED: "feed"
+  };
+  const BLOCKED_KEYWORD_SCOPE_LABELS = {
+    [BLOCKED_KEYWORD_SCOPES.COMMENT]: "评论",
+    [BLOCKED_KEYWORD_SCOPES.FEED]: "帖子"
+  };
   const ROW_CLASS = "better-xiaoheihe-feed-row";
   const PREVIEW_CLASS = "better-xiaoheihe-comment-preview";
   const IMAGE_VIEWER_CLASS = "better-xiaoheihe-image-viewer";
@@ -50,6 +59,7 @@
   const capturedApiParams = {};
   let hideCyComments = readHideCyCommentsState();
   let blockedKeywords = readBlockedKeywordsState();
+  let activeBlockedKeywordScope = BLOCKED_KEYWORD_SCOPES.FEED;
   let hotSearchPromise = null;
   let leftMenuOriginalPosition = null;
   let emojiPromise = null;
@@ -58,6 +68,7 @@
   let rowResizeObserver = null;
   let topMenuOutsideClickBound = false;
   let feedAwardCaptureBound = false;
+  let topicBlockContextMenuBound = false;
   let imageViewerKeydownBound = false;
   let activeImageViewerImages = [];
   let activeImageViewerIndex = 0;
@@ -109,17 +120,28 @@
     return String(keyword || "").trim();
   }
 
+  function normalizeBlockedKeywordScope(scope) {
+    if (scope === "content" || scope === "topic") {
+      return BLOCKED_KEYWORD_SCOPES.FEED;
+    }
+
+    return Object.values(BLOCKED_KEYWORD_SCOPES).includes(scope)
+      ? scope
+      : BLOCKED_KEYWORD_SCOPES.COMMENT;
+  }
+
   function normalizeBlockedKeywords(keywords) {
     const seen = new Set();
     return (Array.isArray(keywords) ? keywords : [])
       .map((item) => {
         const keyword = normalizeBlockedKeyword(typeof item === "string" ? item : item?.keyword);
         const count = Math.max(0, Number.parseInt(typeof item === "object" && item ? item.count : 0, 10) || 0);
-        return { keyword, count };
+        const scope = normalizeBlockedKeywordScope(typeof item === "object" && item ? item.scope : null);
+        return { keyword, count, scope };
       })
       .filter((item) => {
-        const key = item.keyword.toLowerCase();
-        if (!key || seen.has(key)) {
+        const key = `${item.scope}:${item.keyword.toLowerCase()}`;
+        if (!item.keyword || seen.has(key)) {
           return false;
         }
         seen.add(key);
@@ -130,7 +152,8 @@
   function serializeBlockedKeywordsState() {
     return blockedKeywords.map((item) => ({
       keyword: item.keyword,
-      count: Math.max(0, Number.parseInt(item.count, 10) || 0)
+      count: Math.max(0, Number.parseInt(item.count, 10) || 0),
+      scope: normalizeBlockedKeywordScope(item.scope)
     }));
   }
 
@@ -163,7 +186,7 @@
 
     blockedKeywords = savedKeywords;
     renderSettingsPanel();
-    refreshAllCommentFilters();
+    refreshAllKeywordFilters();
   }
 
   function injectLayoutStyle() {
@@ -300,6 +323,46 @@
         display: none !important;
       }
 
+      .${TOPIC_BLOCK_MENU_CLASS} {
+        box-sizing: border-box;
+        position: fixed;
+        z-index: 10001;
+        min-width: 168px;
+        padding: 6px;
+        border: 1px solid #eef0f2;
+        border-radius: 8px;
+        background: #fff;
+        box-shadow: 0 10px 30px rgba(20, 25, 30, 0.16);
+        color: #14191e;
+        font-size: 13px;
+      }
+
+      .${TOPIC_BLOCK_MENU_CLASS}[hidden] {
+        display: none !important;
+      }
+
+      .${TOPIC_BLOCK_MENU_CLASS} .better-topic-block-menu__button {
+        box-sizing: border-box;
+        display: flex;
+        width: 100%;
+        min-width: 0;
+        align-items: center;
+        justify-content: flex-start;
+        padding: 8px 10px;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        color: #14191e;
+        cursor: pointer;
+        font-size: 13px;
+        line-height: 18px;
+        text-align: left;
+      }
+
+      .${TOPIC_BLOCK_MENU_CLASS} .better-topic-block-menu__button:hover {
+        background: #f3f4f5;
+      }
+
       .${SETTINGS_PANEL_CLASS} .better-settings__title {
         margin-bottom: 10px;
         color: #14191e;
@@ -307,9 +370,46 @@
         line-height: 18px;
       }
 
+      .${SETTINGS_PANEL_CLASS} .better-settings__desc {
+        margin: -4px 0 10px;
+        color: #8a9299;
+        font-size: 12px;
+        line-height: 18px;
+      }
+
       .${SETTINGS_PANEL_CLASS} .better-settings__form {
         display: flex;
         gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__tabs {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 4px;
+        margin-bottom: 10px;
+        padding: 3px;
+        border-radius: 8px;
+        background: #f3f4f5;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__tab {
+        box-sizing: border-box;
+        height: 28px;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        color: #59636e;
+        cursor: pointer;
+        font-size: 13px;
+        line-height: 28px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__tab[aria-selected="true"] {
+        background: #fff;
+        color: #14191e;
+        font-weight: 600;
+        box-shadow: 0 1px 4px rgba(20, 25, 30, 0.08);
       }
 
       .${SETTINGS_PANEL_CLASS} .better-settings__input {
@@ -340,7 +440,7 @@
 
       .${SETTINGS_PANEL_CLASS} .better-settings__list {
         display: flex;
-        max-height: 190px;
+        max-height: var(--better-settings-list-max-height, 190px);
         overflow-y: auto;
         flex-direction: column;
         gap: 6px;
@@ -363,6 +463,17 @@
         flex: 1 1 auto;
         overflow: hidden;
         text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__keyword-scope {
+        flex: 0 0 auto;
+        padding: 1px 6px;
+        border-radius: 999px;
+        background: #e9f2ff;
+        color: #2775d1;
+        font-size: 12px;
+        line-height: 18px;
         white-space: nowrap;
       }
 
@@ -2309,14 +2420,18 @@
     return comment?.is_cy === 1 || comment?.is_cy === true || comment?.is_cy === "1";
   }
 
-  function getBlockedKeywordHitKey(keyword, comment) {
-    const commentKey = getCommentId(comment)
-      || `${comment?.userid || ""}:${comment?.create_at || ""}:${normalizeCommentText(comment?.text)}`;
-    return `${keyword.toLowerCase()}:${commentKey}`;
+  function getBlockedKeywordHitKey(keywordItem, targetKey) {
+    return `${normalizeBlockedKeywordScope(keywordItem.scope)}:${keywordItem.keyword.toLowerCase()}:${targetKey}`;
   }
 
-  function recordBlockedKeywordHit(keywordItem, comment) {
-    const hitKey = getBlockedKeywordHitKey(keywordItem.keyword, comment);
+  function getCommentBlockedKeywordTargetKey(comment) {
+    const commentKey = getCommentId(comment)
+      || `${comment?.userid || ""}:${comment?.create_at || ""}:${normalizeCommentText(comment?.text)}`;
+    return `comment:${commentKey}`;
+  }
+
+  function recordBlockedKeywordHit(keywordItem, targetKey) {
+    const hitKey = getBlockedKeywordHitKey(keywordItem, targetKey);
     if (blockedKeywordHitKeys.has(hitKey)) {
       return;
     }
@@ -2327,15 +2442,29 @@
     renderSettingsPanel();
   }
 
-  function isBlockedByKeyword(comment) {
-    if (!blockedKeywords.length) {
+  function getBlockedKeywordsByScope(scope) {
+    const normalizedScope = normalizeBlockedKeywordScope(scope);
+    return blockedKeywords.filter((item) => normalizeBlockedKeywordScope(item.scope) === normalizedScope);
+  }
+
+  function isBlockedTextByKeyword(text, scope, targetKey) {
+    const scopedKeywords = getBlockedKeywordsByScope(scope);
+    if (!scopedKeywords.length) {
       return false;
     }
 
-    const text = normalizeCommentText(comment?.text).toLowerCase();
-    const matchedKeywords = blockedKeywords.filter((item) => text.includes(item.keyword.toLowerCase()));
-    matchedKeywords.forEach((item) => recordBlockedKeywordHit(item, comment));
+    const normalizedText = normalizeCommentText(text).toLowerCase();
+    const matchedKeywords = scopedKeywords.filter((item) => normalizedText.includes(item.keyword.toLowerCase()));
+    matchedKeywords.forEach((item) => recordBlockedKeywordHit(item, targetKey));
     return matchedKeywords.length > 0;
+  }
+
+  function isBlockedByKeyword(comment) {
+    return isBlockedTextByKeyword(
+      comment?.text,
+      BLOCKED_KEYWORD_SCOPES.COMMENT,
+      getCommentBlockedKeywordTargetKey(comment)
+    );
   }
 
   function countCommentGroupItems(groups) {
@@ -2410,7 +2539,7 @@
       return '<div class="better-comment-preview__loading-more">评论加载中</div>';
     }
     if (!commentGroups.length && hiddenCount) {
-      return '<div class="better-comment-preview__empty">插眼评论已屏蔽</div>';
+      return '<div class="better-comment-preview__empty">评论已屏蔽</div>';
     }
     if (!commentGroups.length) {
       return '<div class="better-comment-preview__empty">暂无评论</div>';
@@ -3056,6 +3185,82 @@
     return item.querySelector(".content-list__comment-cnt")?.textContent?.trim() || "0";
   }
 
+  function getFeedItemContentText(item) {
+    return [
+      item.querySelector(".bbs-content__title")?.textContent,
+      item.querySelector(".bbs-content__content")?.textContent
+    ].filter(Boolean).join("\n");
+  }
+
+  function getFeedItemTopicText(item) {
+    return Array.from(item.querySelectorAll(".content-tag-text"))
+      .map((tag) => tag.textContent?.trim())
+      .filter(Boolean)
+      .join("\n");
+  }
+
+  function getTopicTextFromContextTarget(target) {
+    const tag = target?.closest?.(".content-list__tag-item, .hb-cpt__content-tag, .content-tag-text, .hb-view-catalog__button");
+    if (!tag) {
+      return "";
+    }
+
+    const textNode = tag.querySelector?.(".content-tag-text") || tag;
+    return normalizeBlockedKeyword(textNode.textContent);
+  }
+
+  function getFeedItemBlockedTargetKey(item, scope) {
+    return `${normalizeBlockedKeywordScope(scope)}:${getLinkIdFromItem(item) || item.getAttribute("href") || getFeedItemContentText(item)}`;
+  }
+
+  function shouldHideFeedItem(item) {
+    const feedText = [
+      getFeedItemContentText(item),
+      getFeedItemTopicText(item)
+    ].filter(Boolean).join("\n");
+
+    return isBlockedTextByKeyword(
+      feedText,
+      BLOCKED_KEYWORD_SCOPES.FEED,
+      getFeedItemBlockedTargetKey(item, BLOCKED_KEYWORD_SCOPES.FEED)
+    );
+  }
+
+  function getTopicEntryText(entry) {
+    return normalizeBlockedKeyword(entry?.textContent);
+  }
+
+  function shouldHideTopicEntry(entry) {
+    const topicText = getTopicEntryText(entry);
+    if (!topicText) {
+      return false;
+    }
+
+    return isBlockedTextByKeyword(
+      topicText,
+      BLOCKED_KEYWORD_SCOPES.FEED,
+      `topic-entry:${topicText}`
+    );
+  }
+
+  function applyFeedItemKeywordFilter(row, item) {
+    if (!row || !item) {
+      return;
+    }
+
+    const shouldHide = shouldHideFeedItem(item);
+    row.hidden = shouldHide;
+    row.style.display = shouldHide ? "none" : "";
+  }
+
+  function refreshTopicEntryFilters() {
+    document.querySelectorAll(".hb-view-catalog__button").forEach((entry) => {
+      const shouldHide = shouldHideTopicEntry(entry);
+      entry.hidden = shouldHide;
+      entry.style.display = shouldHide ? "none" : "";
+    });
+  }
+
   function ensureFeedItemPublishTime(item) {
     const bottomRight = item.querySelector(".content-list__bottom--right");
     if (!bottomRight) {
@@ -3146,6 +3351,85 @@
     }, true);
   }
 
+  function bindTopicBlockContextMenu() {
+    if (topicBlockContextMenuBound) {
+      return;
+    }
+
+    topicBlockContextMenuBound = true;
+    document.addEventListener("contextmenu", (event) => {
+      if (!(event.target instanceof Element) || !document.documentElement.classList.contains(HOME_LAYOUT_CLASS)) {
+        return;
+      }
+
+      const topicText = getTopicTextFromContextTarget(event.target);
+      if (!topicText) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      openTopicBlockMenu(topicText, event.clientX, event.clientY);
+    }, true);
+  }
+
+  function closeTopicBlockMenu() {
+    document.querySelector(`.${TOPIC_BLOCK_MENU_CLASS}`)?.remove();
+  }
+
+  function positionTopicBlockMenu(menu, x, y) {
+    const margin = 8;
+    const left = Math.min(window.innerWidth - menu.offsetWidth - margin, Math.max(margin, x));
+    const top = Math.min(window.innerHeight - menu.offsetHeight - margin, Math.max(margin, y));
+    menu.style.left = `${left}px`;
+    menu.style.top = `${top}px`;
+  }
+
+  function openTopicBlockMenu(topicText, x, y) {
+    closeTopicBlockMenu();
+
+    const menu = document.createElement("div");
+    menu.className = TOPIC_BLOCK_MENU_CLASS;
+    menu.innerHTML = `
+      <button class="better-topic-block-menu__button" type="button">
+        屏蔽「${escapeHtml(topicText)}」
+      </button>
+    `;
+    menu.addEventListener("click", (event) => {
+      event.stopPropagation();
+      if (!(event.target instanceof Element) || !event.target.closest(".better-topic-block-menu__button")) {
+        return;
+      }
+
+      addFeedBlockedKeywordFromTopic(topicText);
+      closeTopicBlockMenu();
+    });
+    document.body.appendChild(menu);
+    positionTopicBlockMenu(menu, x, y);
+
+    const closeOnOutsideClick = (event) => {
+      if (event.target instanceof Element && event.target.closest(`.${TOPIC_BLOCK_MENU_CLASS}`)) {
+        return;
+      }
+      closeTopicBlockMenu();
+      document.removeEventListener("click", closeOnOutsideClick, true);
+      document.removeEventListener("keydown", closeOnEscape, true);
+    };
+    const closeOnEscape = (event) => {
+      if (event.key !== "Escape") {
+        return;
+      }
+      closeTopicBlockMenu();
+      document.removeEventListener("click", closeOnOutsideClick, true);
+      document.removeEventListener("keydown", closeOnEscape, true);
+    };
+
+    window.setTimeout(() => {
+      document.addEventListener("click", closeOnOutsideClick, true);
+      document.addEventListener("keydown", closeOnEscape, true);
+    }, 0);
+  }
+
   function syncRowHeight(row) {
     if (!row) {
       return;
@@ -3232,6 +3516,7 @@
       row.appendChild(item);
     }
     row.appendChild(preview);
+    applyFeedItemKeywordFilter(row, item);
     renderPreview(preview, null);
     observeRowHeight(row, item);
     observePreview(preview);
@@ -3239,6 +3524,14 @@
 
   function enhanceFeed() {
     document.querySelectorAll(FEED_ITEM_SELECTOR).forEach(enhanceFeedItem);
+    refreshFeedItemFilters();
+  }
+
+  function refreshFeedItemFilters() {
+    document.querySelectorAll(`.${ROW_CLASS}`).forEach((row) => {
+      applyFeedItemKeywordFilter(row, getRowFeedItem(row));
+    });
+    refreshTopicEntryFilters();
   }
 
   function getTopMenuMountPoint() {
@@ -3383,22 +3676,56 @@
     document.querySelector(`.${SETTINGS_PANEL_CLASS}`)?.remove();
   }
 
-  function addBlockedKeyword(keyword) {
+  function hasBlockedKeyword(keyword, scope) {
+    const normalized = normalizeBlockedKeyword(keyword).toLowerCase();
+    const normalizedScope = normalizeBlockedKeywordScope(scope);
+    return blockedKeywords.some((item) => {
+      return item.keyword.toLowerCase() === normalized && normalizeBlockedKeywordScope(item.scope) === normalizedScope;
+    });
+  }
+
+  function setActiveBlockedKeywordScope(scope) {
+    activeBlockedKeywordScope = normalizeBlockedKeywordScope(scope);
+    renderSettingsPanel();
+  }
+
+  function addBlockedKeyword(keyword, scope = BLOCKED_KEYWORD_SCOPES.COMMENT) {
     const normalized = normalizeBlockedKeyword(keyword);
     if (!normalized) {
       return;
     }
 
-    writeBlockedKeywordsState([...blockedKeywords, { keyword: normalized, count: 0 }]);
+    writeBlockedKeywordsState([...blockedKeywords, {
+      keyword: normalized,
+      count: 0,
+      scope: normalizeBlockedKeywordScope(scope)
+    }]);
     renderSettingsPanel();
-    refreshAllCommentFilters();
+    scheduleKeywordFiltersRefresh();
   }
 
-  function removeBlockedKeyword(keyword) {
+  function addFeedBlockedKeywordFromTopic(topicText) {
+    const normalized = normalizeBlockedKeyword(topicText);
+    if (!normalized) {
+      return;
+    }
+
+    if (hasBlockedKeyword(normalized, BLOCKED_KEYWORD_SCOPES.FEED)) {
+      scheduleKeywordFiltersRefresh();
+      return;
+    }
+
+    addBlockedKeyword(normalized, BLOCKED_KEYWORD_SCOPES.FEED);
+  }
+
+  function removeBlockedKeyword(keyword, scope = BLOCKED_KEYWORD_SCOPES.COMMENT) {
     const normalized = normalizeBlockedKeyword(keyword).toLowerCase();
-    writeBlockedKeywordsState(blockedKeywords.filter((item) => item.keyword.toLowerCase() !== normalized));
+    const normalizedScope = normalizeBlockedKeywordScope(scope);
+    writeBlockedKeywordsState(blockedKeywords.filter((item) => {
+      return item.keyword.toLowerCase() !== normalized || normalizeBlockedKeywordScope(item.scope) !== normalizedScope;
+    }));
     renderSettingsPanel();
-    refreshAllCommentFilters();
+    scheduleKeywordFiltersRefresh();
   }
 
   function positionSettingsPanel(panel, button) {
@@ -3407,6 +3734,25 @@
     const left = Math.min(window.innerWidth - panel.offsetWidth - margin, Math.max(margin, rect.right - panel.offsetWidth));
     panel.style.left = `${left}px`;
     panel.style.top = `${rect.bottom + margin}px`;
+    const list = panel.querySelector(".better-settings__list");
+    if (!list) {
+      return;
+    }
+
+    list.style.maxHeight = "";
+    const listRect = list.getBoundingClientRect();
+    const availableListHeight = window.innerHeight - listRect.top - margin;
+    list.style.maxHeight = `${Math.max(120, availableListHeight)}px`;
+  }
+
+  function repositionSettingsPanelIfOpen() {
+    const panel = document.querySelector(`.${SETTINGS_PANEL_CLASS}`);
+    const button = document.querySelector(`.${SETTINGS_ENTRY_CLASS}`);
+    if (!panel || panel.hidden || !button) {
+      return;
+    }
+
+    positionSettingsPanel(panel, button);
   }
 
   function renderSettingsPanel() {
@@ -3415,28 +3761,37 @@
       return;
     }
 
-    const listHtml = blockedKeywords.length
+    const activeScope = normalizeBlockedKeywordScope(activeBlockedKeywordScope);
+    const visibleBlockedKeywords = blockedKeywords.filter((item) => normalizeBlockedKeywordScope(item.scope) === activeScope);
+    const listHtml = visibleBlockedKeywords.length
       ? `<div class="better-settings__list">
-          ${blockedKeywords.map((item) => `
+          ${visibleBlockedKeywords.map((item) => `
             <div class="better-settings__keyword">
+              <span class="better-settings__keyword-scope">${escapeHtml(BLOCKED_KEYWORD_SCOPE_LABELS[normalizeBlockedKeywordScope(item.scope)])}</span>
               <span class="better-settings__keyword-text" title="${escapeHtml(item.keyword)}">${escapeHtml(item.keyword)}</span>
               <span class="better-settings__keyword-actions">
                 <span class="better-settings__keyword-count" title="屏蔽生效次数">${escapeHtml(item.count)} 次</span>
-                <button class="better-settings__remove" type="button" data-keyword="${escapeHtml(item.keyword)}" aria-label="删除关键词 ${escapeHtml(item.keyword)}">×</button>
+                <button class="better-settings__remove" type="button" data-keyword="${escapeHtml(item.keyword)}" data-scope="${escapeHtml(normalizeBlockedKeywordScope(item.scope))}" aria-label="删除关键词 ${escapeHtml(item.keyword)}">×</button>
               </span>
             </div>
           `).join("")}
         </div>`
-      : '<div class="better-settings__empty">暂无屏蔽关键词</div>';
+      : `<div class="better-settings__empty">暂无${escapeHtml(BLOCKED_KEYWORD_SCOPE_LABELS[activeScope])}屏蔽关键词</div>`;
 
     panel.innerHTML = `
       <div class="better-settings__title">屏蔽关键词</div>
+      <div class="better-settings__desc">评论关键词隐藏评论；帖子关键词同时匹配标题、正文和分区/话题，命中后隐藏整条帖子。</div>
+      <div class="better-settings__tabs" role="tablist" aria-label="屏蔽范围">
+        <button class="better-settings__tab" type="button" role="tab" data-scope="${BLOCKED_KEYWORD_SCOPES.FEED}" aria-selected="${activeBlockedKeywordScope === BLOCKED_KEYWORD_SCOPES.FEED ? "true" : "false"}">帖子</button>
+        <button class="better-settings__tab" type="button" role="tab" data-scope="${BLOCKED_KEYWORD_SCOPES.COMMENT}" aria-selected="${activeBlockedKeywordScope === BLOCKED_KEYWORD_SCOPES.COMMENT ? "true" : "false"}">评论</button>
+      </div>
       <form class="better-settings__form">
         <input class="better-settings__input" type="text" placeholder="输入关键词">
         <button class="better-settings__add" type="submit">添加</button>
       </form>
       ${listHtml}
     `;
+    repositionSettingsPanelIfOpen();
   }
 
   function ensureSettingsPanel() {
@@ -3456,7 +3811,14 @@
 
       const removeButton = event.target.closest(".better-settings__remove");
       if (removeButton && panel.contains(removeButton)) {
-        removeBlockedKeyword(removeButton.dataset.keyword);
+        removeBlockedKeyword(removeButton.dataset.keyword, removeButton.dataset.scope);
+        return;
+      }
+
+      const scopeTab = event.target.closest(".better-settings__tab");
+      if (scopeTab && panel.contains(scopeTab)) {
+        setActiveBlockedKeywordScope(scopeTab.dataset.scope);
+        panel.querySelector(".better-settings__input")?.focus();
       }
     });
     panel.addEventListener("submit", (event) => {
@@ -3466,7 +3828,8 @@
         return;
       }
 
-      addBlockedKeyword(input.value);
+      const selectedTab = panel.querySelector('.better-settings__tab[aria-selected="true"]');
+      addBlockedKeyword(input.value, selectedTab?.dataset.scope || activeBlockedKeywordScope);
       input.value = "";
       input.focus();
     });
@@ -3484,6 +3847,15 @@
     button?.setAttribute("aria-expanded", "false");
   }
 
+  function bindSettingsPanelResizeSync() {
+    if (window.__betterXiaoheiheSettingsResizeBound) {
+      return;
+    }
+
+    window.__betterXiaoheiheSettingsResizeBound = true;
+    window.addEventListener("resize", repositionSettingsPanelIfOpen);
+  }
+
   function toggleSettingsPanel(button) {
     const panel = ensureSettingsPanel();
     const isOpening = panel.hidden;
@@ -3493,6 +3865,7 @@
       renderSettingsPanel();
       positionSettingsPanel(panel, button);
       panel.querySelector(".better-settings__input")?.focus();
+      bindSettingsPanelResizeSync();
     }
   }
 
@@ -3669,6 +4042,17 @@
     updateLinkPageFilterControls();
   }
 
+  function refreshAllKeywordFilters() {
+    refreshFeedItemFilters();
+    refreshAllCommentFilters();
+  }
+
+  function scheduleKeywordFiltersRefresh() {
+    refreshAllKeywordFilters();
+    window.requestAnimationFrame(refreshAllKeywordFilters);
+    window.setTimeout(refreshAllKeywordFilters, 120);
+  }
+
   function handlePage() {
     if (!isEnhancedPage()) {
       document.documentElement.classList.remove(HOME_LAYOUT_CLASS);
@@ -3676,6 +4060,7 @@
       removeHotSearchSidebar();
       removeFavoriteEntry();
       removeSettingsEntry();
+      closeTopicBlockMenu();
       return;
     }
 
@@ -3749,6 +4134,7 @@
     installApiParamCapture();
     captureExistingApiEntries();
     bindFeedAwardCapture();
+    bindTopicBlockContextMenu();
     installLocalSettingsStateSync();
     scheduleHandlePage();
     observePage();
