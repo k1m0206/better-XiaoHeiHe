@@ -60,6 +60,7 @@
 
   const commentCache = new Map();
   const emojiCache = new Map();
+  const userLevelCache = new Map();
   const blockedKeywordHitKeys = new Set();
   const capturedApiParams = {};
   let hideCyComments = readHideCyCommentsState();
@@ -2525,6 +2526,7 @@
     const groups = Array.isArray(data?.result?.comments) ? data.result.comments : [];
     return groups.map((group) => {
       const list = Array.isArray(group.comment) ? group.comment : [];
+      list.forEach(rememberCommentUserLevels);
       const root = list[0];
       const replies = list.slice(1, 2);
       return {
@@ -2550,20 +2552,22 @@
       data?.comments
     ];
     const comments = candidates.find(Array.isArray) || [];
-    return comments
+    const normalizedComments = comments
       .flatMap((item) => Array.isArray(item?.comment) ? item.comment : [item])
       .filter((comment) => comment && String(getCommentId(comment)) !== String(rootCommentId));
+    normalizedComments.forEach(rememberCommentUserLevels);
+    return normalizedComments;
   }
 
   function normalizeUserLevel(level) {
     const match = String(level ?? "").match(/\d+/);
     if (!match) {
-      return String(DEFAULT_USER_LEVEL);
+      return "";
     }
 
     const value = Number.parseInt(match[0], 10);
     if (!Number.isFinite(value) || value <= 0) {
-      return String(DEFAULT_USER_LEVEL);
+      return "";
     }
 
     return String(value);
@@ -2584,6 +2588,37 @@
         <div class="level-tag__wrapper level-${escapeHtml(normalizedLevel)}"> Lv.${escapeHtml(normalizedLevel)}</div>
       </div>
     `;
+  }
+
+  function getRawUserLevel(user) {
+    return user?.level_info?.level
+      ?? user?.level
+      ?? user?.user_level
+      ?? user?.levelInfo?.level
+      ?? "";
+  }
+
+  function rememberUserLevel(user) {
+    const profileId = getUserProfileId(user || {});
+    const normalizedLevel = normalizeUserLevel(getRawUserLevel(user || {}));
+    if (profileId && normalizedLevel) {
+      userLevelCache.set(String(profileId), normalizedLevel);
+    }
+  }
+
+  function rememberCommentUserLevels(comment) {
+    rememberUserLevel(comment?.user);
+    rememberUserLevel(comment?.replyuser);
+  }
+
+  function getUserDisplayLevel(user) {
+    const normalizedLevel = normalizeUserLevel(getRawUserLevel(user || {}));
+    if (normalizedLevel) {
+      return normalizedLevel;
+    }
+
+    const profileId = getUserProfileId(user || {});
+    return profileId ? userLevelCache.get(String(profileId)) || "" : "";
   }
 
   function parseUserLevelValue(level) {
@@ -2607,10 +2642,9 @@
   function getCommentUserLevel(comment) {
     const user = comment?.user || {};
     return parseUserLevelValue(
-      user.level_info?.level
-      ?? user.level
-      ?? comment?.level
-      ?? comment?.user_level
+      getRawUserLevel(user)
+      || comment?.level
+      || comment?.user_level
     );
   }
 
@@ -2648,7 +2682,7 @@
       <${tagName}${href} class="header__user better-comment-preview__user">
         ${renderUserAvatar(user)}
         <p class="list-content__username better-comment-preview__name">${escapeHtml(user.username || "匿名用户")}</p>
-        ${renderUserLevel(user.level_info?.level)}
+        ${renderUserLevel(getUserDisplayLevel(user))}
       </${tagName}>
         ${owner}
       </div>
@@ -3632,11 +3666,8 @@
       return;
     }
 
-    document.querySelectorAll(".link-comment__comment-item").forEach((commentItem) => {
-      ensureDefaultUserLevelTag(commentItem.querySelector(".name-box") || commentItem.querySelector(".comment-item__user") || commentItem);
-      commentItem.querySelectorAll(".comment-children-item").forEach((replyItem) => {
-        ensureDefaultUserLevelTag(replyItem.querySelector(".name-box") || replyItem.querySelector(".children-item__comment-creator")?.parentElement);
-      });
+    document.querySelectorAll(".link-comment .better-default-level-tag").forEach((tag) => {
+      tag.remove();
     });
   }
 
