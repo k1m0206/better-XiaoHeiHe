@@ -400,7 +400,9 @@
         box-sizing: border-box;
         position: fixed;
         z-index: 10001;
-        min-width: 168px;
+        width: max-content;
+        min-width: 0;
+        max-width: calc(100vw - 16px);
         padding: 6px;
         border: 1px solid #eef0f2;
         border-radius: 8px;
@@ -416,10 +418,12 @@
 
       .${TOPIC_BLOCK_MENU_CLASS} .better-topic-block-menu__button {
         box-sizing: border-box;
-        display: flex;
-        width: 100%;
+        display: inline-flex;
+        width: auto;
+        max-width: calc(100vw - 28px);
         min-width: 0;
         align-items: center;
+        gap: 6px;
         justify-content: flex-start;
         padding: 8px 10px;
         border: 0;
@@ -430,10 +434,24 @@
         font-size: 13px;
         line-height: 18px;
         text-align: left;
+        white-space: nowrap;
       }
 
       .${TOPIC_BLOCK_MENU_CLASS} .better-topic-block-menu__button:hover {
         background: #f3f4f5;
+      }
+
+      .${TOPIC_BLOCK_MENU_CLASS} .better-topic-block-menu__icon {
+        width: 15px;
+        height: 15px;
+        flex: 0 0 auto;
+        color: #f04f5f;
+      }
+
+      .${TOPIC_BLOCK_MENU_CLASS} .better-topic-block-menu__label {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
 
       .${SETTINGS_PANEL_CLASS} .better-settings__title {
@@ -3978,7 +3996,11 @@
     menu.className = TOPIC_BLOCK_MENU_CLASS;
     menu.innerHTML = `
       <button class="better-topic-block-menu__button" type="button">
-        屏蔽「${escapeHtml(topicText)}」
+        <svg class="better-topic-block-menu__icon" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"></circle>
+          <path d="M6.7 17.3 17.3 6.7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+        </svg>
+        <span class="better-topic-block-menu__label">屏蔽「${escapeHtml(topicText)}」</span>
       </button>
     `;
     menu.addEventListener("click", (event) => {
@@ -4380,8 +4402,6 @@
       : `<div class="better-settings__empty">暂无${escapeHtml(BLOCKED_KEYWORD_SCOPE_LABELS[activeScope])}屏蔽关键词</div>`;
 
     panel.innerHTML = `
-      <div class="better-settings__title">屏蔽关键词</div>
-      <div class="better-settings__desc">评论关键词隐藏评论；帖子关键词同时匹配标题、正文和分区/话题，命中后隐藏整条帖子。</div>
       <div class="better-settings__tabs" role="tablist" aria-label="屏蔽范围">
         <button class="better-settings__tab" type="button" role="tab" data-scope="${BLOCKED_KEYWORD_SCOPES.FEED}" aria-selected="${activeBlockedKeywordScope === BLOCKED_KEYWORD_SCOPES.FEED ? "true" : "false"}">帖子</button>
         <button class="better-settings__tab" type="button" role="tab" data-scope="${BLOCKED_KEYWORD_SCOPES.COMMENT}" aria-selected="${activeBlockedKeywordScope === BLOCKED_KEYWORD_SCOPES.COMMENT ? "true" : "false"}">评论</button>
@@ -4400,7 +4420,8 @@
         <input class="better-settings__level-range" type="range" min="${LEVEL_FILTER_MIN}" max="${LEVEL_FILTER_MAX}" step="1" value="${escapeHtml(activeLevelFilter.maxLevel)}" data-scope="${escapeHtml(activeScope)}">
       </div>
       <div class="better-settings__section">
-        <div class="better-settings__section-title">关键词过滤</div>
+        <div class="better-settings__section-title">屏蔽关键词</div>
+        <div class="better-settings__desc">评论关键词隐藏评论；帖子关键词同时匹配标题、正文和分区/话题，命中后隐藏整条帖子。</div>
         <form class="better-settings__form">
           <input class="better-settings__input" type="text" placeholder="输入关键词">
           <button class="better-settings__add" type="submit">添加</button>
