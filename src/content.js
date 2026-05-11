@@ -743,6 +743,28 @@
         color: #59636e !important;
       }
 
+      .${HOME_LAYOUT_CLASS} .better-default-level-tag {
+        display: inline-flex !important;
+        vertical-align: middle;
+        flex: 0 0 auto;
+        align-items: center;
+        margin: 0 4px;
+      }
+
+      .${HOME_LAYOUT_CLASS} .comment-children-item > .better-default-level-tag {
+        position: relative;
+        top: -1px;
+      }
+
+      .${HOME_LAYOUT_CLASS} .better-default-level-tag .level-tag__wrapper {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 16px;
+        line-height: 16px;
+        white-space: nowrap;
+      }
+
       .${HOME_LAYOUT_CLASS} .${TOP_MENU_CLASS} .hb-website__post-btn {
         display: inline-flex !important;
         width: 100% !important;
