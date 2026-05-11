@@ -2632,7 +2632,7 @@
     const rootCommentId = getCommentId(group.root);
     const loadedCount = group.replies?.length || 0;
     const replyCount = Math.max(Number(group.replyCount) || 0, loadedCount);
-    const hasMore = group.repliesHasMore || replyCount > loadedCount;
+    const hasMore = Boolean(group.repliesHasMore);
 
     if (!rootCommentId || (!hasMore && !group.repliesFailed && !group.repliesLoading)) {
       return "";
