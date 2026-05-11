@@ -18,6 +18,10 @@
   const HOT_SEARCH_SIDEBAR_PANEL_CLASS = "better-xiaoheihe-hot-search-sidebar__panel";
   const HIDE_CY_COMMENTS_STORAGE_KEY = "better-xiaoheihe-hide-cy-comments";
   const BLOCKED_KEYWORDS_STORAGE_KEY = "better-xiaoheihe-blocked-keywords";
+  const LEVEL_FILTERS_STORAGE_KEY = "better-xiaoheihe-level-filters";
+  const DEFAULT_USER_LEVEL = 6;
+  const LEVEL_FILTER_MIN = 7;
+  const LEVEL_FILTER_MAX = 18;
   const BLOCKED_KEYWORD_SCOPES = {
     COMMENT: "comment",
     FEED: "feed"
@@ -59,6 +63,7 @@
   const capturedApiParams = {};
   let hideCyComments = readHideCyCommentsState();
   let blockedKeywords = readBlockedKeywordsState();
+  let levelFilters = readLevelFiltersState();
   let activeBlockedKeywordScope = BLOCKED_KEYWORD_SCOPES.FEED;
   let hotSearchPromise = null;
   let leftMenuOriginalPosition = null;
@@ -176,6 +181,72 @@
   function writeBlockedKeywordsState(keywords) {
     blockedKeywords = normalizeBlockedKeywords(keywords);
     persistBlockedKeywordsState();
+  }
+
+  function createDefaultLevelFilter() {
+    return {
+      enabled: false,
+      maxLevel: LEVEL_FILTER_MIN
+    };
+  }
+
+  function normalizeLevelFilter(filter) {
+    const normalized = createDefaultLevelFilter();
+    if (!filter || typeof filter !== "object") {
+      return normalized;
+    }
+
+    const maxLevel = Number.parseInt(filter.maxLevel, 10);
+    normalized.enabled = filter.enabled === true || filter.enabled === "1" || filter.enabled === "true";
+    normalized.maxLevel = Math.min(LEVEL_FILTER_MAX, Math.max(LEVEL_FILTER_MIN, Number.isFinite(maxLevel) ? maxLevel : LEVEL_FILTER_MIN));
+    return normalized;
+  }
+
+  function normalizeLevelFilters(filters) {
+    return Object.values(BLOCKED_KEYWORD_SCOPES).reduce((result, scope) => {
+      result[scope] = normalizeLevelFilter(filters?.[scope]);
+      return result;
+    }, {});
+  }
+
+  function readLevelFiltersState() {
+    try {
+      return normalizeLevelFilters(JSON.parse(localStorage.getItem(LEVEL_FILTERS_STORAGE_KEY) || "{}"));
+    } catch {
+      return normalizeLevelFilters({});
+    }
+  }
+
+  function persistLevelFiltersState() {
+    try {
+      localStorage.setItem(LEVEL_FILTERS_STORAGE_KEY, JSON.stringify(levelFilters));
+    } catch {
+      // Keep the in-memory level filters for the current page if localStorage is unavailable.
+    }
+  }
+
+  function writeLevelFilterState(scope, nextFilter) {
+    const normalizedScope = normalizeBlockedKeywordScope(scope);
+    levelFilters = normalizeLevelFilters({
+      ...levelFilters,
+      [normalizedScope]: {
+        ...levelFilters[normalizedScope],
+        ...nextFilter
+      }
+    });
+    persistLevelFiltersState();
+  }
+
+  function syncLevelFiltersState() {
+    const savedFilters = readLevelFiltersState();
+    if (JSON.stringify(savedFilters) === JSON.stringify(levelFilters)) {
+      renderSettingsPanel();
+      return;
+    }
+
+    levelFilters = savedFilters;
+    renderSettingsPanel();
+    refreshAllKeywordFilters();
   }
 
   function syncBlockedKeywordsState() {
@@ -381,6 +452,106 @@
         display: flex;
         gap: 8px;
         flex-wrap: wrap;
+        margin-bottom: 10px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__section {
+        margin-bottom: 10px;
+        padding: 10px;
+        border: 1px solid #eef0f2;
+        border-radius: 8px;
+        background: #fff;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__section:last-child {
+        margin-bottom: 0;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__section-title {
+        margin-bottom: 8px;
+        color: #14191e;
+        font-weight: 600;
+        line-height: 18px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__level-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__level-value {
+        color: #59636e;
+        font-size: 12px;
+        line-height: 18px;
+        white-space: nowrap;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__level-toggle {
+        display: inline-flex;
+        align-items: center;
+        cursor: pointer;
+        user-select: none;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__level-enabled {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__level-switch {
+        box-sizing: border-box;
+        display: inline-flex;
+        position: relative;
+        width: 42px;
+        height: 22px;
+        align-items: center;
+        border-radius: 999px;
+        background: #d7dce1;
+        transition: background 0.18s ease;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__level-switch::after {
+        content: "";
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 1px 3px rgba(20, 25, 30, 0.2);
+        transition: transform 0.18s ease;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__level-enabled:checked + .better-settings__level-switch {
+        background: #2775d1;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__level-enabled:checked + .better-settings__level-switch::after {
+        transform: translateX(20px);
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__level-enabled:focus-visible + .better-settings__level-switch {
+        outline: 2px solid rgba(39, 117, 209, 0.35);
+        outline-offset: 2px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__level-range {
+        box-sizing: border-box;
+        width: 100%;
+        accent-color: #2775d1;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__level-range:disabled {
+        opacity: 0.45;
       }
 
       .${SETTINGS_PANEL_CLASS} .better-settings__tabs {
@@ -444,7 +615,6 @@
         overflow-y: auto;
         flex-direction: column;
         gap: 6px;
-        margin-top: 10px;
       }
 
       .${SETTINGS_PANEL_CLASS} .better-settings__keyword {
@@ -501,7 +671,6 @@
       }
 
       .${SETTINGS_PANEL_CLASS} .better-settings__empty {
-        margin-top: 10px;
         color: #a8afb7;
         line-height: 18px;
       }
@@ -561,6 +730,17 @@
         padding: 0 12px !important;
         justify-content: flex-start;
         border-radius: 6px;
+      }
+
+      .${HOME_LAYOUT_CLASS} .level-tag__wrapper.level-1,
+      .${HOME_LAYOUT_CLASS} .level-tag__wrapper.level-2,
+      .${HOME_LAYOUT_CLASS} .level-tag__wrapper.level-3,
+      .${HOME_LAYOUT_CLASS} .level-tag__wrapper.level-4,
+      .${HOME_LAYOUT_CLASS} .level-tag__wrapper.level-5,
+      .${HOME_LAYOUT_CLASS} .level-tag__wrapper.level-6 {
+        border-radius: 3px;
+        background: #eef0f2 !important;
+        color: #59636e !important;
       }
 
       .${HOME_LAYOUT_CLASS} .${TOP_MENU_CLASS} .hb-website__post-btn {
@@ -2224,10 +2404,16 @@
   }
 
   function normalizeUserLevel(level) {
-    const value = Number(level);
-    if (!Number.isInteger(value) || value <= 0) {
-      return "";
+    const match = String(level ?? "").match(/\d+/);
+    if (!match) {
+      return String(DEFAULT_USER_LEVEL);
     }
+
+    const value = Number.parseInt(match[0], 10);
+    if (!Number.isFinite(value) || value <= 0) {
+      return String(DEFAULT_USER_LEVEL);
+    }
+
     return String(value);
   }
 
@@ -2246,6 +2432,44 @@
         <div class="level-tag__wrapper level-${escapeHtml(normalizedLevel)}"> Lv.${escapeHtml(normalizedLevel)}</div>
       </div>
     `;
+  }
+
+  function parseUserLevelValue(level) {
+    if (level === null || level === undefined || level === "") {
+      return DEFAULT_USER_LEVEL;
+    }
+
+    const match = String(level).match(/\d+/);
+    if (!match) {
+      return DEFAULT_USER_LEVEL;
+    }
+
+    const value = Number.parseInt(match[0], 10);
+    if (!Number.isFinite(value) || value < 0) {
+      return DEFAULT_USER_LEVEL;
+    }
+
+    return Math.min(LEVEL_FILTER_MAX, value);
+  }
+
+  function getCommentUserLevel(comment) {
+    const user = comment?.user || {};
+    return parseUserLevelValue(
+      user.level_info?.level
+      ?? user.level
+      ?? comment?.level
+      ?? comment?.user_level
+    );
+  }
+
+  function shouldHideByLevel(level, scope) {
+    const filter = levelFilters[normalizeBlockedKeywordScope(scope)];
+    const normalizedLevel = parseUserLevelValue(level);
+    return Boolean(filter?.enabled && normalizedLevel < filter.maxLevel);
+  }
+
+  function getLevelFilterLabel(maxLevel) {
+    return `Lv.${Math.min(LEVEL_FILTER_MAX, Math.max(LEVEL_FILTER_MIN, Number.parseInt(maxLevel, 10) || LEVEL_FILTER_MIN))}`;
   }
 
   function getUserProfileId(user) {
@@ -2480,7 +2704,9 @@
   }
 
   function shouldHideComment(comment) {
-    return (hideCyComments && isCyComment(comment)) || isBlockedByKeyword(comment);
+    return (hideCyComments && isCyComment(comment))
+      || isBlockedByKeyword(comment)
+      || shouldHideByLevel(getCommentUserLevel(comment), BLOCKED_KEYWORD_SCOPES.COMMENT);
   }
 
   function getVisibleCommentGroups(commentGroups) {
@@ -3199,6 +3425,69 @@
       .join("\n");
   }
 
+  function getLevelFromElement(container) {
+    const levelElement = container?.querySelector?.(
+      '.level-tag__wrapper[class*="level-"], .list-content__level .level-tag__wrapper, .hb-cpt__level-tag .level-tag__wrapper'
+    );
+    if (!levelElement) {
+      return null;
+    }
+
+    const classLevel = Array.from(levelElement.classList || [])
+      .map((className) => className.match(/^level-(\d+)/)?.[1])
+      .find(Boolean);
+    return parseUserLevelValue(classLevel || levelElement.textContent);
+  }
+
+  function getFeedItemUserLevel(item) {
+    return getLevelFromElement(item);
+  }
+
+  function createDefaultLevelTagElement() {
+    const normalizedLevel = String(DEFAULT_USER_LEVEL);
+    const tag = document.createElement("div");
+    tag.className = "hb-cpt__level-tag list-content__level better-default-level-tag";
+    tag.style.width = `${getLevelTagWidth(normalizedLevel)}px`;
+
+    const wrapper = document.createElement("div");
+    wrapper.className = `level-tag__wrapper level-${normalizedLevel}`;
+    wrapper.textContent = ` Lv.${normalizedLevel}`;
+    tag.appendChild(wrapper);
+    return tag;
+  }
+
+  function ensureDefaultUserLevelTag(userContainer) {
+    if (!userContainer || userContainer.querySelector(".hb-cpt__level-tag, .level-tag__wrapper")) {
+      return;
+    }
+
+    const nameElement = userContainer.matches?.(".list-content__username, .name, .info-box__username, .children-item__comment-creator")
+      ? userContainer
+      : userContainer.querySelector(".list-content__username, .name, .info-box__username, .children-item__comment-creator");
+    if (!nameElement) {
+      return;
+    }
+
+    nameElement.insertAdjacentElement("afterend", createDefaultLevelTagElement());
+  }
+
+  function ensureFeedItemUserLevel(item) {
+    ensureDefaultUserLevelTag(item?.querySelector?.(".header__user"));
+  }
+
+  function ensureLinkPageCommentUserLevels() {
+    if (!isLinkPage()) {
+      return;
+    }
+
+    document.querySelectorAll(".link-comment__comment-item").forEach((commentItem) => {
+      ensureDefaultUserLevelTag(commentItem.querySelector(".name-box") || commentItem.querySelector(".comment-item__user") || commentItem);
+      commentItem.querySelectorAll(".comment-children-item").forEach((replyItem) => {
+        ensureDefaultUserLevelTag(replyItem.querySelector(".name-box") || replyItem.querySelector(".children-item__comment-creator")?.parentElement);
+      });
+    });
+  }
+
   function getTopicTextFromContextTarget(target) {
     const tag = target?.closest?.(".content-list__tag-item, .hb-cpt__content-tag, .content-tag-text, .hb-view-catalog__button");
     if (!tag) {
@@ -3223,7 +3512,7 @@
       feedText,
       BLOCKED_KEYWORD_SCOPES.FEED,
       getFeedItemBlockedTargetKey(item, BLOCKED_KEYWORD_SCOPES.FEED)
-    );
+    ) || shouldHideByLevel(getFeedItemUserLevel(item), BLOCKED_KEYWORD_SCOPES.FEED);
   }
 
   function getTopicEntryText(entry) {
@@ -3498,6 +3787,7 @@
     }
 
     bindFeedItemActions(item, linkId);
+    ensureFeedItemUserLevel(item);
     setFeedItemPublishTime(item, commentCache.get(linkId)?.linkCreateAt);
 
     const searchResultRow = item.parentElement?.classList.contains("search-result__link")
@@ -3728,6 +4018,18 @@
     scheduleKeywordFiltersRefresh();
   }
 
+  function updateLevelFilter(scope, nextFilter, options = {}) {
+    const shouldRender = options.render !== false;
+    const shouldRefresh = options.refresh !== false;
+    writeLevelFilterState(scope, nextFilter);
+    if (shouldRender) {
+      renderSettingsPanel();
+    }
+    if (shouldRefresh) {
+      scheduleKeywordFiltersRefresh();
+    }
+  }
+
   function positionSettingsPanel(panel, button) {
     const rect = button.getBoundingClientRect();
     const margin = 8;
@@ -3763,6 +4065,8 @@
 
     const activeScope = normalizeBlockedKeywordScope(activeBlockedKeywordScope);
     const visibleBlockedKeywords = blockedKeywords.filter((item) => normalizeBlockedKeywordScope(item.scope) === activeScope);
+    const activeLevelFilter = levelFilters[activeScope] || createDefaultLevelFilter();
+    const activeLevelLabel = getLevelFilterLabel(activeLevelFilter.maxLevel);
     const listHtml = visibleBlockedKeywords.length
       ? `<div class="better-settings__list">
           ${visibleBlockedKeywords.map((item) => `
@@ -3785,11 +4089,27 @@
         <button class="better-settings__tab" type="button" role="tab" data-scope="${BLOCKED_KEYWORD_SCOPES.FEED}" aria-selected="${activeBlockedKeywordScope === BLOCKED_KEYWORD_SCOPES.FEED ? "true" : "false"}">帖子</button>
         <button class="better-settings__tab" type="button" role="tab" data-scope="${BLOCKED_KEYWORD_SCOPES.COMMENT}" aria-selected="${activeBlockedKeywordScope === BLOCKED_KEYWORD_SCOPES.COMMENT ? "true" : "false"}">评论</button>
       </div>
-      <form class="better-settings__form">
-        <input class="better-settings__input" type="text" placeholder="输入关键词">
-        <button class="better-settings__add" type="submit">添加</button>
-      </form>
-      ${listHtml}
+      <div class="better-settings__section">
+        <div class="better-settings__level-row">
+          <span class="better-settings__section-title">等级过滤</span>
+          <label class="better-settings__level-toggle">
+            <input class="better-settings__level-enabled" type="checkbox" data-scope="${escapeHtml(activeScope)}"${activeLevelFilter.enabled ? " checked" : ""}>
+            <span class="better-settings__level-switch" aria-hidden="true"></span>
+          </label>
+        </div>
+        <div class="better-settings__level-row">
+          <span class="better-settings__level-value">展示 ${escapeHtml(activeLevelLabel)} 及以上${escapeHtml(BLOCKED_KEYWORD_SCOPE_LABELS[activeScope])}</span>
+        </div>
+        <input class="better-settings__level-range" type="range" min="${LEVEL_FILTER_MIN}" max="${LEVEL_FILTER_MAX}" step="1" value="${escapeHtml(activeLevelFilter.maxLevel)}" data-scope="${escapeHtml(activeScope)}">
+      </div>
+      <div class="better-settings__section">
+        <div class="better-settings__section-title">关键词过滤</div>
+        <form class="better-settings__form">
+          <input class="better-settings__input" type="text" placeholder="输入关键词">
+          <button class="better-settings__add" type="submit">添加</button>
+        </form>
+        ${listHtml}
+      </div>
     `;
     repositionSettingsPanelIfOpen();
   }
@@ -3819,6 +4139,41 @@
       if (scopeTab && panel.contains(scopeTab)) {
         setActiveBlockedKeywordScope(scopeTab.dataset.scope);
         panel.querySelector(".better-settings__input")?.focus();
+      }
+    });
+    panel.addEventListener("input", (event) => {
+      if (!(event.target instanceof Element)) {
+        return;
+      }
+
+      if (event.target.matches(".better-settings__level-range")) {
+        updateLevelFilter(event.target.dataset.scope, {
+          maxLevel: event.target.value
+        }, {
+          render: false,
+          refresh: false
+        });
+        const scope = normalizeBlockedKeywordScope(event.target.dataset.scope);
+        const valueLabel = panel.querySelector(".better-settings__level-value");
+        if (valueLabel) {
+          valueLabel.textContent = `展示 ${getLevelFilterLabel(Number.parseInt(event.target.value, 10) || LEVEL_FILTER_MIN)} 及以上${BLOCKED_KEYWORD_SCOPE_LABELS[scope]}`;
+        }
+      }
+    });
+    panel.addEventListener("change", (event) => {
+      if (!(event.target instanceof Element)) {
+        return;
+      }
+
+      if (event.target.matches(".better-settings__level-enabled")) {
+        updateLevelFilter(event.target.dataset.scope, {
+          enabled: event.target.checked
+        });
+        return;
+      }
+
+      if (event.target.matches(".better-settings__level-range")) {
+        scheduleKeywordFiltersRefresh();
       }
     });
     panel.addEventListener("submit", (event) => {
@@ -3943,12 +4298,14 @@
       const topLevelContentEl = topLevelItem.querySelector('.comment-item__content');
       const topLevelUsername = topLevelUsernameEl?.textContent?.trim() || '';
       const topLevelContentText = topLevelContentEl?.textContent?.trim() || '';
+      const topLevelUserLevel = getLevelFromElement(topLevelItem);
       
       // A comment is considered "CY" if its content has the 'cy' class or the username contains 'cy'
       const isTopLevelCy = topLevelContentEl?.classList.contains('cy') || topLevelUsername.toLowerCase().includes('cy');
       const isTopLevelBlocked = isBlockedByKeyword({ text: topLevelContentText, user: { username: topLevelUsername } });
+      const isTopLevelBlockedByLevel = shouldHideByLevel(topLevelUserLevel, BLOCKED_KEYWORD_SCOPES.COMMENT);
 
-      if ((hideCyComments && isTopLevelCy) || isTopLevelBlocked) {
+      if ((hideCyComments && isTopLevelCy) || isTopLevelBlocked || isTopLevelBlockedByLevel) {
         topLevelItem.style.display = 'none';
         hiddenCount++; // Count the hidden top-level comment
       } else {
@@ -3958,11 +4315,13 @@
           const replyContentEl = replyItem.querySelector('.children-item__comment-content');
           const replyUsername = replyUsernameEl?.textContent?.trim() || '';
           const replyContentText = replyContentEl?.textContent?.trim() || '';
+          const replyUserLevel = getLevelFromElement(replyItem);
 
           const isReplyCy = replyContentEl?.classList.contains('cy') || replyUsername.toLowerCase().includes('cy');
           const isReplyBlocked = isBlockedByKeyword({ text: replyContentText, user: { username: replyUsername } });
+          const isReplyBlockedByLevel = shouldHideByLevel(replyUserLevel, BLOCKED_KEYWORD_SCOPES.COMMENT);
 
-          if ((hideCyComments && isReplyCy) || isReplyBlocked) {
+          if ((hideCyComments && isReplyCy) || isReplyBlocked || isReplyBlockedByLevel) {
             replyItem.style.display = 'none';
             hiddenCount++; // Count each hidden reply
           }
@@ -3999,6 +4358,8 @@
     if (!isLinkPage()) {
       return;
     }
+
+    ensureLinkPageCommentUserLevels();
 
     const mountPoint = document.querySelector('.link-comment .hb-cpt__pagination-inner');
     if (!mountPoint) {
@@ -4126,6 +4487,9 @@
       }
       if (event.key === BLOCKED_KEYWORDS_STORAGE_KEY) {
         syncBlockedKeywordsState();
+      }
+      if (event.key === LEVEL_FILTERS_STORAGE_KEY) {
+        syncLevelFiltersState();
       }
     });
   }
