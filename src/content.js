@@ -12,6 +12,7 @@
   const FAVORITE_ENTRY_CLASS = "better-xiaoheihe-favorite-entry";
   const SETTINGS_ENTRY_CLASS = "better-xiaoheihe-settings-entry";
   const SETTINGS_PANEL_CLASS = "better-xiaoheihe-settings-panel";
+  const AI_SUMMARY_MODAL_CLASS = "better-xiaoheihe-ai-summary-modal";
   const TOPIC_BLOCK_MENU_CLASS = "better-xiaoheihe-topic-block-menu";
   const HOT_SEARCH_SIDEBAR_CLASS = "better-xiaoheihe-hot-search-sidebar";
   const HOT_SEARCH_SIDEBAR_OPEN_CLASS = "better-xiaoheihe-hot-search-sidebar--open";
@@ -20,6 +21,10 @@
   const HIDE_CY_COMMENTS_STORAGE_KEY = "better-xiaoheihe-hide-cy-comments";
   const BLOCKED_KEYWORDS_STORAGE_KEY = "better-xiaoheihe-blocked-keywords";
   const LEVEL_FILTERS_STORAGE_KEY = "better-xiaoheihe-level-filters";
+  const AI_SETTINGS_EVENT = "better-xiaoheihe-ai-settings";
+  const AI_SETTINGS_REQUEST_EVENT = "better-xiaoheihe-ai-settings-request";
+  const AI_CHAT_REQUEST_EVENT = "better-xiaoheihe-ai-chat-request";
+  const AI_CHAT_RESPONSE_EVENT = "better-xiaoheihe-ai-chat-response";
   const DEFAULT_USER_LEVEL = 6;
   const LEVEL_FILTER_MIN = 7;
   const LEVEL_FILTER_MAX = 18;
@@ -61,11 +66,14 @@
   const commentCache = new Map();
   const emojiCache = new Map();
   const userLevelCache = new Map();
+  const aiSummaryCache = new Map();
   const blockedKeywordHitKeys = new Set();
   const capturedApiParams = {};
   let hideCyComments = readHideCyCommentsState();
   let blockedKeywords = readBlockedKeywordsState();
   let levelFilters = readLevelFiltersState();
+  let aiSettings = normalizeAiSettings();
+  const aiPendingRequests = new Map();
   let activeBlockedKeywordScope = BLOCKED_KEYWORD_SCOPES.FEED;
   let hotSearchPromise = null;
   let leftMenuOriginalPosition = null;
@@ -74,6 +82,7 @@
   let previewObserver = null;
   let rowResizeObserver = null;
   let topMenuOutsideClickBound = false;
+  let feedAiCaptureBound = false;
   let feedAwardCaptureBound = false;
   let topicBlockContextMenuBound = false;
   let imageViewerKeydownBound = false;
@@ -217,6 +226,19 @@
     } catch {
       return normalizeLevelFilters({});
     }
+  }
+
+  function normalizeAiSettings(settings = {}) {
+    return {
+      enabled: settings?.enabled === true,
+      baseUrl: String(settings?.baseUrl || "").trim().replace(/\/+$/, ""),
+      model: String(settings?.model || "").trim(),
+      apiKey: String(settings?.apiKey || "")
+    };
+  }
+
+  function isAiEnabled() {
+    return aiSettings.enabled && aiSettings.baseUrl && aiSettings.model;
   }
 
   function persistLevelFiltersState() {
@@ -1017,6 +1039,58 @@
         opacity: 0.75;
       }
 
+      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} .better-ai-summary-button {
+        display: inline-flex;
+        width: 26px;
+        height: 26px;
+        align-items: center;
+        justify-content: center;
+        margin-left: auto;
+        margin-right: 0;
+        border: 1px solid #d8dfe6;
+        border-radius: 50%;
+        background: transparent;
+        color: #2775d1;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} .better-ai-summary-button:hover {
+        background: #e9f2ff;
+        border-color: #9ec6f2;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} .bbs-list-content__header.better-ai-summary-header .list-cotent__operation-btn,
+      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} .bbs-list-content__header.better-ai-summary-header .list-content__operation-btn {
+        margin-left: 4px !important;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} .better-ai-summary-button.is-loading {
+        position: relative;
+        color: transparent;
+        pointer-events: none;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} .better-ai-summary-button.is-loading::after {
+        content: "";
+        box-sizing: border-box;
+        position: absolute;
+        width: 17px;
+        height: 17px;
+        border: 2px solid rgba(39, 117, 209, 0.22);
+        border-top-color: #2775d1;
+        border-radius: 50%;
+        animation: better-ai-summary-spin 0.8s linear infinite;
+      }
+
+      @keyframes better-ai-summary-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
       .${HOME_LAYOUT_CLASS} .${ROW_CLASS} .better-link-publish-time {
         flex: 0 0 auto;
         margin-right: 8px;
@@ -1553,6 +1627,175 @@
         color: #fff;
         font-size: 13px;
         line-height: 20px;
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} {
+        position: fixed;
+        inset: 0;
+        z-index: 2147483646;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        background: rgba(20, 25, 30, 0.46);
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS}[hidden] {
+        display: none !important;
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__dialog {
+        box-sizing: border-box;
+        width: min(680px, 100%);
+        max-height: min(78vh, 720px);
+        display: flex;
+        overflow: hidden;
+        flex-direction: column;
+        border-radius: 8px;
+        background: #fff;
+        box-shadow: 0 20px 60px rgba(20, 25, 30, 0.24);
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 16px 18px;
+        border-bottom: 1px solid #eef0f2;
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__title {
+        min-width: 0;
+        overflow: hidden;
+        color: #14191e;
+        font-size: 16px;
+        font-weight: 600;
+        line-height: 22px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__actions {
+        display: inline-flex;
+        flex: 0 0 auto;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__regenerate {
+        height: 30px;
+        padding: 0 10px;
+        border: 1px solid #d8dfe6;
+        border-radius: 6px;
+        background: #fff;
+        color: #2775d1;
+        cursor: pointer;
+        font-size: 13px;
+        line-height: 28px;
+        white-space: nowrap;
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__regenerate:hover {
+        background: #e9f2ff;
+        border-color: #9ec6f2;
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__close {
+        width: 30px;
+        height: 30px;
+        flex: 0 0 auto;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        color: #68727d;
+        cursor: pointer;
+        font-size: 20px;
+        line-height: 1;
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__close:hover {
+        background: #f3f4f5;
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__body {
+        overflow-y: auto;
+        padding: 18px;
+        color: #2f3842;
+        font-size: 14px;
+        line-height: 1.75;
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__body.is-muted {
+        color: #8a9299;
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__body h1,
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__body h2,
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__body h3 {
+        margin: 14px 0 8px;
+        color: #14191e;
+        font-size: 16px;
+        line-height: 24px;
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__body h1:first-child,
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__body h2:first-child,
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__body h3:first-child,
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__body p:first-child {
+        margin-top: 0;
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__body p {
+        margin: 8px 0;
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__body ul,
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__body ol {
+        margin: 8px 0;
+        padding-left: 22px;
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__body li {
+        margin: 4px 0;
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__body blockquote {
+        margin: 10px 0;
+        padding: 2px 0 2px 12px;
+        border-left: 3px solid #d8dfe6;
+        color: #68727d;
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__body pre {
+        overflow-x: auto;
+        margin: 10px 0;
+        padding: 10px;
+        border-radius: 6px;
+        background: #f5f7fa;
+        line-height: 1.6;
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__body code {
+        padding: 2px 5px;
+        border-radius: 4px;
+        background: #f0f3f6;
+        font-family: Consolas, "SFMono-Regular", monospace;
+        font-size: 13px;
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__body pre code {
+        padding: 0;
+        background: transparent;
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__body a {
+        color: #2775d1;
+        text-decoration: none;
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__body a:hover {
+        text-decoration: underline;
       }
 
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-layout-main__container--main {
@@ -3108,8 +3351,8 @@
     scheduleRowHeightSync(preview.closest(`.${ROW_CLASS}`));
   }
 
-  function fetchCommentPage(linkId, page) {
-    Promise.all([
+  function fetchCommentPageData(linkId, page) {
+    return Promise.all([
       loadEmojis(),
       fetch(buildCommentApiUrl(linkId, page), {
         credentials: "include",
@@ -3117,7 +3360,11 @@
           accept: "*/*"
         }
       }).then((response) => response.json())
-    ]).then(([, data]) => {
+    ]).then(([, data]) => data);
+  }
+
+  function fetchCommentPage(linkId, page) {
+    fetchCommentPageData(linkId, page).then((data) => {
       const state = commentCache.get(linkId) || { commentGroups: [] };
       if (data?.status !== "ok") {
         state.failed = page === 1;
@@ -3904,6 +4151,334 @@
     });
   }
 
+  function ensureAiSummaryButton(item) {
+    const header = item.querySelector(".bbs-list-content__header");
+    const operationButton = header?.querySelector(".list-cotent__operation-btn, .list-content__operation-btn");
+    if (!header || !operationButton) {
+      return;
+    }
+
+    header.classList.toggle("better-ai-summary-header", isAiEnabled());
+    let button = header.querySelector(".better-ai-summary-button");
+    if (!isAiEnabled()) {
+      button?.remove();
+      return;
+    }
+
+    if (!button) {
+      button = document.createElement("button");
+      button.className = "better-ai-summary-button";
+      button.type = "button";
+      button.title = "AI 总结";
+      button.setAttribute("aria-label", "AI 总结");
+      button.textContent = "AI";
+      operationButton.insertAdjacentElement("beforebegin", button);
+    }
+  }
+
+  function syncAiSummaryButtons() {
+    document.querySelectorAll(FEED_ITEM_SELECTOR).forEach(ensureAiSummaryButton);
+  }
+
+  function ensureAiSummaryModal() {
+    let modal = document.querySelector(`.${AI_SUMMARY_MODAL_CLASS}`);
+    if (modal) {
+      return modal;
+    }
+
+    modal = document.createElement("div");
+    modal.className = AI_SUMMARY_MODAL_CLASS;
+    modal.hidden = true;
+    modal.innerHTML = `
+      <div class="better-ai-summary__dialog" role="dialog" aria-modal="true" aria-labelledby="better-ai-summary-title">
+        <div class="better-ai-summary__header">
+          <div class="better-ai-summary__title" id="better-ai-summary-title">AI 总结</div>
+          <div class="better-ai-summary__actions">
+            <button class="better-ai-summary__regenerate" type="button">重新总结</button>
+            <button class="better-ai-summary__close" type="button" aria-label="关闭">×</button>
+          </div>
+        </div>
+        <div class="better-ai-summary__body is-muted">准备中...</div>
+      </div>
+    `;
+    modal.addEventListener("click", (event) => {
+      if (!(event.target instanceof Element)) {
+        return;
+      }
+
+      if (event.target === modal || event.target.closest(".better-ai-summary__close")) {
+        modal.hidden = true;
+        return;
+      }
+
+      if (event.target.closest(".better-ai-summary__regenerate")) {
+        const linkId = modal.dataset.linkId || "";
+        modal.hidden = true;
+        if (linkId) {
+          aiSummaryCache.delete(linkId);
+          const item = findFeedItemByLinkId(linkId);
+          const button = item?.querySelector(".better-ai-summary-button");
+          if (item) {
+            summarizeFeedItem(item, linkId, button, { force: true });
+          }
+        }
+      }
+    });
+    document.body.appendChild(modal);
+    return modal;
+  }
+
+  function setAiSummaryModal(title, content, muted = false, linkId = "") {
+    const modal = ensureAiSummaryModal();
+    const titleElement = modal.querySelector(".better-ai-summary__title");
+    const body = modal.querySelector(".better-ai-summary__body");
+    modal.dataset.linkId = linkId || "";
+    if (titleElement) {
+      titleElement.textContent = title || "AI 总结";
+    }
+    if (body) {
+      body.innerHTML = muted ? escapeHtml(content || "") : renderMarkdown(content || "");
+      body.classList.toggle("is-muted", muted);
+    }
+    modal.hidden = false;
+  }
+
+  function findFeedItemByLinkId(linkId) {
+    return Array.from(document.querySelectorAll(FEED_ITEM_SELECTOR))
+      .find((item) => getLinkIdFromItem(item) === String(linkId)) || null;
+  }
+
+  function renderInlineMarkdown(text) {
+    let html = escapeHtml(text);
+    html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+    html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    html = html.replace(/\*([^*\n]+)\*/g, "<em>$1</em>");
+    html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+    return html;
+  }
+
+  function renderMarkdownBlock(lines) {
+    if (!lines.length) {
+      return "";
+    }
+
+    const firstLine = lines[0] || "";
+    const heading = firstLine.match(/^(#{1,3})\s+(.+)$/);
+    if (heading && lines.length === 1) {
+      const level = heading[1].length;
+      return `<h${level}>${renderInlineMarkdown(heading[2])}</h${level}>`;
+    }
+
+    if (lines.every((line) => /^\s*[-*]\s+/.test(line))) {
+      return `<ul>${lines.map((line) => `<li>${renderInlineMarkdown(line.replace(/^\s*[-*]\s+/, ""))}</li>`).join("")}</ul>`;
+    }
+
+    if (lines.every((line) => /^\s*\d+\.\s+/.test(line))) {
+      return `<ol>${lines.map((line) => `<li>${renderInlineMarkdown(line.replace(/^\s*\d+\.\s+/, ""))}</li>`).join("")}</ol>`;
+    }
+
+    if (lines.every((line) => /^\s*>\s?/.test(line))) {
+      return `<blockquote>${lines.map((line) => `<p>${renderInlineMarkdown(line.replace(/^\s*>\s?/, ""))}</p>`).join("")}</blockquote>`;
+    }
+
+    return `<p>${lines.map(renderInlineMarkdown).join("<br>")}</p>`;
+  }
+
+  function renderMarkdown(markdown) {
+    const lines = String(markdown || "").replace(/\r\n?/g, "\n").split("\n");
+    const blocks = [];
+    let paragraph = [];
+    let codeLines = [];
+    let inCodeBlock = false;
+
+    const flushParagraph = () => {
+      if (paragraph.length) {
+        blocks.push(renderMarkdownBlock(paragraph));
+        paragraph = [];
+      }
+    };
+
+    lines.forEach((line) => {
+      if (/^```/.test(line.trim())) {
+        if (inCodeBlock) {
+          blocks.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
+          codeLines = [];
+          inCodeBlock = false;
+        } else {
+          flushParagraph();
+          inCodeBlock = true;
+        }
+        return;
+      }
+
+      if (inCodeBlock) {
+        codeLines.push(line);
+        return;
+      }
+
+      if (!line.trim()) {
+        flushParagraph();
+        return;
+      }
+
+      paragraph.push(line);
+    });
+
+    if (inCodeBlock) {
+      blocks.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
+    }
+    flushParagraph();
+    return blocks.join("");
+  }
+
+  function extractPlainCommentText(text) {
+    const template = document.createElement("template");
+    template.innerHTML = String(text || "");
+    return normalizeCommentText(template.content.textContent || text);
+  }
+
+  function getCommentAuthor(comment) {
+    return comment?.user?.username || comment?.user?.nickname || "匿名用户";
+  }
+
+  function getSummaryCommentLines(groups) {
+    return (groups || []).flatMap((group) => {
+      const comments = [group.root, ...(group.replies || [])].filter(Boolean);
+      return comments.map((comment) => {
+        return `${getCommentAuthor(comment)}：${extractPlainCommentText(comment.text)}`.trim();
+      });
+    }).filter(Boolean);
+  }
+
+  function getCachedSummaryCommentLines(linkId) {
+    const state = commentCache.get(linkId);
+    return getSummaryCommentLines(state?.commentGroups);
+  }
+
+  function getFeedItemSummaryPayload(item, linkId, commentLines) {
+    const title = item.querySelector(".bbs-content__title")?.textContent?.trim() || "";
+    const content = item.querySelector(".bbs-content__content")?.textContent?.trim() || "";
+    const topic = getFeedItemTopicText(item);
+    return [
+      `帖子 ID：${linkId}`,
+      title ? `标题：${title}` : "",
+      content ? `正文：${content}` : "",
+      topic ? `话题：${topic}` : "",
+      commentLines.length ? `评论区：\n${commentLines.slice(0, 80).join("\n")}` : "评论区：暂无已加载评论"
+    ].filter(Boolean).join("\n\n");
+  }
+
+  function requestAiChat(messages, temperature = 0.2) {
+    return new Promise((resolve, reject) => {
+      const id = `better-ai-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      const timeout = window.setTimeout(() => {
+        aiPendingRequests.delete(id);
+        reject(new Error("AI 请求超时"));
+      }, 60000);
+
+      aiPendingRequests.set(id, { resolve, reject, timeout });
+      window.dispatchEvent(new CustomEvent(AI_CHAT_REQUEST_EVENT, {
+        detail: {
+          id,
+          settings: aiSettings,
+          messages,
+          temperature
+        }
+      }));
+    });
+  }
+
+  function handleAiChatResponse(event) {
+    const detail = event.detail || {};
+    const pending = aiPendingRequests.get(detail.id);
+    if (!pending) {
+      return;
+    }
+
+    window.clearTimeout(pending.timeout);
+    aiPendingRequests.delete(detail.id);
+    if (detail.ok) {
+      pending.resolve(detail.content || "");
+    } else {
+      pending.reject(new Error(detail.error || "AI 请求失败"));
+    }
+  }
+
+  function ensureSummaryComments(linkId) {
+    const cachedLines = getCachedSummaryCommentLines(linkId);
+    if (cachedLines.length) {
+      return Promise.resolve(cachedLines);
+    }
+
+    return fetchCommentPageData(linkId, 1).then((data) => {
+      if (data?.status !== "ok") {
+        return [];
+      }
+      const groups = normalizeCommentGroups(data);
+      const state = commentCache.get(linkId) || { commentGroups: [] };
+      state.commentGroups = groups;
+      state.commentCount = data.result?.link?.comment_num || data.result?.total_floor_num || state.commentCount;
+      state.linkCreateAt = getLinkCreateTime(data.result?.link) || state.linkCreateAt;
+      state.page = 1;
+      state.failed = false;
+      state.loadMoreFailed = false;
+      state.loadingMore = false;
+      state.hasMore = groups.length >= COMMENT_PAGE_LIMIT;
+      commentCache.set(linkId, state);
+      renderLinkedPreviews(linkId);
+      return getSummaryCommentLines(groups);
+    }).catch(() => []);
+  }
+
+  function setAiButtonLoading(button, isLoading) {
+    if (!button) {
+      return;
+    }
+
+    button.classList.toggle("is-loading", isLoading);
+    button.disabled = isLoading;
+    button.setAttribute("aria-busy", String(isLoading));
+  }
+
+  function summarizeFeedItem(item, linkId, button, options = {}) {
+    if (button?.classList.contains("is-loading")) {
+      return;
+    }
+
+    const title = item.querySelector(".bbs-content__title")?.textContent?.trim() || "AI 总结";
+    if (!options.force && aiSummaryCache.has(linkId)) {
+      setAiSummaryModal(title, aiSummaryCache.get(linkId), false, linkId);
+      return;
+    }
+
+    if (!isAiEnabled()) {
+      setAiSummaryModal("AI 总结", "请先在插件弹框中开启 AI，并填写 Base URL 和模型。", true, linkId);
+      return;
+    }
+
+    setAiButtonLoading(button, true);
+    ensureSummaryComments(linkId).then((commentLines) => {
+      return requestAiChat([
+        {
+          role: "system",
+          content: "你是社区帖子总结助手。请用中文简洁总结帖子主旨、评论区主要观点、争议点或有用信息。不要编造不存在的信息。"
+        },
+        {
+          role: "user",
+          content: getFeedItemSummaryPayload(item, linkId, commentLines)
+        }
+      ]);
+    }).then((summary) => {
+      const content = summary || "没有生成总结。";
+      aiSummaryCache.set(linkId, content);
+      setAiSummaryModal(title, content, false, linkId);
+    }).catch((error) => {
+      setAiSummaryModal(title, error?.message || "AI 总结失败", true, linkId);
+    }).finally(() => {
+      setAiButtonLoading(button, false);
+    });
+  }
+
   function bindFeedItemActions(item, linkId) {
     if (item.dataset.betterActionsBound === "1") {
       return;
@@ -3912,6 +4487,15 @@
     item.dataset.betterActionsBound = "1";
     item.addEventListener("click", (event) => {
       if (!(event.target instanceof Element)) {
+        return;
+      }
+
+      const aiButton = event.target.closest(".better-ai-summary-button");
+      if (aiButton && item.contains(aiButton)) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        summarizeFeedItem(item, linkId, aiButton);
         return;
       }
 
@@ -4106,6 +4690,7 @@
     }
 
     bindFeedItemActions(item, linkId);
+    ensureAiSummaryButton(item);
     ensureFeedItemUserLevel(item);
     setFeedItemPublishTime(item, commentCache.get(linkId)?.linkCreateAt);
 
@@ -4815,12 +5400,56 @@
     });
   }
 
+  function bindFeedAiCapture() {
+    if (feedAiCaptureBound) {
+      return;
+    }
+
+    feedAiCaptureBound = true;
+    document.addEventListener("click", (event) => {
+      if (!(event.target instanceof Element)) {
+        return;
+      }
+
+      const aiButton = event.target.closest(".better-ai-summary-button");
+      const item = aiButton?.closest(FEED_ITEM_SELECTOR);
+      if (!aiButton || !item || !document.documentElement.classList.contains(HOME_LAYOUT_CLASS)) {
+        return;
+      }
+
+      const linkId = getLinkIdFromItem(item);
+      if (!linkId) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      summarizeFeedItem(item, linkId, aiButton);
+    }, true);
+  }
+
+  function installAiSettingsSync() {
+    window.addEventListener(AI_SETTINGS_EVENT, (event) => {
+      const previousSettingsKey = JSON.stringify(aiSettings);
+      aiSettings = normalizeAiSettings(event.detail);
+      if (JSON.stringify(aiSettings) !== previousSettingsKey) {
+        aiSummaryCache.clear();
+      }
+      syncAiSummaryButtons();
+    });
+    window.addEventListener(AI_CHAT_RESPONSE_EVENT, handleAiChatResponse);
+    window.dispatchEvent(new CustomEvent(AI_SETTINGS_REQUEST_EVENT));
+  }
+
   function start() {
     installApiParamCapture();
     captureExistingApiEntries();
+    bindFeedAiCapture();
     bindFeedAwardCapture();
     bindTopicBlockContextMenu();
     installLocalSettingsStateSync();
+    installAiSettingsSync();
     scheduleHandlePage();
     observePage();
     installRouteHooks();

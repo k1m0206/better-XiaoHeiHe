@@ -107,7 +107,11 @@ better-XiaoHeiHe/
   README.md
   scripts/
   src/
+    ai-bridge.js
     content.js
+    options.html
+    options.css
+    options.js
 ```
 
 ## 实现说明
@@ -118,6 +122,7 @@ better-XiaoHeiHe/
 - 首页、帖子详情页、话题链接页、个人主页和搜索页时调整页面布局，移除原右侧推荐栏。
 - 识别每条帖子链接 ID，请求评论接口并缓存结果。
 - 根据左侧帖子实际高度同步右侧评论预览高度。
+- 点击插件图标打开设置弹框，可配置 OpenAI 兼容 AI 接口；开启后帖子右上角三个点左侧显示 AI 总结按钮。
 - 离开适配页面时恢复原始左侧菜单位置。
 
 ## 接口说明
@@ -130,6 +135,12 @@ GET https://api.xiaoheihe.cn/bbs/app/comment/sub/comments
 GET https://api.xiaoheihe.cn/bbs/app/api/emojis/list
 POST https://api.xiaoheihe.cn/bbs/app/comment/support
 POST https://api.xiaoheihe.cn/bbs/app/profile/award/link
+```
+
+AI 总结功能开启后，会请求用户在插件设置弹框中配置的 OpenAI 兼容接口：
+
+```text
+POST {baseUrl}/chat/completions
 ```
 
 请求会复用页面中已出现过的基础参数，例如：
@@ -148,6 +159,8 @@ POST https://api.xiaoheihe.cn/bbs/app/profile/award/link
 
 评论列表接口会按页请求，第一页使用 `is_first=1&page=1`，继续滚动时使用 `is_first=0&page=2/3/...`，每页 `limit=20`。楼中楼更多回复接口使用 `root_comment_id` 和最后一条已展示回复的 `lastval` 继续请求。评论点赞接口使用 `comment_id` 和 `support_type=1` 提交点赞；内容点赞接口使用 `link_id` 和 `award_type=1` 提交点赞。
 
+AI 接口使用设置弹框中填写的 `baseUrl`、`model` 和可选 `apiKey`，请求体为 OpenAI 兼容 `chat/completions` 格式，会发送当前帖子标题、正文、话题和已加载或可请求到的第一页评论文本用于生成总结。
+
 接口签名参数 `hkey`、`_time`、`nonce` 在 `src/content.js` 中生成。后续如果修改接口参数或签名逻辑，需要同步更新代码里的接口注释和本文档。
 评论文本中的表情标记会根据表情列表接口返回的 `code` 和 `img` 映射成图片展示；表情列表只做运行时内存缓存。
 
@@ -155,5 +168,6 @@ POST https://api.xiaoheihe.cn/bbs/app/profile/award/link
 
 - 插件匹配 `https://www.xiaoheihe.cn/app/bbs`、`https://www.xiaoheihe.cn/app/topic/link`、`https://www.xiaoheihe.cn/app/user/profile`、`https://www.xiaoheihe.cn/app/user/favour`、`https://www.xiaoheihe.cn/app/search` 和它们的子路径。
 - 评论接口依赖当前网页登录态，未登录或登录态失效时可能无法展示评论。
+- AI 总结接口由用户自行配置，开启后帖子内容和评论文本会发送到该接口服务商。
 - 小黑盒网页结构或接口签名变化时，插件可能需要适配。
 - 本项目只在页面内做展示优化，不保存用户 Cookie 或登录凭据。

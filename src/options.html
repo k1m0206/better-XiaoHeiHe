@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Better XiaoHeiHe 设置</title>
+    <link rel="stylesheet" href="options.css">
+  </head>
+  <body>
+    <main class="settings">
+      <section class="panel">
+        <div class="header">
+          <div>
+            <h1>AI 总结</h1>
+            <p>开启后，帖子右上角会出现 AI 按钮，可结合帖子和评论生成总结。</p>
+          </div>
+          <label class="switch">
+            <input id="enabled" type="checkbox">
+            <span></span>
+          </label>
+        </div>
+
+        <label class="field">
+          <span>Base URL</span>
+          <input id="baseUrl" type="url" placeholder="https://api.openai.com/v1">
+        </label>
+
+        <label class="field">
+          <span>模型</span>
+          <input id="model" type="text" placeholder="gpt-4.1-mini">
+        </label>
+
+        <label class="field">
+          <span>API Key</span>
+          <input id="apiKey" type="password" autocomplete="off" placeholder="sk-...">
+        </label>
+
+        <div class="actions">
+          <button id="test" type="button">测试连通</button>
+          <span id="status" role="status"></span>
+        </div>
+      </section>
+    </main>
+    <script src="options.js"></script>
+  </body>
+</html>
