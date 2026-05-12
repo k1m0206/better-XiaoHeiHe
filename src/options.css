@@ -1,0 +1,155 @@
+:root {
+  color-scheme: light;
+  font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+  width: 420px;
+  background: #fff;
+  color: #14191e;
+}
+
+body {
+  width: 420px;
+  margin: 0;
+  overflow: hidden;
+}
+
+.settings {
+  box-sizing: border-box;
+  padding: 14px;
+}
+
+.panel {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0 auto;
+  padding: 18px;
+  border: 1px solid #e6ebf0;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: none;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 22px;
+}
+
+h1 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  line-height: 24px;
+}
+
+p {
+  margin: 0;
+  color: #68727d;
+  font-size: 14px;
+  line-height: 22px;
+}
+
+.switch {
+  display: inline-flex;
+  flex: 0 0 auto;
+  cursor: pointer;
+}
+
+.switch input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+}
+
+.switch span {
+  box-sizing: border-box;
+  position: relative;
+  width: 48px;
+  height: 26px;
+  border-radius: 999px;
+  background: #cfd6dd;
+  transition: background 0.18s ease;
+}
+
+.switch span::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(20, 25, 30, 0.24);
+  transition: transform 0.18s ease;
+}
+
+.switch input:checked + span {
+  background: #2775d1;
+}
+
+.switch input:checked + span::after {
+  transform: translateX(22px);
+}
+
+.field {
+  display: block;
+  margin-bottom: 16px;
+}
+
+.field span {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 18px;
+}
+
+.field input {
+  box-sizing: border-box;
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid #d8dfe6;
+  border-radius: 6px;
+  outline: none;
+  font-size: 14px;
+}
+
+.field input:focus {
+  border-color: #2775d1;
+  box-shadow: 0 0 0 3px rgba(39, 117, 209, 0.12);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+button {
+  height: 36px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 6px;
+  background: #2775d1;
+  color: #fff;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+button:disabled {
+  cursor: default;
+  opacity: 0.65;
+}
+
+#status {
+  min-width: 0;
+  color: #68727d;
+  font-size: 13px;
+  line-height: 20px;
+}

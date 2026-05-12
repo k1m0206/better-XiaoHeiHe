@@ -4,6 +4,15 @@
   "short_name": "__MSG_extensionShortName__",
   "version": "0.1.4",
   "description": "__MSG_extensionDescription__",
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "action": {
+    "default_popup": "src/options.html"
+  },
   "default_locale": "zh_CN",
   "icons": {
     "16": "assets/icons/icon16.png",
@@ -12,6 +21,15 @@
     "128": "assets/icons/icon128.png"
   },
   "content_scripts": [
+    {
+      "matches": [
+        "https://www.xiaoheihe.cn/*"
+      ],
+      "js": [
+        "src/ai-bridge.js"
+      ],
+      "run_at": "document_start"
+    },
     {
       "matches": [
         "https://www.xiaoheihe.cn/*"
