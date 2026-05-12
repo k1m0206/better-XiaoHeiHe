@@ -35,6 +35,14 @@
           <input id="apiKey" type="password" autocomplete="off" placeholder="sk-...">
         </label>
 
+        <label class="field">
+          <span class="field-title">
+            总结提示词
+            <button id="resetPrompt" class="text-button" type="button">恢复默认</button>
+          </span>
+          <textarea id="summaryPrompt" rows="5"></textarea>
+        </label>
+
         <div class="actions">
           <button id="test" type="button">测试连通</button>
           <span id="status" role="status"></span>
