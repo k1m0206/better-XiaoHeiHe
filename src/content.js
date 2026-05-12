@@ -25,6 +25,7 @@
   const AI_SETTINGS_REQUEST_EVENT = "better-xiaoheihe-ai-settings-request";
   const AI_CHAT_REQUEST_EVENT = "better-xiaoheihe-ai-chat-request";
   const AI_CHAT_RESPONSE_EVENT = "better-xiaoheihe-ai-chat-response";
+  const DEFAULT_SUMMARY_PROMPT = "你是社区帖子总结助手。请用中文简洁总结帖子主旨、评论区主要观点、争议点或有用信息。不要编造不存在的信息。";
   const DEFAULT_USER_LEVEL = 6;
   const LEVEL_FILTER_MIN = 7;
   const LEVEL_FILTER_MAX = 18;
@@ -49,6 +50,7 @@
   const API_ORIGIN = "https://api.xiaoheihe.cn";
   const COMMENT_PAGE_LIMIT = 20;
   const SUB_COMMENT_PAGE_LIMIT = 20;
+  const SUMMARY_COMMENT_LIMIT = 50;
   const CAPTURED_API_PARAM_KEYS = [
     "os_type",
     "app",
@@ -86,6 +88,9 @@
   let feedAwardCaptureBound = false;
   let topicBlockContextMenuBound = false;
   let imageViewerKeydownBound = false;
+  let aiSummaryScrollLocked = false;
+  let aiSummaryPreviousBodyOverflow = "";
+  let aiSummaryPreviousDocumentOverflow = "";
   let activeImageViewerImages = [];
   let activeImageViewerIndex = 0;
   let documentOverflowBeforeImageViewer = "";
@@ -233,7 +238,8 @@
       enabled: settings?.enabled === true,
       baseUrl: String(settings?.baseUrl || "").trim().replace(/\/+$/, ""),
       model: String(settings?.model || "").trim(),
-      apiKey: String(settings?.apiKey || "")
+      apiKey: String(settings?.apiKey || ""),
+      summaryPrompt: String(settings?.summaryPrompt || "").trim() || DEFAULT_SUMMARY_PROMPT
     };
   }
 
@@ -1638,6 +1644,7 @@
         justify-content: center;
         padding: 20px;
         background: rgba(20, 25, 30, 0.46);
+        overscroll-behavior: contain;
       }
 
       .${AI_SUMMARY_MODAL_CLASS}[hidden] {
@@ -1674,6 +1681,18 @@
         line-height: 22px;
         text-overflow: ellipsis;
         white-space: nowrap;
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__meta {
+        flex: 0 0 auto;
+        color: #8a9299;
+        font-size: 12px;
+        line-height: 18px;
+        white-space: nowrap;
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__meta:empty {
+        display: none;
       }
 
       .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__actions {
@@ -1724,6 +1743,7 @@
         color: #2f3842;
         font-size: 14px;
         line-height: 1.75;
+        overscroll-behavior: contain;
       }
 
       .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__body.is-muted {
@@ -3969,6 +3989,28 @@
       .join("\n");
   }
 
+  function getFeedItemAuthorText(item) {
+    return item.querySelector(".header__user .list-content__username, .header__user .name, .list-content__username")?.textContent?.trim() || "";
+  }
+
+  function normalizeSummaryImageUrl(url) {
+    try {
+      const parsedUrl = new URL(url, window.location.href);
+      return /^https?:$/.test(parsedUrl.protocol) ? parsedUrl.href : "";
+    } catch {
+      return "";
+    }
+  }
+
+  function getFeedItemImageUrls(item) {
+    const ignoredContainers = ".header__user, .list-content__avatar, .hb-cpt-avatar, .better-comment-preview__images";
+    return Array.from(item.querySelectorAll("img"))
+      .filter((image) => !image.closest(ignoredContainers))
+      .map((image) => normalizeSummaryImageUrl(image.currentSrc || image.src || image.getAttribute("data-src") || ""))
+      .filter(Boolean)
+      .filter((url, index, urls) => urls.indexOf(url) === index);
+  }
+
   function getLevelFromElement(container) {
     const levelElement = container?.querySelector?.(
       '.level-tag__wrapper[class*="level-"], .list-content__level .level-tag__wrapper, .hb-cpt__level-tag .level-tag__wrapper'
@@ -4193,6 +4235,7 @@
       <div class="better-ai-summary__dialog" role="dialog" aria-modal="true" aria-labelledby="better-ai-summary-title">
         <div class="better-ai-summary__header">
           <div class="better-ai-summary__title" id="better-ai-summary-title">AI 总结</div>
+          <div class="better-ai-summary__meta"></div>
           <div class="better-ai-summary__actions">
             <button class="better-ai-summary__regenerate" type="button">重新总结</button>
             <button class="better-ai-summary__close" type="button" aria-label="关闭">×</button>
@@ -4207,13 +4250,13 @@
       }
 
       if (event.target === modal || event.target.closest(".better-ai-summary__close")) {
-        modal.hidden = true;
+        closeAiSummaryModal();
         return;
       }
 
       if (event.target.closest(".better-ai-summary__regenerate")) {
         const linkId = modal.dataset.linkId || "";
-        modal.hidden = true;
+        closeAiSummaryModal();
         if (linkId) {
           aiSummaryCache.delete(linkId);
           const item = findFeedItemByLinkId(linkId);
@@ -4228,18 +4271,75 @@
     return modal;
   }
 
-  function setAiSummaryModal(title, content, muted = false, linkId = "") {
+  function lockAiSummaryPageScroll() {
+    if (aiSummaryScrollLocked) {
+      return;
+    }
+
+    aiSummaryScrollLocked = true;
+    aiSummaryPreviousBodyOverflow = document.body.style.overflow;
+    aiSummaryPreviousDocumentOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+  }
+
+  function unlockAiSummaryPageScroll() {
+    if (!aiSummaryScrollLocked) {
+      return;
+    }
+
+    aiSummaryScrollLocked = false;
+    document.body.style.overflow = aiSummaryPreviousBodyOverflow;
+    document.documentElement.style.overflow = aiSummaryPreviousDocumentOverflow;
+    aiSummaryPreviousBodyOverflow = "";
+    aiSummaryPreviousDocumentOverflow = "";
+  }
+
+  function closeAiSummaryModal() {
+    const modal = document.querySelector(`.${AI_SUMMARY_MODAL_CLASS}`);
+    if (modal) {
+      modal.hidden = true;
+    }
+    unlockAiSummaryPageScroll();
+  }
+
+  function formatSummaryElapsedSeconds(elapsedMs) {
+    const seconds = Number(elapsedMs) / 1000;
+    return Number.isFinite(seconds) && seconds >= 0 ? seconds.toFixed(1) : "";
+  }
+
+  function normalizeAiSummaryCacheEntry(entry) {
+    if (entry && typeof entry === "object") {
+      return {
+        content: String(entry.content || ""),
+        elapsedMs: Number.isFinite(entry.elapsedMs) ? entry.elapsedMs : null
+      };
+    }
+
+    return {
+      content: String(entry || ""),
+      elapsedMs: null
+    };
+  }
+
+  function setAiSummaryModal(title, content, muted = false, linkId = "", elapsedMs = null) {
     const modal = ensureAiSummaryModal();
     const titleElement = modal.querySelector(".better-ai-summary__title");
+    const metaElement = modal.querySelector(".better-ai-summary__meta");
     const body = modal.querySelector(".better-ai-summary__body");
     modal.dataset.linkId = linkId || "";
     if (titleElement) {
       titleElement.textContent = title || "AI 总结";
     }
+    if (metaElement) {
+      const elapsedSeconds = formatSummaryElapsedSeconds(elapsedMs);
+      metaElement.textContent = elapsedSeconds ? `总结耗时 ${elapsedSeconds} 秒` : "";
+    }
     if (body) {
       body.innerHTML = muted ? escapeHtml(content || "") : renderMarkdown(content || "");
       body.classList.toggle("is-muted", muted);
     }
+    lockAiSummaryPageScroll();
     modal.hidden = false;
   }
 
@@ -4263,7 +4363,7 @@
     }
 
     const firstLine = lines[0] || "";
-    const heading = firstLine.match(/^(#{1,3})\s+(.+)$/);
+    const heading = firstLine.match(/^(#{1,3})\s*(.+)$/);
     if (heading && lines.length === 1) {
       const level = heading[1].length;
       return `<h${level}>${renderInlineMarkdown(heading[2])}</h${level}>`;
@@ -4287,14 +4387,36 @@
   function renderMarkdown(markdown) {
     const lines = String(markdown || "").replace(/\r\n?/g, "\n").split("\n");
     const blocks = [];
-    let paragraph = [];
+    let blockLines = [];
+    let blockType = "";
     let codeLines = [];
     let inCodeBlock = false;
 
-    const flushParagraph = () => {
-      if (paragraph.length) {
-        blocks.push(renderMarkdownBlock(paragraph));
-        paragraph = [];
+    const getLineType = (line) => {
+      if (/^(#{1,3})\s*.+$/.test(line)) {
+        return "heading";
+      }
+
+      if (/^\s*[-*]\s+/.test(line)) {
+        return "unordered-list";
+      }
+
+      if (/^\s*\d+\.\s+/.test(line)) {
+        return "ordered-list";
+      }
+
+      if (/^\s*>\s?/.test(line)) {
+        return "blockquote";
+      }
+
+      return "paragraph";
+    };
+
+    const flushBlock = () => {
+      if (blockLines.length) {
+        blocks.push(renderMarkdownBlock(blockLines));
+        blockLines = [];
+        blockType = "";
       }
     };
 
@@ -4305,7 +4427,7 @@
           codeLines = [];
           inCodeBlock = false;
         } else {
-          flushParagraph();
+          flushBlock();
           inCodeBlock = true;
         }
         return;
@@ -4317,17 +4439,29 @@
       }
 
       if (!line.trim()) {
-        flushParagraph();
+        flushBlock();
         return;
       }
 
-      paragraph.push(line);
+      const lineType = getLineType(line);
+      if (lineType === "heading") {
+        flushBlock();
+        blocks.push(renderMarkdownBlock([line]));
+        return;
+      }
+
+      if (blockType && blockType !== lineType) {
+        flushBlock();
+      }
+
+      blockType = lineType;
+      blockLines.push(line);
     });
 
     if (inCodeBlock) {
       blocks.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
     }
-    flushParagraph();
+    flushBlock();
     return blocks.join("");
   }
 
@@ -4357,14 +4491,18 @@
 
   function getFeedItemSummaryPayload(item, linkId, commentLines) {
     const title = item.querySelector(".bbs-content__title")?.textContent?.trim() || "";
+    const author = getFeedItemAuthorText(item);
     const content = item.querySelector(".bbs-content__content")?.textContent?.trim() || "";
     const topic = getFeedItemTopicText(item);
+    const imageUrls = getFeedItemImageUrls(item);
     return [
       `帖子 ID：${linkId}`,
       title ? `标题：${title}` : "",
+      author ? `作者：${author}` : "",
       content ? `正文：${content}` : "",
+      imageUrls.length ? `正文图片链接：\n${imageUrls.join("\n")}` : "",
       topic ? `话题：${topic}` : "",
-      commentLines.length ? `评论区：\n${commentLines.slice(0, 80).join("\n")}` : "评论区：暂无已加载评论"
+      commentLines.length ? `评论区（最多 ${SUMMARY_COMMENT_LIMIT} 条）：\n${commentLines.slice(0, SUMMARY_COMMENT_LIMIT).join("\n")}` : "评论区：暂无已加载评论"
     ].filter(Boolean).join("\n\n");
   }
 
@@ -4447,7 +4585,8 @@
 
     const title = item.querySelector(".bbs-content__title")?.textContent?.trim() || "AI 总结";
     if (!options.force && aiSummaryCache.has(linkId)) {
-      setAiSummaryModal(title, aiSummaryCache.get(linkId), false, linkId);
+      const cachedSummary = normalizeAiSummaryCacheEntry(aiSummaryCache.get(linkId));
+      setAiSummaryModal(title, cachedSummary.content, false, linkId, cachedSummary.elapsedMs);
       return;
     }
 
@@ -4457,11 +4596,12 @@
     }
 
     setAiButtonLoading(button, true);
+    const summaryStartTime = performance.now();
     ensureSummaryComments(linkId).then((commentLines) => {
       return requestAiChat([
         {
           role: "system",
-          content: "你是社区帖子总结助手。请用中文简洁总结帖子主旨、评论区主要观点、争议点或有用信息。不要编造不存在的信息。"
+          content: aiSettings.summaryPrompt
         },
         {
           role: "user",
@@ -4469,11 +4609,12 @@
         }
       ]);
     }).then((summary) => {
+      const elapsedMs = performance.now() - summaryStartTime;
       const content = summary || "没有生成总结。";
-      aiSummaryCache.set(linkId, content);
-      setAiSummaryModal(title, content, false, linkId);
+      aiSummaryCache.set(linkId, { content, elapsedMs });
+      setAiSummaryModal(title, content, false, linkId, elapsedMs);
     }).catch((error) => {
-      setAiSummaryModal(title, error?.message || "AI 总结失败", true, linkId);
+      setAiSummaryModal(title, error?.message || "AI 总结失败", true, linkId, performance.now() - summaryStartTime);
     }).finally(() => {
       setAiButtonLoading(button, false);
     });

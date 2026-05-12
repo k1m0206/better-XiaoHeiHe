@@ -1,9 +1,12 @@
 (function () {
   const AI_SETTINGS_STORAGE_KEY = "better-xiaoheihe-ai-settings";
+  const DEFAULT_SUMMARY_PROMPT = "你是社区帖子总结助手。请用中文简洁总结帖子主旨、评论区主要观点、争议点或有用信息。不要编造不存在的信息。";
   const enabledInput = document.getElementById("enabled");
   const baseUrlInput = document.getElementById("baseUrl");
   const modelInput = document.getElementById("model");
   const apiKeyInput = document.getElementById("apiKey");
+  const summaryPromptInput = document.getElementById("summaryPrompt");
+  const resetPromptButton = document.getElementById("resetPrompt");
   const testButton = document.getElementById("test");
   const statusElement = document.getElementById("status");
 
@@ -12,7 +15,8 @@
       enabled: settings?.enabled === true,
       baseUrl: String(settings?.baseUrl || "").trim().replace(/\/+$/, ""),
       model: String(settings?.model || "").trim(),
-      apiKey: String(settings?.apiKey || "")
+      apiKey: String(settings?.apiKey || ""),
+      summaryPrompt: String(settings?.summaryPrompt || "").trim() || DEFAULT_SUMMARY_PROMPT
     };
   }
 
@@ -21,7 +25,8 @@
       enabled: enabledInput.checked,
       baseUrl: baseUrlInput.value,
       model: modelInput.value,
-      apiKey: apiKeyInput.value
+      apiKey: apiKeyInput.value,
+      summaryPrompt: summaryPromptInput.value
     });
   }
 
@@ -42,6 +47,7 @@
     baseUrlInput.value = normalized.baseUrl;
     modelInput.value = normalized.model;
     apiKeyInput.value = normalized.apiKey;
+    summaryPromptInput.value = normalized.summaryPrompt;
   }
 
   function buildChatUrl(baseUrl) {
@@ -90,13 +96,20 @@
     }
   }
 
+  function resetSummaryPrompt() {
+    summaryPromptInput.value = DEFAULT_SUMMARY_PROMPT;
+    saveSettings();
+    setStatus("已恢复默认提示词", false);
+  }
+
   chrome.storage.local.get(AI_SETTINGS_STORAGE_KEY, (result) => {
     fillForm(result?.[AI_SETTINGS_STORAGE_KEY]);
   });
 
-  [enabledInput, baseUrlInput, modelInput, apiKeyInput].forEach((input) => {
+  [enabledInput, baseUrlInput, modelInput, apiKeyInput, summaryPromptInput].forEach((input) => {
     input.addEventListener("change", saveSettings);
     input.addEventListener("input", saveSettings);
   });
+  resetPromptButton.addEventListener("click", resetSummaryPrompt);
   testButton.addEventListener("click", testConnection);
 })();
