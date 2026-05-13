@@ -26,22 +26,40 @@
   "content_scripts": [
     {
       "matches": [
-        "https://www.xiaoheihe.cn/*"
+        "https://www.xiaoheihe.cn/app/bbs",
+        "https://www.xiaoheihe.cn/app/bbs/*",
+        "https://www.xiaoheihe.cn/app/topic/link",
+        "https://www.xiaoheihe.cn/app/topic/link/*",
+        "https://www.xiaoheihe.cn/app/user/profile",
+        "https://www.xiaoheihe.cn/app/user/profile/*",
+        "https://www.xiaoheihe.cn/app/user/favour",
+        "https://www.xiaoheihe.cn/app/user/favour/*",
+        "https://www.xiaoheihe.cn/app/search",
+        "https://www.xiaoheihe.cn/app/search/*"
       ],
       "js": [
-        "src/ai-bridge.js"
+        "src/page-hooks.js"
       ],
-      "run_at": "document_start"
+      "run_at": "document_start",
+      "world": "MAIN"
     },
     {
       "matches": [
-        "https://www.xiaoheihe.cn/*"
+        "https://www.xiaoheihe.cn/app/bbs",
+        "https://www.xiaoheihe.cn/app/bbs/*",
+        "https://www.xiaoheihe.cn/app/topic/link",
+        "https://www.xiaoheihe.cn/app/topic/link/*",
+        "https://www.xiaoheihe.cn/app/user/profile",
+        "https://www.xiaoheihe.cn/app/user/profile/*",
+        "https://www.xiaoheihe.cn/app/user/favour",
+        "https://www.xiaoheihe.cn/app/user/favour/*",
+        "https://www.xiaoheihe.cn/app/search",
+        "https://www.xiaoheihe.cn/app/search/*"
       ],
       "js": [
         "src/content.js"
       ],
-      "run_at": "document_start",
-      "world": "MAIN"
+      "run_at": "document_start"
     }
   ]
 }

@@ -21,11 +21,7 @@
   const HIDE_CY_COMMENTS_STORAGE_KEY = "better-xiaoheihe-hide-cy-comments";
   const BLOCKED_KEYWORDS_STORAGE_KEY = "better-xiaoheihe-blocked-keywords";
   const LEVEL_FILTERS_STORAGE_KEY = "better-xiaoheihe-level-filters";
-  const AI_SETTINGS_EVENT = "better-xiaoheihe-ai-settings";
-  const AI_SETTINGS_REQUEST_EVENT = "better-xiaoheihe-ai-settings-request";
-  const AI_SETTINGS_OPEN_EVENT = "better-xiaoheihe-ai-settings-open";
-  const AI_CHAT_REQUEST_EVENT = "better-xiaoheihe-ai-chat-request";
-  const AI_CHAT_RESPONSE_EVENT = "better-xiaoheihe-ai-chat-response";
+  const ROUTE_CHANGE_EVENT = "better-xiaoheihe-route-change";
   const DEFAULT_SUMMARY_PROMPT = "你是社区帖子总结助手，请用中文简洁输出：\n\n帖子总结\n一句话概括帖子核心内容。\n\n评论区信息\n提取评论区里有价值的观点、经验、补充或避坑信息，没有则跳过。\n\nAI评论\n像真实网友一样简短评价或补充观点，避免AI味。返回md格式。";
   const DEFAULT_USER_LEVEL = 6;
   const LEVEL_FILTER_MIN = 7;
@@ -72,11 +68,10 @@
   const aiSummaryCache = new Map();
   const blockedKeywordHitKeys = new Set();
   const capturedApiParams = {};
-  let hideCyComments = readHideCyCommentsState();
-  let blockedKeywords = readBlockedKeywordsState();
-  let levelFilters = readLevelFiltersState();
+  let hideCyComments = false;
+  let blockedKeywords = [];
+  let levelFilters = normalizeLevelFilters({});
   let aiSettings = normalizeAiSettings();
-  const aiPendingRequests = new Map();
   let activeBlockedKeywordScope = BLOCKED_KEYWORD_SCOPES.FEED;
   let hotSearchPromise = null;
   let leftMenuOriginalPosition = null;
@@ -113,31 +108,55 @@
     return window.location.pathname.startsWith("/app/search");
   }
 
-  function readHideCyCommentsState() {
+  function getStorage(keys) {
+    return new Promise((resolve) => {
+      chrome.storage.local.get(keys, (result) => {
+        resolve(result || {});
+      });
+    });
+  }
+
+  function setStorage(items) {
+    return new Promise((resolve) => {
+      chrome.storage.local.set(items, resolve);
+    });
+  }
+
+  function readLegacyLocalStorageValue(key) {
     try {
-      const savedValue = localStorage.getItem(HIDE_CY_COMMENTS_STORAGE_KEY);
-      return savedValue === "1" || savedValue === "true";
+      return localStorage.getItem(key);
     } catch {
-      return false;
+      return null;
     }
+  }
+
+  function removeLegacyLocalStorageKeys(keys) {
+    try {
+      keys.forEach((key) => localStorage.removeItem(key));
+    } catch {
+      // Keep legacy values if the page storage is unavailable.
+    }
+  }
+
+  function normalizeHideCyCommentsState(value) {
+    return value === true || value === "1" || value === "true";
   }
 
   function writeHideCyCommentsState(isHidden) {
-    try {
-      localStorage.setItem(HIDE_CY_COMMENTS_STORAGE_KEY, isHidden ? "1" : "0");
-    } catch {
-      // Ignore storage failures; the in-memory switch still works for the current page.
-    }
+    hideCyComments = Boolean(isHidden);
+    setStorage({
+      [HIDE_CY_COMMENTS_STORAGE_KEY]: hideCyComments
+    });
   }
 
-  function syncHideCyCommentsState() {
-    const savedState = readHideCyCommentsState();
-    if (savedState === hideCyComments) {
+  function syncHideCyCommentsState(savedState) {
+    const normalizedState = normalizeHideCyCommentsState(savedState);
+    if (normalizedState === hideCyComments) {
       syncCyToggleControls();
       return;
     }
 
-    hideCyComments = savedState;
+    hideCyComments = normalizedState;
     syncCyToggleControls();
     refreshAllCommentFilters();
   }
@@ -184,19 +203,9 @@
   }
 
   function persistBlockedKeywordsState() {
-    try {
-      localStorage.setItem(BLOCKED_KEYWORDS_STORAGE_KEY, JSON.stringify(serializeBlockedKeywordsState()));
-    } catch {
-      // Keep the in-memory keywords for the current page if localStorage is unavailable.
-    }
-  }
-
-  function readBlockedKeywordsState() {
-    try {
-      return normalizeBlockedKeywords(JSON.parse(localStorage.getItem(BLOCKED_KEYWORDS_STORAGE_KEY) || "[]"));
-    } catch {
-      return [];
-    }
+    setStorage({
+      [BLOCKED_KEYWORDS_STORAGE_KEY]: serializeBlockedKeywordsState()
+    });
   }
 
   function writeBlockedKeywordsState(keywords) {
@@ -230,11 +239,15 @@
     }, {});
   }
 
-  function readLevelFiltersState() {
+  function parseLegacyJson(value, fallback) {
+    if (!value) {
+      return fallback;
+    }
+
     try {
-      return normalizeLevelFilters(JSON.parse(localStorage.getItem(LEVEL_FILTERS_STORAGE_KEY) || "{}"));
+      return JSON.parse(value);
     } catch {
-      return normalizeLevelFilters({});
+      return fallback;
     }
   }
 
@@ -243,7 +256,6 @@
       enabled: settings?.enabled !== false,
       baseUrl: String(settings?.baseUrl || "").trim().replace(/\/+$/, ""),
       model: String(settings?.model || "").trim(),
-      apiKey: String(settings?.apiKey || ""),
       summaryPrompt: String(settings?.summaryPrompt || "").trim() || DEFAULT_SUMMARY_PROMPT
     };
   }
@@ -256,12 +268,28 @@
     return Boolean(aiSettings.baseUrl && aiSettings.model);
   }
 
-  function persistLevelFiltersState() {
-    try {
-      localStorage.setItem(LEVEL_FILTERS_STORAGE_KEY, JSON.stringify(levelFilters));
-    } catch {
-      // Keep the in-memory level filters for the current page if localStorage is unavailable.
+  function openAiSettings() {
+    chrome.runtime.sendMessage({ type: "better-xiaoheihe-open-ai-settings" });
+  }
+
+  function syncAiSettings(settings) {
+    const previousSettingsKey = JSON.stringify(aiSettings);
+    aiSettings = normalizeAiSettings(settings);
+    if (JSON.stringify(aiSettings) !== previousSettingsKey) {
+      aiSummaryCache.clear();
     }
+    syncAiSummaryButtons();
+  }
+
+  async function loadAiSettings() {
+    const result = await getStorage("better-xiaoheihe-ai-settings");
+    syncAiSettings(result?.["better-xiaoheihe-ai-settings"]);
+  }
+
+  function persistLevelFiltersState() {
+    setStorage({
+      [LEVEL_FILTERS_STORAGE_KEY]: levelFilters
+    });
   }
 
   function writeLevelFilterState(scope, nextFilter) {
@@ -276,27 +304,79 @@
     persistLevelFiltersState();
   }
 
-  function syncLevelFiltersState() {
-    const savedFilters = readLevelFiltersState();
-    if (JSON.stringify(savedFilters) === JSON.stringify(levelFilters)) {
+  function syncLevelFiltersState(savedFilters) {
+    const normalizedFilters = normalizeLevelFilters(savedFilters);
+    if (JSON.stringify(normalizedFilters) === JSON.stringify(levelFilters)) {
       renderSettingsPanel();
       return;
     }
 
-    levelFilters = savedFilters;
+    levelFilters = normalizedFilters;
     renderSettingsPanel();
     refreshAllKeywordFilters();
   }
 
-  function syncBlockedKeywordsState() {
-    const savedKeywords = readBlockedKeywordsState();
-    if (JSON.stringify(savedKeywords) === JSON.stringify(blockedKeywords)) {
+  function syncBlockedKeywordsState(savedKeywords) {
+    const normalizedKeywords = normalizeBlockedKeywords(savedKeywords);
+    if (JSON.stringify(normalizedKeywords) === JSON.stringify(blockedKeywords)) {
       return;
     }
 
-    blockedKeywords = savedKeywords;
+    blockedKeywords = normalizedKeywords;
     renderSettingsPanel();
     refreshAllKeywordFilters();
+  }
+
+  async function migrateLegacyLocalSettings(storedSettings) {
+    const updates = {};
+    const legacyKeysToRemove = [];
+
+    if (storedSettings[HIDE_CY_COMMENTS_STORAGE_KEY] === undefined) {
+      const legacyHideCy = readLegacyLocalStorageValue(HIDE_CY_COMMENTS_STORAGE_KEY);
+      if (legacyHideCy !== null) {
+        updates[HIDE_CY_COMMENTS_STORAGE_KEY] = normalizeHideCyCommentsState(legacyHideCy);
+        legacyKeysToRemove.push(HIDE_CY_COMMENTS_STORAGE_KEY);
+      }
+    }
+
+    if (storedSettings[BLOCKED_KEYWORDS_STORAGE_KEY] === undefined) {
+      const legacyBlockedKeywords = readLegacyLocalStorageValue(BLOCKED_KEYWORDS_STORAGE_KEY);
+      if (legacyBlockedKeywords !== null) {
+        updates[BLOCKED_KEYWORDS_STORAGE_KEY] = normalizeBlockedKeywords(parseLegacyJson(legacyBlockedKeywords, []));
+        legacyKeysToRemove.push(BLOCKED_KEYWORDS_STORAGE_KEY);
+      }
+    }
+
+    if (storedSettings[LEVEL_FILTERS_STORAGE_KEY] === undefined) {
+      const legacyLevelFilters = readLegacyLocalStorageValue(LEVEL_FILTERS_STORAGE_KEY);
+      if (legacyLevelFilters !== null) {
+        updates[LEVEL_FILTERS_STORAGE_KEY] = normalizeLevelFilters(parseLegacyJson(legacyLevelFilters, {}));
+        legacyKeysToRemove.push(LEVEL_FILTERS_STORAGE_KEY);
+      }
+    }
+
+    if (!Object.keys(updates).length) {
+      return storedSettings;
+    }
+
+    await setStorage(updates);
+    removeLegacyLocalStorageKeys(legacyKeysToRemove);
+    return {
+      ...storedSettings,
+      ...updates
+    };
+  }
+
+  async function loadLocalSettingsState() {
+    const keys = [
+      HIDE_CY_COMMENTS_STORAGE_KEY,
+      BLOCKED_KEYWORDS_STORAGE_KEY,
+      LEVEL_FILTERS_STORAGE_KEY
+    ];
+    const storedSettings = await migrateLegacyLocalSettings(await getStorage(keys));
+    syncHideCyCommentsState(storedSettings[HIDE_CY_COMMENTS_STORAGE_KEY]);
+    syncBlockedKeywordsState(storedSettings[BLOCKED_KEYWORDS_STORAGE_KEY]);
+    syncLevelFiltersState(storedSettings[LEVEL_FILTERS_STORAGE_KEY]);
   }
 
   function injectLayoutStyle() {
@@ -3748,7 +3828,7 @@
       <div class="better-image-viewer__counter"></div>
     `;
     viewer.addEventListener("click", (event) => {
-      if (!(event.target instanceof Element)) {
+      if (!(event.target instanceof Element) || !event.isTrusted) {
         return;
       }
 
@@ -3872,7 +3952,7 @@
 
     preview.dataset.actionsBound = "1";
     preview.addEventListener("click", (event) => {
-      if (!(event.target instanceof Element)) {
+      if (!(event.target instanceof Element) || !event.isTrusted) {
         return;
       }
 
@@ -4271,7 +4351,7 @@
       </div>
     `;
     modal.addEventListener("click", (event) => {
-      if (!(event.target instanceof Element)) {
+      if (!(event.target instanceof Element) || !event.isTrusted) {
         return;
       }
 
@@ -4605,38 +4685,26 @@
 
   function requestAiChat(messages, temperature = 0.2) {
     return new Promise((resolve, reject) => {
-      const id = `better-ai-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-      const timeout = window.setTimeout(() => {
-        aiPendingRequests.delete(id);
-        reject(new Error("AI 请求超时"));
-      }, 60000);
-
-      aiPendingRequests.set(id, { resolve, reject, timeout });
-      window.dispatchEvent(new CustomEvent(AI_CHAT_REQUEST_EVENT, {
+      chrome.runtime.sendMessage({
+        type: "better-xiaoheihe-ai-chat",
         detail: {
-          id,
-          settings: aiSettings,
           messages,
           temperature
         }
-      }));
+      }, (response) => {
+        const error = chrome.runtime.lastError;
+        if (error) {
+          reject(new Error(error.message || "AI 请求失败"));
+          return;
+        }
+
+        if (response?.ok) {
+          resolve(response.content || "");
+        } else {
+          reject(new Error(response?.error || "AI 请求失败"));
+        }
+      });
     });
-  }
-
-  function handleAiChatResponse(event) {
-    const detail = event.detail || {};
-    const pending = aiPendingRequests.get(detail.id);
-    if (!pending) {
-      return;
-    }
-
-    window.clearTimeout(pending.timeout);
-    aiPendingRequests.delete(detail.id);
-    if (detail.ok) {
-      pending.resolve(detail.content || "");
-    } else {
-      pending.reject(new Error(detail.error || "AI 请求失败"));
-    }
   }
 
   function hasLoadedAllSummaryComments(state) {
@@ -4708,7 +4776,7 @@
     }
 
     if (!isAiConfigured()) {
-      window.dispatchEvent(new CustomEvent(AI_SETTINGS_OPEN_EVENT));
+      openAiSettings();
       return;
     }
 
@@ -4751,7 +4819,7 @@
     }
 
     if (!isAiConfigured()) {
-      window.dispatchEvent(new CustomEvent(AI_SETTINGS_OPEN_EVENT));
+      openAiSettings();
       return;
     }
 
@@ -4787,7 +4855,7 @@
 
     item.dataset.betterActionsBound = "1";
     item.addEventListener("click", (event) => {
-      if (!(event.target instanceof Element)) {
+      if (!(event.target instanceof Element) || !event.isTrusted) {
         return;
       }
 
@@ -4818,7 +4886,7 @@
 
     feedAwardCaptureBound = true;
     document.addEventListener("click", (event) => {
-      if (!(event.target instanceof Element)) {
+      if (!(event.target instanceof Element) || !event.isTrusted) {
         return;
       }
 
@@ -4847,7 +4915,7 @@
 
     topicBlockContextMenuBound = true;
     document.addEventListener("contextmenu", (event) => {
-      if (!(event.target instanceof Element) || !document.documentElement.classList.contains(HOME_LAYOUT_CLASS)) {
+      if (!(event.target instanceof Element) || !event.isTrusted || !document.documentElement.classList.contains(HOME_LAYOUT_CLASS)) {
         return;
       }
 
@@ -4890,7 +4958,7 @@
     `;
     menu.addEventListener("click", (event) => {
       event.stopPropagation();
-      if (!(event.target instanceof Element) || !event.target.closest(".better-topic-block-menu__button")) {
+      if (!(event.target instanceof Element) || !event.isTrusted || !event.target.closest(".better-topic-block-menu__button")) {
         return;
       }
 
@@ -5329,7 +5397,7 @@
     panel.hidden = true;
     panel.addEventListener("click", (event) => {
       event.stopPropagation();
-      if (!(event.target instanceof Element)) {
+      if (!(event.target instanceof Element) || !event.isTrusted) {
         return;
       }
 
@@ -5346,7 +5414,7 @@
       }
     });
     panel.addEventListener("input", (event) => {
-      if (!(event.target instanceof Element)) {
+      if (!(event.target instanceof Element) || !event.isTrusted) {
         return;
       }
 
@@ -5365,7 +5433,7 @@
       }
     });
     panel.addEventListener("change", (event) => {
-      if (!(event.target instanceof Element)) {
+      if (!(event.target instanceof Element) || !event.isTrusted) {
         return;
       }
 
@@ -5382,6 +5450,10 @@
     });
     panel.addEventListener("submit", (event) => {
       event.preventDefault();
+      if (!event.isTrusted) {
+        return;
+      }
+
       const input = panel.querySelector(".better-settings__input");
       if (!input) {
         return;
@@ -5469,6 +5541,9 @@
       entry.setAttribute("aria-expanded", "false");
       entry.innerHTML = '<i class="hb-icon heybox-common_setting_line_24x24" aria-hidden="true">⚙</i>';
       entry.addEventListener("click", (event) => {
+        if (!event.isTrusted) {
+          return;
+        }
         event.preventDefault();
         event.stopPropagation();
         toggleSettingsPanel(entry);
@@ -5573,6 +5648,9 @@
       button.setAttribute("aria-label", "AI 总结");
       button.textContent = "AI";
       button.addEventListener("click", (event) => {
+        if (!event.isTrusted) {
+          return;
+        }
         event.preventDefault();
         event.stopPropagation();
         summarizeLinkPage(button);
@@ -5621,7 +5699,10 @@
       toggleButton.append(switchSpan, labelSpan);
       toolbar.append(toggleButton, countSpan);
 
-      toggleButton.addEventListener('click', () => {
+      toggleButton.addEventListener('click', (event) => {
+        if (!event.isTrusted) {
+          return;
+        }
         setHideCyComments(!hideCyComments);
       });
 
@@ -5699,33 +5780,23 @@
 
   function installRouteHooks() {
     window.addEventListener("popstate", scheduleHandlePage);
-
-    const originalPushState = history.pushState;
-    const originalReplaceState = history.replaceState;
-
-    history.pushState = function (...args) {
-      const result = originalPushState.apply(this, args);
-      scheduleHandlePage();
-      return result;
-    };
-
-    history.replaceState = function (...args) {
-      const result = originalReplaceState.apply(this, args);
-      scheduleHandlePage();
-      return result;
-    };
+    window.addEventListener(ROUTE_CHANGE_EVENT, scheduleHandlePage);
   }
 
   function installLocalSettingsStateSync() {
-    window.addEventListener("storage", (event) => {
-      if (event.key === HIDE_CY_COMMENTS_STORAGE_KEY) {
-        syncHideCyCommentsState();
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+      if (areaName !== "local") {
+        return;
       }
-      if (event.key === BLOCKED_KEYWORDS_STORAGE_KEY) {
-        syncBlockedKeywordsState();
+
+      if (changes[HIDE_CY_COMMENTS_STORAGE_KEY]) {
+        syncHideCyCommentsState(changes[HIDE_CY_COMMENTS_STORAGE_KEY].newValue);
       }
-      if (event.key === LEVEL_FILTERS_STORAGE_KEY) {
-        syncLevelFiltersState();
+      if (changes[BLOCKED_KEYWORDS_STORAGE_KEY]) {
+        syncBlockedKeywordsState(changes[BLOCKED_KEYWORDS_STORAGE_KEY].newValue);
+      }
+      if (changes[LEVEL_FILTERS_STORAGE_KEY]) {
+        syncLevelFiltersState(changes[LEVEL_FILTERS_STORAGE_KEY].newValue);
       }
     });
   }
@@ -5737,7 +5808,7 @@
 
     feedAiCaptureBound = true;
     document.addEventListener("click", (event) => {
-      if (!(event.target instanceof Element)) {
+      if (!(event.target instanceof Element) || !event.isTrusted) {
         return;
       }
 
@@ -5760,19 +5831,15 @@
   }
 
   function installAiSettingsSync() {
-    window.addEventListener(AI_SETTINGS_EVENT, (event) => {
-      const previousSettingsKey = JSON.stringify(aiSettings);
-      aiSettings = normalizeAiSettings(event.detail);
-      if (JSON.stringify(aiSettings) !== previousSettingsKey) {
-        aiSummaryCache.clear();
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+      if (areaName === "local" && changes["better-xiaoheihe-ai-settings"]) {
+        syncAiSettings(changes["better-xiaoheihe-ai-settings"].newValue);
       }
-      syncAiSummaryButtons();
     });
-    window.addEventListener(AI_CHAT_RESPONSE_EVENT, handleAiChatResponse);
-    window.dispatchEvent(new CustomEvent(AI_SETTINGS_REQUEST_EVENT));
+    loadAiSettings();
   }
 
-  function start() {
+  async function start() {
     installApiParamCapture();
     captureExistingApiEntries();
     bindFeedAiCapture();
@@ -5780,6 +5847,7 @@
     bindTopicBlockContextMenu();
     installLocalSettingsStateSync();
     installAiSettingsSync();
+    await loadLocalSettingsState();
     scheduleHandlePage();
     observePage();
     installRouteHooks();
