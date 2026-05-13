@@ -1,14 +1,29 @@
 (function () {
-  const DEFAULT_SUMMARY_PROMPT = "你是社区帖子总结助手。请用中文简洁总结帖子主旨、评论区主要观点、争议点或有用信息。不要编造不存在的信息。";
+  const DEFAULT_SUMMARY_PROMPT = "你是社区帖子总结助手，请用中文简洁输出：\n\n帖子总结\n一句话概括帖子核心内容。\n\n评论区信息\n提取评论区里有价值的观点、经验、补充或避坑信息，没有则跳过。\n\nAI评论\n像真实网友一样简短评价或补充观点，避免AI味。返回md格式。";
 
   function normalizeAiSettings(settings) {
     return {
-      enabled: settings?.enabled === true,
+      enabled: settings?.enabled !== false,
       baseUrl: String(settings?.baseUrl || "").trim().replace(/\/+$/, ""),
       model: String(settings?.model || "").trim(),
       apiKey: String(settings?.apiKey || ""),
       summaryPrompt: String(settings?.summaryPrompt || "").trim() || DEFAULT_SUMMARY_PROMPT
     };
+  }
+
+  function openAiSettings() {
+    const url = chrome.runtime.getURL("src/options.html");
+    if (chrome.windows?.create) {
+      chrome.windows.create({
+        url,
+        type: "popup",
+        width: 470,
+        height: 680
+      });
+      return;
+    }
+
+    chrome.tabs.create({ url });
   }
 
   function buildChatUrl(baseUrl) {
@@ -61,6 +76,11 @@
   }
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (message?.type === "better-xiaoheihe-open-ai-settings") {
+      openAiSettings();
+      return false;
+    }
+
     if (message?.type !== "better-xiaoheihe-ai-chat") {
       return false;
     }

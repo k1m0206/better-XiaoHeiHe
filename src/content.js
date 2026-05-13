@@ -23,9 +23,10 @@
   const LEVEL_FILTERS_STORAGE_KEY = "better-xiaoheihe-level-filters";
   const AI_SETTINGS_EVENT = "better-xiaoheihe-ai-settings";
   const AI_SETTINGS_REQUEST_EVENT = "better-xiaoheihe-ai-settings-request";
+  const AI_SETTINGS_OPEN_EVENT = "better-xiaoheihe-ai-settings-open";
   const AI_CHAT_REQUEST_EVENT = "better-xiaoheihe-ai-chat-request";
   const AI_CHAT_RESPONSE_EVENT = "better-xiaoheihe-ai-chat-response";
-  const DEFAULT_SUMMARY_PROMPT = "你是社区帖子总结助手。请用中文简洁总结帖子主旨、评论区主要观点、争议点或有用信息。不要编造不存在的信息。";
+  const DEFAULT_SUMMARY_PROMPT = "你是社区帖子总结助手，请用中文简洁输出：\n\n帖子总结\n一句话概括帖子核心内容。\n\n评论区信息\n提取评论区里有价值的观点、经验、补充或避坑信息，没有则跳过。\n\nAI评论\n像真实网友一样简短评价或补充观点，避免AI味。返回md格式。";
   const DEFAULT_USER_LEVEL = 6;
   const LEVEL_FILTER_MIN = 7;
   const LEVEL_FILTER_MAX = 18;
@@ -50,7 +51,7 @@
   const API_ORIGIN = "https://api.xiaoheihe.cn";
   const COMMENT_PAGE_LIMIT = 20;
   const SUB_COMMENT_PAGE_LIMIT = 20;
-  const SUMMARY_COMMENT_LIMIT = 50;
+  const SUMMARY_COMMENT_LIMIT = 30;
   const CAPTURED_API_PARAM_KEYS = [
     "os_type",
     "app",
@@ -102,6 +103,10 @@
 
   function isLinkPage() {
     return LINK_PATH_REGEXP.test(window.location.pathname);
+  }
+
+  function getCurrentLinkId() {
+    return window.location.pathname.match(LINK_PATH_REGEXP)?.[1] || "";
   }
 
   function isSearchPage() {
@@ -235,7 +240,7 @@
 
   function normalizeAiSettings(settings = {}) {
     return {
-      enabled: settings?.enabled === true,
+      enabled: settings?.enabled !== false,
       baseUrl: String(settings?.baseUrl || "").trim().replace(/\/+$/, ""),
       model: String(settings?.model || "").trim(),
       apiKey: String(settings?.apiKey || ""),
@@ -243,8 +248,12 @@
     };
   }
 
-  function isAiEnabled() {
-    return aiSettings.enabled && aiSettings.baseUrl && aiSettings.model;
+  function isAiFeatureEnabled() {
+    return aiSettings.enabled;
+  }
+
+  function isAiConfigured() {
+    return Boolean(aiSettings.baseUrl && aiSettings.model);
   }
 
   function persistLevelFiltersState() {
@@ -1045,7 +1054,8 @@
         opacity: 0.75;
       }
 
-      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} .better-ai-summary-button {
+      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} .better-ai-summary-button,
+      .${HOME_LAYOUT_CLASS} .link-comment .better-ai-summary-button {
         display: inline-flex;
         width: 26px;
         height: 26px;
@@ -1063,7 +1073,8 @@
         line-height: 1;
       }
 
-      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} .better-ai-summary-button:hover {
+      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} .better-ai-summary-button:hover,
+      .${HOME_LAYOUT_CLASS} .link-comment .better-ai-summary-button:hover {
         background: #e9f2ff;
         border-color: #9ec6f2;
       }
@@ -1073,13 +1084,15 @@
         margin-left: 4px !important;
       }
 
-      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} .better-ai-summary-button.is-loading {
+      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} .better-ai-summary-button.is-loading,
+      .${HOME_LAYOUT_CLASS} .link-comment .better-ai-summary-button.is-loading {
         position: relative;
         color: transparent;
         pointer-events: none;
       }
 
-      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} .better-ai-summary-button.is-loading::after {
+      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} .better-ai-summary-button.is-loading::after,
+      .${HOME_LAYOUT_CLASS} .link-comment .better-ai-summary-button.is-loading::after {
         content: "";
         box-sizing: border-box;
         position: absolute;
@@ -1933,8 +1946,17 @@
         align-items: center;
       }
 
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .better-link-page-ai-summary {
+        margin-left: auto;
+        margin-right: 4px;
+      }
+
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .better-comment-preview__toolbar {
-        margin-left: 16px !important;
+        margin-left: auto !important;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .better-link-page-ai-summary + .better-comment-preview__toolbar {
+        margin-left: 0 !important;
       }
 
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .link-comment__list {
@@ -4200,9 +4222,9 @@
       return;
     }
 
-    header.classList.toggle("better-ai-summary-header", isAiEnabled());
+    header.classList.toggle("better-ai-summary-header", isAiFeatureEnabled());
     let button = header.querySelector(".better-ai-summary-button");
-    if (!isAiEnabled()) {
+    if (!isAiFeatureEnabled()) {
       button?.remove();
       return;
     }
@@ -4220,6 +4242,10 @@
 
   function syncAiSummaryButtons() {
     document.querySelectorAll(FEED_ITEM_SELECTOR).forEach(ensureAiSummaryButton);
+    const linkPageMountPoint = document.querySelector('.link-comment .hb-cpt__pagination-inner');
+    if (linkPageMountPoint) {
+      ensureLinkPageAiSummaryButton(linkPageMountPoint);
+    }
   }
 
   function ensureAiSummaryModal() {
@@ -4263,6 +4289,8 @@
           const button = item?.querySelector(".better-ai-summary-button");
           if (item) {
             summarizeFeedItem(item, linkId, button, { force: true });
+          } else if (isLinkPage() && getCurrentLinkId() === linkId) {
+            summarizeLinkPage(document.querySelector(".link-comment .better-ai-summary-button"), { force: true });
           }
         }
       }
@@ -4475,13 +4503,37 @@
     return comment?.user?.username || comment?.user?.nickname || "匿名用户";
   }
 
-  function getSummaryCommentLines(groups) {
+  function getSummaryCommentEntries(groups) {
+    let order = 0;
     return (groups || []).flatMap((group) => {
       const comments = [group.root, ...(group.replies || [])].filter(Boolean);
       return comments.map((comment) => {
-        return `${getCommentAuthor(comment)}：${extractPlainCommentText(comment.text)}`.trim();
+        order += 1;
+        return {
+          line: `${getCommentAuthor(comment)}：${extractPlainCommentText(comment.text)}`.trim(),
+          up: getCommentUpCount(comment),
+          order
+        };
       });
-    }).filter(Boolean);
+    }).filter((entry) => entry.line);
+  }
+
+  function selectSummaryCommentLines(entries) {
+    const normalizedEntries = Array.isArray(entries) ? entries : [];
+    const selectedEntries = normalizedEntries.length > SUMMARY_COMMENT_LIMIT
+      ? normalizedEntries
+        .slice()
+        .sort((a, b) => (b.up - a.up) || (a.order - b.order))
+        .slice(0, SUMMARY_COMMENT_LIMIT)
+      : normalizedEntries;
+    return selectedEntries
+      .slice()
+      .sort((a, b) => a.order - b.order)
+      .map((entry) => entry.line);
+  }
+
+  function getSummaryCommentLines(groups) {
+    return selectSummaryCommentLines(getSummaryCommentEntries(groups));
   }
 
   function getCachedSummaryCommentLines(linkId) {
@@ -4502,7 +4554,52 @@
       content ? `正文：${content}` : "",
       imageUrls.length ? `正文图片链接：\n${imageUrls.join("\n")}` : "",
       topic ? `话题：${topic}` : "",
-      commentLines.length ? `评论区（最多 ${SUMMARY_COMMENT_LIMIT} 条）：\n${commentLines.slice(0, SUMMARY_COMMENT_LIMIT).join("\n")}` : "评论区：暂无已加载评论"
+      commentLines.length ? `评论区（${SUMMARY_COMMENT_LIMIT} 条以内，超过时优先点赞多的评论）：\n${commentLines.join("\n")}` : "评论区：暂无已加载评论"
+    ].filter(Boolean).join("\n\n");
+  }
+
+  function getLinkPageTitle() {
+    return document.querySelector(".hb-bbs-link .section-title__content")?.textContent?.trim() || "";
+  }
+
+  function getLinkPageAuthorText() {
+    return document.querySelector(".hb-bbs-link .link-user__username")?.textContent?.trim() || "";
+  }
+
+  function getLinkPageContentText() {
+    return Array.from(document.querySelectorAll(".hb-bbs-link .post__content .com-text"))
+      .map((node) => node.textContent?.trim())
+      .filter(Boolean)
+      .join("\n");
+  }
+
+  function getLinkPageTopicText() {
+    return Array.from(document.querySelectorAll(".hb-bbs-link .link-section-tags .content-tag-text"))
+      .map((tag) => tag.textContent?.trim())
+      .filter(Boolean)
+      .join("\n");
+  }
+
+  function getLinkPageImageUrls() {
+    return Array.from(document.querySelectorAll(".hb-bbs-link .post__content img.hb-cpt__image-elem"))
+      .map((image) => image.src || image.getAttribute("src") || "")
+      .filter(Boolean);
+  }
+
+  function getLinkPageSummaryPayload(linkId, commentLines) {
+    const title = getLinkPageTitle();
+    const author = getLinkPageAuthorText();
+    const content = getLinkPageContentText();
+    const topic = getLinkPageTopicText();
+    const imageUrls = getLinkPageImageUrls();
+    return [
+      `帖子 ID：${linkId}`,
+      title ? `标题：${title}` : "",
+      author ? `作者：${author}` : "",
+      content ? `正文：${content}` : "",
+      imageUrls.length ? `正文图片链接：\n${imageUrls.join("\n")}` : "",
+      topic ? `话题：${topic}` : "",
+      commentLines.length ? `评论区（${SUMMARY_COMMENT_LIMIT} 条以内，超过时优先点赞多的评论）：\n${commentLines.join("\n")}` : "评论区：暂无已加载评论"
     ].filter(Boolean).join("\n\n");
   }
 
@@ -4542,30 +4639,50 @@
     }
   }
 
+  function hasLoadedAllSummaryComments(state) {
+    return Boolean(state) && state.hasMore === false;
+  }
+
+  function mergeSummaryCommentPageState(linkId, page, data) {
+    const groups = normalizeCommentGroups(data);
+    const state = commentCache.get(linkId) || { commentGroups: [] };
+    state.commentGroups = page === 1 ? groups : (state.commentGroups || []).concat(groups);
+    state.commentCount = data.result?.link?.comment_num || data.result?.total_floor_num || state.commentCount;
+    state.linkCreateAt = getLinkCreateTime(data.result?.link) || state.linkCreateAt;
+    state.page = page;
+    state.failed = false;
+    state.loadMoreFailed = false;
+    state.loadingMore = false;
+    state.hasMore = groups.length >= COMMENT_PAGE_LIMIT;
+    commentCache.set(linkId, state);
+    renderLinkedPreviews(linkId);
+    return state;
+  }
+
+  function fetchSummaryCommentPages(linkId, page = 1) {
+    return fetchCommentPageData(linkId, page).then((data) => {
+      if (data?.status !== "ok") {
+        return commentCache.get(linkId);
+      }
+
+      const state = mergeSummaryCommentPageState(linkId, page, data);
+      if (!state.hasMore) {
+        return state;
+      }
+
+      return fetchSummaryCommentPages(linkId, page + 1);
+    }).catch(() => commentCache.get(linkId));
+  }
+
   function ensureSummaryComments(linkId) {
-    const cachedLines = getCachedSummaryCommentLines(linkId);
-    if (cachedLines.length) {
-      return Promise.resolve(cachedLines);
+    const cachedState = commentCache.get(linkId);
+    if (hasLoadedAllSummaryComments(cachedState)) {
+      return Promise.resolve(getSummaryCommentLines(cachedState.commentGroups));
     }
 
-    return fetchCommentPageData(linkId, 1).then((data) => {
-      if (data?.status !== "ok") {
-        return [];
-      }
-      const groups = normalizeCommentGroups(data);
-      const state = commentCache.get(linkId) || { commentGroups: [] };
-      state.commentGroups = groups;
-      state.commentCount = data.result?.link?.comment_num || data.result?.total_floor_num || state.commentCount;
-      state.linkCreateAt = getLinkCreateTime(data.result?.link) || state.linkCreateAt;
-      state.page = 1;
-      state.failed = false;
-      state.loadMoreFailed = false;
-      state.loadingMore = false;
-      state.hasMore = groups.length >= COMMENT_PAGE_LIMIT;
-      commentCache.set(linkId, state);
-      renderLinkedPreviews(linkId);
-      return getSummaryCommentLines(groups);
-    }).catch(() => []);
+    return fetchSummaryCommentPages(linkId, 1).then((state) => {
+      return getSummaryCommentLines(state?.commentGroups);
+    });
   }
 
   function setAiButtonLoading(button, isLoading) {
@@ -4590,8 +4707,8 @@
       return;
     }
 
-    if (!isAiEnabled()) {
-      setAiSummaryModal("AI 总结", "请先在插件弹框中开启 AI，并填写 Base URL 和模型。", true, linkId);
+    if (!isAiConfigured()) {
+      window.dispatchEvent(new CustomEvent(AI_SETTINGS_OPEN_EVENT));
       return;
     }
 
@@ -4606,6 +4723,49 @@
         {
           role: "user",
           content: getFeedItemSummaryPayload(item, linkId, commentLines)
+        }
+      ]);
+    }).then((summary) => {
+      const elapsedMs = performance.now() - summaryStartTime;
+      const content = summary || "没有生成总结。";
+      aiSummaryCache.set(linkId, { content, elapsedMs });
+      setAiSummaryModal(title, content, false, linkId, elapsedMs);
+    }).catch((error) => {
+      setAiSummaryModal(title, error?.message || "AI 总结失败", true, linkId, performance.now() - summaryStartTime);
+    }).finally(() => {
+      setAiButtonLoading(button, false);
+    });
+  }
+
+  function summarizeLinkPage(button, options = {}) {
+    const linkId = getCurrentLinkId();
+    if (!linkId || button?.classList.contains("is-loading")) {
+      return;
+    }
+
+    const title = getLinkPageTitle() || "AI 总结";
+    if (!options.force && aiSummaryCache.has(linkId)) {
+      const cachedSummary = normalizeAiSummaryCacheEntry(aiSummaryCache.get(linkId));
+      setAiSummaryModal(title, cachedSummary.content, false, linkId, cachedSummary.elapsedMs);
+      return;
+    }
+
+    if (!isAiConfigured()) {
+      window.dispatchEvent(new CustomEvent(AI_SETTINGS_OPEN_EVENT));
+      return;
+    }
+
+    setAiButtonLoading(button, true);
+    const summaryStartTime = performance.now();
+    ensureSummaryComments(linkId).then((commentLines) => {
+      return requestAiChat([
+        {
+          role: "system",
+          content: aiSettings.summaryPrompt
+        },
+        {
+          role: "user",
+          content: getLinkPageSummaryPayload(linkId, commentLines)
         }
       ]);
     }).then((summary) => {
@@ -5398,6 +5558,35 @@
     }
   }
 
+  function ensureLinkPageAiSummaryButton(mountPoint) {
+    let button = mountPoint.querySelector(".better-link-page-ai-summary");
+    if (!isAiFeatureEnabled()) {
+      button?.remove();
+      return;
+    }
+
+    if (!button) {
+      button = document.createElement("button");
+      button.className = "better-ai-summary-button better-link-page-ai-summary";
+      button.type = "button";
+      button.title = "AI 总结";
+      button.setAttribute("aria-label", "AI 总结");
+      button.textContent = "AI";
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        summarizeLinkPage(button);
+      });
+    }
+
+    const toolbar = mountPoint.querySelector(".better-comment-preview__toolbar");
+    if (toolbar && button.nextElementSibling !== toolbar) {
+      toolbar.insertAdjacentElement("beforebegin", button);
+    } else if (!toolbar && button.parentElement !== mountPoint) {
+      mountPoint.appendChild(button);
+    }
+  }
+
   function addFilterToBbsLink() {
     if (!isLinkPage()) {
       return;
@@ -5414,7 +5603,6 @@
     if (!mountPoint.querySelector('.better-comment-preview__toolbar')) {
       const toolbar = document.createElement('div');
       toolbar.className = 'better-comment-preview__toolbar';
-      toolbar.style.cssText = 'margin-left: 24px;'; // Position next to the tabs
 
       const toggleButton = document.createElement('button');
       toggleButton.className = 'better-comment-preview__cy-toggle';
@@ -5440,6 +5628,7 @@
       mountPoint.append(toolbar);
     }
 
+    ensureLinkPageAiSummaryButton(mountPoint);
     updateLinkPageFilterControls();
   }
 
