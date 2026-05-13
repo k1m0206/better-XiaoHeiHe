@@ -36,6 +36,10 @@
     });
   }
 
+  function buildChatUrl(baseUrl) {
+    return `${String(baseUrl || "").replace(/\/+$/, "")}/chat/completions`;
+  }
+
   function sendChatResponse(id, payload) {
     window.dispatchEvent(new CustomEvent(CHAT_RESPONSE_EVENT, {
       detail: {
@@ -53,29 +57,44 @@
       return;
     }
 
-    chrome.runtime.sendMessage({
-      type: "better-xiaoheihe-ai-chat",
-      detail: {
-        settings,
-        messages: Array.isArray(detail?.messages) ? detail.messages : [],
-        temperature: Number.isFinite(detail?.temperature) ? detail.temperature : 0.2
+    try {
+      const headers = {
+        accept: "application/json",
+        "content-type": "application/json"
+      };
+      if (settings.apiKey) {
+        headers.authorization = `Bearer ${settings.apiKey}`;
       }
-    }, (response) => {
-      const error = chrome.runtime.lastError;
-      if (error) {
+
+      const response = await fetch(buildChatUrl(settings.baseUrl), {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          model: settings.model,
+          messages: Array.isArray(detail?.messages) ? detail.messages : [],
+          temperature: Number.isFinite(detail?.temperature) ? detail.temperature : 0.2
+        })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
         sendChatResponse(id, {
           ok: false,
-          error: error.message || "AI 请求失败"
+          error: data?.error?.message || `请求失败：${response.status}`
         });
         return;
       }
 
+      const content = data?.choices?.[0]?.message?.content || data?.choices?.[0]?.text || "";
       sendChatResponse(id, {
-        ok: response?.ok === true,
-        content: response?.content || "",
-        error: response?.error || "AI 请求失败"
+        ok: true,
+        content: String(content || "").trim() || "模型没有返回内容"
       });
-    });
+    } catch (error) {
+      sendChatResponse(id, {
+        ok: false,
+        error: error?.message || "AI 请求失败"
+      });
+    }
   }
 
   window.addEventListener(SETTINGS_REQUEST_EVENT, readSettings);

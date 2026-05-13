@@ -51,7 +51,7 @@
   const API_ORIGIN = "https://api.xiaoheihe.cn";
   const COMMENT_PAGE_LIMIT = 20;
   const SUB_COMMENT_PAGE_LIMIT = 20;
-  const SUMMARY_COMMENT_LIMIT = 30;
+  const SUMMARY_COMMENT_LIMIT = 10;
   const CAPTURED_API_PARAM_KEYS = [
     "os_type",
     "app",
@@ -4893,7 +4893,6 @@
       window.dispatchEvent(new CustomEvent(AI_CHAT_REQUEST_EVENT, {
         detail: {
           id,
-          settings: aiSettings,
           messages,
           temperature
         }
