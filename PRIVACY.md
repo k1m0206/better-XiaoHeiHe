@@ -10,9 +10,9 @@ better-XiaoHeiHe 是一个用于优化小黑盒网页社区首页展示效果的
 
 ## 本地存储
 
-本插件使用 `localStorage` 在当前浏览器本地保存用户主动设置的偏好，包括是否屏蔽 CY 评论、评论屏蔽关键词列表，以及每个屏蔽关键词在本地生效的次数。屏蔽关键词仅用于当前浏览器内的评论过滤，不会发送到小黑盒或其他服务器。
+本插件使用浏览器扩展存储在当前浏览器本地保存用户主动设置的偏好，包括是否屏蔽 CY 评论、评论/帖子屏蔽关键词列表、等级过滤规则，以及每个屏蔽关键词在本地生效的次数。屏蔽关键词和等级过滤规则仅用于当前浏览器内的内容过滤，不会发送到小黑盒或其他服务器。旧版本曾使用小黑盒页面的 `localStorage` 保存这些偏好；升级后会自动迁移到扩展存储并移除旧键。
 
-AI 设置使用浏览器扩展存储保存在本地，包括是否开启 AI、Base URL、模型和 API Key。API Key 仅在用户测试连通或点击 AI 总结时随请求发送到用户配置的 AI 接口。
+AI 设置使用浏览器扩展存储保存在本地，包括是否开启 AI、Base URL、模型和 API Key。API Key 仅在用户测试连通或点击 AI 总结时，由扩展后台随请求发送到用户配置的 AI 接口，不会通过页面可见事件传递。
 
 ## 网络请求
 
@@ -50,10 +50,10 @@ https://www.xiaoheihe.cn/app/user/profile/*
 https://www.xiaoheihe.cn/app/user/favour
 https://www.xiaoheihe.cn/app/user/favour/*
 https://www.xiaoheihe.cn/app/search
-https://www.xiaoheihe.cn/app/search*
+https://www.xiaoheihe.cn/app/search/*
 ```
 
-插件申请 `storage` 权限，用于保存 AI 设置。插件申请主机权限以支持用户自定义 AI Base URL 的连通测试和总结请求。
+插件申请 `storage` 权限，用于保存 AI 设置、屏蔽偏好和等级过滤规则。插件的内容脚本仅注入上述小黑盒页面路径；插件仍申请主机权限以支持用户自定义 AI Base URL 的连通测试和总结请求。
 
 ## 联系方式
 

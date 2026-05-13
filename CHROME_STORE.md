@@ -93,7 +93,7 @@
 
 评论数据来自小黑盒网页自身接口，只用于当前页面展示。
 
-屏蔽 CY 状态、屏蔽关键词和关键词生效次数只保存在当前浏览器本地，不会发送到小黑盒或其他服务器。
+屏蔽 CY 状态、屏蔽关键词、等级过滤规则和关键词生效次数只保存在当前浏览器的扩展本地存储中，不会发送到小黑盒或其他服务器。
 ```
 
 分类建议：
@@ -110,7 +110,7 @@ Productivity
 
 ## 权限说明
 
-本插件申请 `storage` 权限用于保存 AI 设置，并申请主机权限以支持用户自定义 AI Base URL 的请求。
+本插件申请 `storage` 权限用于保存 AI 设置、屏蔽偏好和等级过滤规则，并申请主机权限以支持用户自定义 AI Base URL 的请求。
 
 页面匹配范围：
 
@@ -124,7 +124,7 @@ https://www.xiaoheihe.cn/app/user/profile/*
 https://www.xiaoheihe.cn/app/user/favour
 https://www.xiaoheihe.cn/app/user/favour/*
 https://www.xiaoheihe.cn/app/search
-https://www.xiaoheihe.cn/app/search*
+https://www.xiaoheihe.cn/app/search/*
 ```
 
 用途说明：
@@ -151,7 +151,7 @@ https://www.xiaoheihe.cn/app/search*
 不收集用户数据。
 不出售用户数据。
 不将用户数据用于广告或追踪。
-AI 入口默认开启显示；用户配置 AI 服务并点击总结后，当前帖子文本和最多 30 条评论文本会发送到用户配置的 AI 接口用于生成总结；评论超过 30 条时优先选取点赞量更高的评论。用户关闭 AI 功能后，页面不再显示 AI 按钮。
+AI 入口默认开启显示；用户配置 AI 服务并点击总结后，当前帖子文本和最多 30 条评论文本会由扩展后台发送到用户配置的 AI 接口用于生成总结；评论超过 30 条时优先选取点赞量更高的评论。用户关闭 AI 功能后，页面不再显示 AI 按钮。
 ```
 
 ## 上架前仍需准备
