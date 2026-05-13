@@ -26,7 +26,7 @@
   const AI_SETTINGS_OPEN_EVENT = "better-xiaoheihe-ai-settings-open";
   const AI_CHAT_REQUEST_EVENT = "better-xiaoheihe-ai-chat-request";
   const AI_CHAT_RESPONSE_EVENT = "better-xiaoheihe-ai-chat-response";
-  const DEFAULT_SUMMARY_PROMPT = "你是社区帖子总结助手，请用中文简洁输出：\n\n帖子总结\n一句话概括帖子核心内容。\n\n评论区信息\n提取评论区里有价值的观点、经验、补充或避坑信息，没有则跳过。\n\nAI评论\n像真实网友一样简短评价或补充观点，避免AI味。返回md格式。";
+  const DEFAULT_SUMMARY_PROMPT = "你是社区帖子总结助手，请用中文简洁输出：\n帖子总结\n一句话概括帖子核心内容。\n评论区信息\n提取评论区里有价值的观点、经验、补充或避坑信息，没有则跳过。\nAI简评\n像真实网友一样补充观点，避免AI味。\n返回md格式。";
   const DEFAULT_USER_LEVEL = 6;
   const LEVEL_FILTER_MIN = 7;
   const LEVEL_FILTER_MAX = 18;
@@ -70,6 +70,7 @@
   const emojiCache = new Map();
   const userLevelCache = new Map();
   const aiSummaryCache = new Map();
+  const aiSummaryChatSending = new Set();
   const blockedKeywordHitKeys = new Set();
   const capturedApiParams = {};
   let hideCyComments = readHideCyCommentsState();
@@ -1751,6 +1752,8 @@
       }
 
       .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__body {
+        flex: 1 1 auto;
+        min-height: 120px;
         overflow-y: auto;
         padding: 18px;
         color: #2f3842;
@@ -1829,6 +1832,100 @@
 
       .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__body a:hover {
         text-decoration: underline;
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__summary-content {
+        min-height: 0;
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__chat {
+        flex: 0 0 auto;
+        border-top: 1px solid #eef0f2;
+        background: #fbfcfd;
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__chat-messages {
+        box-sizing: border-box;
+        padding: 14px 0 0;
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__chat-messages:empty {
+        display: none;
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__chat-message {
+        box-sizing: border-box;
+        max-width: 88%;
+        margin: 0 0 8px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        color: #2f3842;
+        font-size: 13px;
+        line-height: 1.65;
+        overflow-wrap: anywhere;
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__chat-message--user {
+        margin-left: auto;
+        background: #e9f2ff;
+        color: #1f5f9f;
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__chat-message--assistant {
+        margin-right: auto;
+        background: #fff;
+        border: 1px solid #e6ebf0;
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__chat-message--muted {
+        color: #8a9299;
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__chat-form {
+        display: flex;
+        align-items: flex-end;
+        gap: 8px;
+        padding: 10px 18px 14px;
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__chat-input {
+        box-sizing: border-box;
+        width: 100%;
+        min-height: 36px;
+        max-height: 96px;
+        flex: 1 1 auto;
+        resize: vertical;
+        padding: 8px 10px;
+        border: 1px solid #d8dfe6;
+        border-radius: 6px;
+        outline: none;
+        color: #2f3842;
+        font-size: 13px;
+        line-height: 18px;
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__chat-input:focus {
+        border-color: #2775d1;
+        box-shadow: 0 0 0 3px rgba(39, 117, 209, 0.12);
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__chat-send {
+        height: 36px;
+        flex: 0 0 auto;
+        padding: 0 14px;
+        border: 0;
+        border-radius: 6px;
+        background: #2775d1;
+        color: #fff;
+        cursor: pointer;
+        font-size: 13px;
+        line-height: 36px;
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__chat-send:disabled,
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__chat-input:disabled {
+        cursor: default;
+        opacity: 0.65;
       }
 
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-layout-main__container--main {
@@ -4267,7 +4364,16 @@
             <button class="better-ai-summary__close" type="button" aria-label="关闭">×</button>
           </div>
         </div>
-        <div class="better-ai-summary__body is-muted">准备中...</div>
+        <div class="better-ai-summary__body is-muted">
+          <div class="better-ai-summary__summary-content">准备中...</div>
+          <div class="better-ai-summary__chat-messages" aria-live="polite"></div>
+        </div>
+        <div class="better-ai-summary__chat">
+          <form class="better-ai-summary__chat-form">
+            <textarea class="better-ai-summary__chat-input" rows="1" placeholder="继续问 AI 一个问题"></textarea>
+            <button class="better-ai-summary__chat-send" type="submit">发送</button>
+          </form>
+        </div>
       </div>
     `;
     modal.addEventListener("click", (event) => {
@@ -4294,6 +4400,28 @@
           }
         }
       }
+    });
+    modal.addEventListener("submit", (event) => {
+      const form = event.target instanceof Element ? event.target.closest(".better-ai-summary__chat-form") : null;
+      if (!form || !modal.contains(form)) {
+        return;
+      }
+
+      event.preventDefault();
+      submitAiSummaryChatQuestion(modal);
+    });
+    modal.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" || event.shiftKey || event.isComposing) {
+        return;
+      }
+
+      const input = event.target instanceof Element ? event.target.closest(".better-ai-summary__chat-input") : null;
+      if (!input || !modal.contains(input)) {
+        return;
+      }
+
+      event.preventDefault();
+      submitAiSummaryChatQuestion(modal);
     });
     document.body.appendChild(modal);
     return modal;
@@ -4340,14 +4468,160 @@
     if (entry && typeof entry === "object") {
       return {
         content: String(entry.content || ""),
-        elapsedMs: Number.isFinite(entry.elapsedMs) ? entry.elapsedMs : null
+        elapsedMs: Number.isFinite(entry.elapsedMs) ? entry.elapsedMs : null,
+        payload: String(entry.payload || ""),
+        chatMessages: Array.isArray(entry.chatMessages)
+          ? entry.chatMessages.map((message) => ({
+            role: message?.role === "user" ? "user" : "assistant",
+            content: String(message?.content || ""),
+            muted: message?.muted === true,
+            pending: message?.pending === true
+          })).filter((message) => message.content)
+          : []
       };
     }
 
     return {
       content: String(entry || ""),
-      elapsedMs: null
+      elapsedMs: null,
+      payload: "",
+      chatMessages: []
     };
+  }
+
+  function renderAiSummaryChatMessage(message) {
+    const role = message?.role === "user" ? "user" : "assistant";
+    const mutedClass = message?.muted ? " better-ai-summary__chat-message--muted" : "";
+    const content = role === "assistant" ? renderMarkdown(message?.content || "") : escapeHtml(message?.content || "");
+    return `<div class="better-ai-summary__chat-message better-ai-summary__chat-message--${role}${mutedClass}">${content}</div>`;
+  }
+
+  function renderAiSummaryChatMessages(messagesElement, messages) {
+    if (!messagesElement) {
+      return;
+    }
+
+    messagesElement.innerHTML = (messages || []).map(renderAiSummaryChatMessage).join("");
+    const body = messagesElement.closest(".better-ai-summary__body");
+    if (body && messages?.length) {
+      body.scrollTop = body.scrollHeight;
+    }
+  }
+
+  function setAiSummaryChatControls(modal, enabled) {
+    const input = modal.querySelector(".better-ai-summary__chat-input");
+    const sendButton = modal.querySelector(".better-ai-summary__chat-send");
+    if (input) {
+      input.disabled = !enabled;
+      input.placeholder = enabled ? "继续问 AI 一个问题" : "生成总结后可继续追问";
+    }
+    if (sendButton) {
+      sendButton.disabled = !enabled;
+    }
+  }
+
+  function syncAiSummaryChatPanel(modal, linkId) {
+    const messagesElement = modal.querySelector(".better-ai-summary__chat-messages");
+    const cacheEntry = normalizeAiSummaryCacheEntry(aiSummaryCache.get(linkId));
+    renderAiSummaryChatMessages(messagesElement, cacheEntry.chatMessages);
+    setAiSummaryChatControls(modal, Boolean(linkId && cacheEntry.content && cacheEntry.payload && isAiConfigured() && !aiSummaryChatSending.has(linkId)));
+  }
+
+  function getAiSummaryChatContextMessage(entry) {
+    return [
+      "下面是同一篇社区帖子的上下文，请在后续对话中始终基于这些内容回答，不要编造不存在的信息。",
+      "",
+      "帖子上下文：",
+      entry.payload,
+      "",
+      "已有总结：",
+      entry.content
+    ].join("\n");
+  }
+
+  function buildAiSummaryChatMessages(entry, question) {
+    return [
+      {
+        role: "system",
+        content: `${aiSettings.summaryPrompt}\n\n你现在要继续回答用户围绕同一篇帖子提出的问题。回答要简洁、直接，并延续已有上下文。`
+      },
+      {
+        role: "user",
+        content: getAiSummaryChatContextMessage(entry)
+      },
+      ...entry.chatMessages
+        .filter((message) => !message.pending && !message.muted)
+        .map((message) => ({
+          role: message.role,
+          content: message.content
+        })),
+      {
+        role: "user",
+        content: question
+      }
+    ];
+  }
+
+  function updateAiSummaryChatCache(linkId, updater) {
+    const entry = normalizeAiSummaryCacheEntry(aiSummaryCache.get(linkId));
+    const nextEntry = updater(entry) || entry;
+    aiSummaryCache.set(linkId, nextEntry);
+    return nextEntry;
+  }
+
+  function submitAiSummaryChatQuestion(modal) {
+    const linkId = modal.dataset.linkId || "";
+    const input = modal.querySelector(".better-ai-summary__chat-input");
+    const question = input?.value?.trim() || "";
+    if (!linkId || !question || aiSummaryChatSending.has(linkId)) {
+      return;
+    }
+
+    const entry = normalizeAiSummaryCacheEntry(aiSummaryCache.get(linkId));
+    if (!entry.content || !entry.payload || !isAiConfigured()) {
+      syncAiSummaryChatPanel(modal, linkId);
+      return;
+    }
+
+    if (input) {
+      input.value = "";
+    }
+
+    const requestMessages = buildAiSummaryChatMessages(entry, question);
+    aiSummaryChatSending.add(linkId);
+    const messagesElement = modal.querySelector(".better-ai-summary__chat-messages");
+    const nextEntry = updateAiSummaryChatCache(linkId, (cacheEntry) => ({
+      ...cacheEntry,
+      chatMessages: [
+        ...cacheEntry.chatMessages,
+        { role: "user", content: question },
+        { role: "assistant", content: "正在思考...", muted: true, pending: true }
+      ]
+    }));
+    renderAiSummaryChatMessages(messagesElement, nextEntry.chatMessages);
+    setAiSummaryChatControls(modal, false);
+
+    requestAiChat(requestMessages).then((answer) => {
+      updateAiSummaryChatCache(linkId, (cacheEntry) => ({
+        ...cacheEntry,
+        chatMessages: [
+          ...cacheEntry.chatMessages.filter((message) => !message.pending),
+          { role: "assistant", content: answer || "模型没有返回内容" }
+        ]
+      }));
+    }).catch((error) => {
+      updateAiSummaryChatCache(linkId, (cacheEntry) => ({
+        ...cacheEntry,
+        chatMessages: [
+          ...cacheEntry.chatMessages.filter((message) => !message.pending),
+          { role: "assistant", content: error?.message || "AI 请求失败", muted: true }
+        ]
+      }));
+    }).finally(() => {
+      aiSummaryChatSending.delete(linkId);
+      syncAiSummaryChatPanel(modal, linkId);
+      input?.focus();
+    });
   }
 
   function setAiSummaryModal(title, content, muted = false, linkId = "", elapsedMs = null) {
@@ -4355,6 +4629,7 @@
     const titleElement = modal.querySelector(".better-ai-summary__title");
     const metaElement = modal.querySelector(".better-ai-summary__meta");
     const body = modal.querySelector(".better-ai-summary__body");
+    const contentElement = modal.querySelector(".better-ai-summary__summary-content");
     modal.dataset.linkId = linkId || "";
     if (titleElement) {
       titleElement.textContent = title || "AI 总结";
@@ -4363,12 +4638,15 @@
       const elapsedSeconds = formatSummaryElapsedSeconds(elapsedMs);
       metaElement.textContent = elapsedSeconds ? `总结耗时 ${elapsedSeconds} 秒` : "";
     }
+    if (contentElement) {
+      contentElement.innerHTML = muted ? escapeHtml(content || "") : renderMarkdown(content || "");
+    }
     if (body) {
-      body.innerHTML = muted ? escapeHtml(content || "") : renderMarkdown(content || "");
       body.classList.toggle("is-muted", muted);
     }
     lockAiSummaryPageScroll();
     modal.hidden = false;
+    syncAiSummaryChatPanel(modal, linkId);
   }
 
   function findFeedItemByLinkId(linkId) {
@@ -4715,6 +4993,7 @@
     setAiButtonLoading(button, true);
     const summaryStartTime = performance.now();
     ensureSummaryComments(linkId).then((commentLines) => {
+      const payload = getFeedItemSummaryPayload(item, linkId, commentLines);
       return requestAiChat([
         {
           role: "system",
@@ -4722,13 +5001,13 @@
         },
         {
           role: "user",
-          content: getFeedItemSummaryPayload(item, linkId, commentLines)
+          content: payload
         }
-      ]);
-    }).then((summary) => {
+      ]).then((summary) => ({ summary, payload }));
+    }).then(({ summary, payload }) => {
       const elapsedMs = performance.now() - summaryStartTime;
       const content = summary || "没有生成总结。";
-      aiSummaryCache.set(linkId, { content, elapsedMs });
+      aiSummaryCache.set(linkId, { content, elapsedMs, payload, chatMessages: [] });
       setAiSummaryModal(title, content, false, linkId, elapsedMs);
     }).catch((error) => {
       setAiSummaryModal(title, error?.message || "AI 总结失败", true, linkId, performance.now() - summaryStartTime);
@@ -4758,6 +5037,7 @@
     setAiButtonLoading(button, true);
     const summaryStartTime = performance.now();
     ensureSummaryComments(linkId).then((commentLines) => {
+      const payload = getLinkPageSummaryPayload(linkId, commentLines);
       return requestAiChat([
         {
           role: "system",
@@ -4765,13 +5045,13 @@
         },
         {
           role: "user",
-          content: getLinkPageSummaryPayload(linkId, commentLines)
+          content: payload
         }
-      ]);
-    }).then((summary) => {
+      ]).then((summary) => ({ summary, payload }));
+    }).then(({ summary, payload }) => {
       const elapsedMs = performance.now() - summaryStartTime;
       const content = summary || "没有生成总结。";
-      aiSummaryCache.set(linkId, { content, elapsedMs });
+      aiSummaryCache.set(linkId, { content, elapsedMs, payload, chatMessages: [] });
       setAiSummaryModal(title, content, false, linkId, elapsedMs);
     }).catch((error) => {
       setAiSummaryModal(title, error?.message || "AI 总结失败", true, linkId, performance.now() - summaryStartTime);
