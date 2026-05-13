@@ -12,36 +12,44 @@
         <div class="header">
           <div>
             <h1>AI 总结</h1>
-            <p>开启后，帖子右上角会出现 AI 按钮，可结合帖子和评论生成总结。</p>
+            <p>帖子与评论区摘要</p>
           </div>
-          <label class="switch">
-            <input id="enabled" type="checkbox">
-            <span></span>
+          <div class="header-actions">
+            <span id="enabledLabel" class="status-pill">未开启</span>
+            <label class="switch" aria-label="开启 AI 总结">
+              <input id="enabled" type="checkbox">
+              <span></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">接入配置</div>
+          <label class="field">
+            <span>Base URL</span>
+            <input id="baseUrl" type="url" placeholder="https://api.openai.com/v1">
+          </label>
+
+          <label class="field">
+            <span>模型</span>
+            <input id="model" type="text" placeholder="gpt-4.1-mini">
+          </label>
+
+          <label class="field">
+            <span>API Key</span>
+            <input id="apiKey" type="password" autocomplete="off" placeholder="sk-...">
           </label>
         </div>
 
-        <label class="field">
-          <span>Base URL</span>
-          <input id="baseUrl" type="url" placeholder="https://api.openai.com/v1">
-        </label>
-
-        <label class="field">
-          <span>模型</span>
-          <input id="model" type="text" placeholder="gpt-4.1-mini">
-        </label>
-
-        <label class="field">
-          <span>API Key</span>
-          <input id="apiKey" type="password" autocomplete="off" placeholder="sk-...">
-        </label>
-
-        <label class="field">
-          <span class="field-title">
-            总结提示词
-            <button id="resetPrompt" class="text-button" type="button">恢复默认</button>
-          </span>
-          <textarea id="summaryPrompt" rows="5"></textarea>
-        </label>
+        <div class="section">
+          <label class="field field--prompt">
+            <span class="field-title">
+              总结提示词
+              <button id="resetPrompt" class="text-button" type="button">恢复默认</button>
+            </span>
+            <textarea id="summaryPrompt" rows="6"></textarea>
+          </label>
+        </div>
 
         <div class="actions">
           <button id="test" type="button">测试连通</button>

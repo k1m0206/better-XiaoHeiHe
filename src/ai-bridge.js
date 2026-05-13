@@ -2,14 +2,15 @@
   const AI_SETTINGS_STORAGE_KEY = "better-xiaoheihe-ai-settings";
   const SETTINGS_EVENT = "better-xiaoheihe-ai-settings";
   const SETTINGS_REQUEST_EVENT = "better-xiaoheihe-ai-settings-request";
+  const SETTINGS_OPEN_EVENT = "better-xiaoheihe-ai-settings-open";
   const CHAT_REQUEST_EVENT = "better-xiaoheihe-ai-chat-request";
   const CHAT_RESPONSE_EVENT = "better-xiaoheihe-ai-chat-response";
-  const DEFAULT_SUMMARY_PROMPT = "你是社区帖子总结助手。请用中文简洁总结帖子主旨、评论区主要观点、争议点或有用信息。不要编造不存在的信息。";
+  const DEFAULT_SUMMARY_PROMPT = "你是社区帖子总结助手，请用中文简洁输出：\n\n帖子总结\n一句话概括帖子核心内容。\n\n评论区信息\n提取评论区里有价值的观点、经验、补充或避坑信息，没有则跳过。\n\nAI评论\n像真实网友一样简短评价或补充观点，避免AI味。返回md格式。";
   let currentSettings = normalizeAiSettings();
 
   function normalizeAiSettings(settings) {
     return {
-      enabled: settings?.enabled === true,
+      enabled: settings?.enabled !== false,
       baseUrl: String(settings?.baseUrl || "").trim().replace(/\/+$/, ""),
       model: String(settings?.model || "").trim(),
       apiKey: String(settings?.apiKey || ""),
@@ -78,6 +79,9 @@
   }
 
   window.addEventListener(SETTINGS_REQUEST_EVENT, readSettings);
+  window.addEventListener(SETTINGS_OPEN_EVENT, () => {
+    chrome.runtime.sendMessage({ type: "better-xiaoheihe-open-ai-settings" });
+  });
   window.addEventListener(CHAT_REQUEST_EVENT, (event) => requestChat(event.detail));
 
   chrome.storage.onChanged.addListener((changes, areaName) => {

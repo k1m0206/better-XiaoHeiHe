@@ -1,6 +1,6 @@
 (function () {
   const AI_SETTINGS_STORAGE_KEY = "better-xiaoheihe-ai-settings";
-  const DEFAULT_SUMMARY_PROMPT = "你是社区帖子总结助手。请用中文简洁总结帖子主旨、评论区主要观点、争议点或有用信息。不要编造不存在的信息。";
+  const DEFAULT_SUMMARY_PROMPT = "你是社区帖子总结助手，请用中文简洁输出：\n\n帖子总结\n一句话概括帖子核心内容。\n\n评论区信息\n提取评论区里有价值的观点、经验、补充或避坑信息，没有则跳过。\n\nAI评论\n像真实网友一样简短评价或补充观点，避免AI味。返回md格式。";
   const enabledInput = document.getElementById("enabled");
   const baseUrlInput = document.getElementById("baseUrl");
   const modelInput = document.getElementById("model");
@@ -9,10 +9,11 @@
   const resetPromptButton = document.getElementById("resetPrompt");
   const testButton = document.getElementById("test");
   const statusElement = document.getElementById("status");
+  const enabledLabel = document.getElementById("enabledLabel");
 
   function normalizeAiSettings(settings) {
     return {
-      enabled: settings?.enabled === true,
+      enabled: settings?.enabled !== false,
       baseUrl: String(settings?.baseUrl || "").trim().replace(/\/+$/, ""),
       model: String(settings?.model || "").trim(),
       apiKey: String(settings?.apiKey || ""),
@@ -35,6 +36,11 @@
     statusElement.style.color = isError ? "#d33b4a" : "#68727d";
   }
 
+  function syncEnabledLabel() {
+    enabledLabel.textContent = enabledInput.checked ? "已开启" : "未开启";
+    enabledLabel.classList.toggle("is-on", enabledInput.checked);
+  }
+
   function saveSettings() {
     chrome.storage.local.set({
       [AI_SETTINGS_STORAGE_KEY]: getFormSettings()
@@ -48,6 +54,7 @@
     modelInput.value = normalized.model;
     apiKeyInput.value = normalized.apiKey;
     summaryPromptInput.value = normalized.summaryPrompt;
+    syncEnabledLabel();
   }
 
   function buildChatUrl(baseUrl) {
@@ -110,6 +117,7 @@
     input.addEventListener("change", saveSettings);
     input.addEventListener("input", saveSettings);
   });
+  enabledInput.addEventListener("change", syncEnabledLabel);
   resetPromptButton.addEventListener("click", resetSummaryPrompt);
   testButton.addEventListener("click", testConnection);
 })();
