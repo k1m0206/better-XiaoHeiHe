@@ -21,6 +21,15 @@
   const HIDE_CY_COMMENTS_STORAGE_KEY = "better-xiaoheihe-hide-cy-comments";
   const BLOCKED_KEYWORDS_STORAGE_KEY = "better-xiaoheihe-blocked-keywords";
   const LEVEL_FILTERS_STORAGE_KEY = "better-xiaoheihe-level-filters";
+  const LOCAL_SETTINGS_STORAGE_KEYS = [
+    HIDE_CY_COMMENTS_STORAGE_KEY,
+    BLOCKED_KEYWORDS_STORAGE_KEY,
+    LEVEL_FILTERS_STORAGE_KEY
+  ];
+  const LOCAL_SETTINGS_REQUEST_EVENT = "better-xiaoheihe-local-settings-request";
+  const LOCAL_SETTINGS_RESPONSE_EVENT = "better-xiaoheihe-local-settings-response";
+  const LOCAL_SETTINGS_SAVE_EVENT = "better-xiaoheihe-local-settings-save";
+  const LOCAL_SETTINGS_CHANGED_EVENT = "better-xiaoheihe-local-settings-changed";
   const AI_SETTINGS_EVENT = "better-xiaoheihe-ai-settings";
   const AI_SETTINGS_REQUEST_EVENT = "better-xiaoheihe-ai-settings-request";
   const AI_SETTINGS_SAVE_EVENT = "better-xiaoheihe-ai-settings-save";
@@ -79,10 +88,11 @@
   const aiSummaryChatSending = new Set();
   const blockedKeywordHitKeys = new Set();
   const capturedApiParams = {};
-  let hideCyComments = readHideCyCommentsState();
-  let blockedKeywords = readBlockedKeywordsState();
-  let levelFilters = readLevelFiltersState();
+  let hideCyComments = false;
+  let blockedKeywords = [];
+  let levelFilters = normalizeLevelFilters({});
   let aiSettings = normalizeAiSettings();
+  let useLegacyLocalSettingsSync = true;
   const aiPendingRequests = new Map();
   let activeBlockedKeywordScope = BLOCKED_KEYWORD_SCOPES.FEED;
   let activeSettingsTab = SETTINGS_TABS.FEED;
@@ -121,7 +131,23 @@
     return window.location.pathname.startsWith("/app/search");
   }
 
-  function readHideCyCommentsState() {
+  function parseEventDetail(detail) {
+    if (typeof detail !== "string") {
+      return detail || {};
+    }
+
+    try {
+      return JSON.parse(detail) || {};
+    } catch {
+      return {};
+    }
+  }
+
+  function stringifyEventDetail(detail) {
+    return JSON.stringify(detail || {});
+  }
+
+  function readLegacyHideCyCommentsState() {
     try {
       const savedValue = localStorage.getItem(HIDE_CY_COMMENTS_STORAGE_KEY);
       return savedValue === "1" || savedValue === "true";
@@ -130,16 +156,34 @@
     }
   }
 
-  function writeHideCyCommentsState(isHidden) {
+  function hasLegacyLocalStorageValue(key) {
     try {
-      localStorage.setItem(HIDE_CY_COMMENTS_STORAGE_KEY, isHidden ? "1" : "0");
+      return localStorage.getItem(key) !== null;
     } catch {
-      // Ignore storage failures; the in-memory switch still works for the current page.
+      return false;
     }
   }
 
-  function syncHideCyCommentsState() {
-    const savedState = readHideCyCommentsState();
+  function writeHideCyCommentsState(isHidden) {
+    saveLocalSettings({
+      [HIDE_CY_COMMENTS_STORAGE_KEY]: isHidden
+    });
+  }
+
+  function syncHideCyCommentsState(savedState) {
+    const normalizedState = savedState === true || savedState === "1" || savedState === "true";
+    if (normalizedState === hideCyComments) {
+      syncCyToggleControls();
+      return;
+    }
+
+    hideCyComments = normalizedState;
+    syncCyToggleControls();
+    refreshAllCommentFilters();
+  }
+
+  function syncLegacyHideCyCommentsState() {
+    const savedState = readLegacyHideCyCommentsState();
     if (savedState === hideCyComments) {
       syncCyToggleControls();
       return;
@@ -192,14 +236,12 @@
   }
 
   function persistBlockedKeywordsState() {
-    try {
-      localStorage.setItem(BLOCKED_KEYWORDS_STORAGE_KEY, JSON.stringify(serializeBlockedKeywordsState()));
-    } catch {
-      // Keep the in-memory keywords for the current page if localStorage is unavailable.
-    }
+    saveLocalSettings({
+      [BLOCKED_KEYWORDS_STORAGE_KEY]: serializeBlockedKeywordsState()
+    });
   }
 
-  function readBlockedKeywordsState() {
+  function readLegacyBlockedKeywordsState() {
     try {
       return normalizeBlockedKeywords(JSON.parse(localStorage.getItem(BLOCKED_KEYWORDS_STORAGE_KEY) || "[]"));
     } catch {
@@ -238,7 +280,7 @@
     }, {});
   }
 
-  function readLevelFiltersState() {
+  function readLegacyLevelFiltersState() {
     try {
       return normalizeLevelFilters(JSON.parse(localStorage.getItem(LEVEL_FILTERS_STORAGE_KEY) || "{}"));
     } catch {
@@ -265,11 +307,9 @@
   }
 
   function persistLevelFiltersState() {
-    try {
-      localStorage.setItem(LEVEL_FILTERS_STORAGE_KEY, JSON.stringify(levelFilters));
-    } catch {
-      // Keep the in-memory level filters for the current page if localStorage is unavailable.
-    }
+    saveLocalSettings({
+      [LEVEL_FILTERS_STORAGE_KEY]: levelFilters
+    });
   }
 
   function writeLevelFilterState(scope, nextFilter) {
@@ -284,8 +324,20 @@
     persistLevelFiltersState();
   }
 
-  function syncLevelFiltersState() {
-    const savedFilters = readLevelFiltersState();
+  function syncLevelFiltersState(savedFilters) {
+    const normalizedFilters = normalizeLevelFilters(savedFilters);
+    if (JSON.stringify(normalizedFilters) === JSON.stringify(levelFilters)) {
+      renderSettingsPanel();
+      return;
+    }
+
+    levelFilters = normalizedFilters;
+    renderSettingsPanel();
+    refreshAllKeywordFilters();
+  }
+
+  function syncLegacyLevelFiltersState() {
+    const savedFilters = readLegacyLevelFiltersState();
     if (JSON.stringify(savedFilters) === JSON.stringify(levelFilters)) {
       renderSettingsPanel();
       return;
@@ -296,8 +348,19 @@
     refreshAllKeywordFilters();
   }
 
-  function syncBlockedKeywordsState() {
-    const savedKeywords = readBlockedKeywordsState();
+  function syncBlockedKeywordsState(savedKeywords) {
+    const normalizedKeywords = normalizeBlockedKeywords(savedKeywords);
+    if (JSON.stringify(normalizedKeywords) === JSON.stringify(blockedKeywords)) {
+      return;
+    }
+
+    blockedKeywords = normalizedKeywords;
+    renderSettingsPanel();
+    refreshAllKeywordFilters();
+  }
+
+  function syncLegacyBlockedKeywordsState() {
+    const savedKeywords = readLegacyBlockedKeywordsState();
     if (JSON.stringify(savedKeywords) === JSON.stringify(blockedKeywords)) {
       return;
     }
@@ -305,6 +368,105 @@
     blockedKeywords = savedKeywords;
     renderSettingsPanel();
     refreshAllKeywordFilters();
+  }
+
+  function saveLocalSettings(values) {
+    window.dispatchEvent(new CustomEvent(LOCAL_SETTINGS_SAVE_EVENT, {
+      detail: stringifyEventDetail({
+        values
+      })
+    }));
+  }
+
+  function requestLocalSettingsState(timeout = 1200) {
+    const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+    return new Promise((resolve) => {
+      const timer = window.setTimeout(() => {
+        window.removeEventListener(LOCAL_SETTINGS_RESPONSE_EVENT, handleResponse);
+        resolve({
+          ok: false,
+          values: {},
+          keysPresent: {}
+        });
+      }, timeout);
+
+      function handleResponse(event) {
+        const detail = parseEventDetail(event.detail);
+        if (detail.id !== id) {
+          return;
+        }
+
+        window.clearTimeout(timer);
+        window.removeEventListener(LOCAL_SETTINGS_RESPONSE_EVENT, handleResponse);
+        resolve(detail);
+      }
+
+      window.addEventListener(LOCAL_SETTINGS_RESPONSE_EVENT, handleResponse);
+      window.dispatchEvent(new CustomEvent(LOCAL_SETTINGS_REQUEST_EVENT, {
+        detail: stringifyEventDetail({
+          id,
+          keys: LOCAL_SETTINGS_STORAGE_KEYS
+        })
+      }));
+    });
+  }
+
+  function applyLocalSettingsValues(values = {}) {
+    hideCyComments = values[HIDE_CY_COMMENTS_STORAGE_KEY] === true
+      || values[HIDE_CY_COMMENTS_STORAGE_KEY] === "1"
+      || values[HIDE_CY_COMMENTS_STORAGE_KEY] === "true";
+    blockedKeywords = normalizeBlockedKeywords(values[BLOCKED_KEYWORDS_STORAGE_KEY]);
+    levelFilters = normalizeLevelFilters(values[LEVEL_FILTERS_STORAGE_KEY]);
+  }
+
+  async function loadLocalSettingsState() {
+    let response = null;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      response = await requestLocalSettingsState(1200 + attempt * 800);
+      if (response?.ok) {
+        break;
+      }
+    }
+
+    const values = response?.ok ? (response.values || {}) : {};
+    const keysPresent = response?.ok ? (response.keysPresent || {}) : {};
+    const nextValues = {};
+    const migrationValues = {};
+    useLegacyLocalSettingsSync = !response?.ok;
+
+    if (keysPresent[HIDE_CY_COMMENTS_STORAGE_KEY]) {
+      nextValues[HIDE_CY_COMMENTS_STORAGE_KEY] = values[HIDE_CY_COMMENTS_STORAGE_KEY];
+    } else if (hasLegacyLocalStorageValue(HIDE_CY_COMMENTS_STORAGE_KEY)) {
+      nextValues[HIDE_CY_COMMENTS_STORAGE_KEY] = readLegacyHideCyCommentsState();
+      migrationValues[HIDE_CY_COMMENTS_STORAGE_KEY] = nextValues[HIDE_CY_COMMENTS_STORAGE_KEY];
+    } else {
+      nextValues[HIDE_CY_COMMENTS_STORAGE_KEY] = false;
+    }
+
+    if (keysPresent[BLOCKED_KEYWORDS_STORAGE_KEY]) {
+      nextValues[BLOCKED_KEYWORDS_STORAGE_KEY] = normalizeBlockedKeywords(values[BLOCKED_KEYWORDS_STORAGE_KEY]);
+    } else if (hasLegacyLocalStorageValue(BLOCKED_KEYWORDS_STORAGE_KEY)) {
+      nextValues[BLOCKED_KEYWORDS_STORAGE_KEY] = readLegacyBlockedKeywordsState();
+      migrationValues[BLOCKED_KEYWORDS_STORAGE_KEY] = nextValues[BLOCKED_KEYWORDS_STORAGE_KEY];
+    } else {
+      nextValues[BLOCKED_KEYWORDS_STORAGE_KEY] = [];
+    }
+
+    if (keysPresent[LEVEL_FILTERS_STORAGE_KEY]) {
+      nextValues[LEVEL_FILTERS_STORAGE_KEY] = normalizeLevelFilters(values[LEVEL_FILTERS_STORAGE_KEY]);
+    } else if (hasLegacyLocalStorageValue(LEVEL_FILTERS_STORAGE_KEY)) {
+      nextValues[LEVEL_FILTERS_STORAGE_KEY] = readLegacyLevelFiltersState();
+      migrationValues[LEVEL_FILTERS_STORAGE_KEY] = nextValues[LEVEL_FILTERS_STORAGE_KEY];
+    } else {
+      nextValues[LEVEL_FILTERS_STORAGE_KEY] = normalizeLevelFilters({});
+    }
+
+    applyLocalSettingsValues(nextValues);
+
+    if (Object.keys(migrationValues).length) {
+      saveLocalSettings(migrationValues);
+    }
   }
 
   function injectLayoutStyle() {
@@ -6394,14 +6556,32 @@
 
   function installLocalSettingsStateSync() {
     window.addEventListener("storage", (event) => {
+      if (!useLegacyLocalSettingsSync) {
+        return;
+      }
+
       if (event.key === HIDE_CY_COMMENTS_STORAGE_KEY) {
-        syncHideCyCommentsState();
+        syncLegacyHideCyCommentsState();
       }
       if (event.key === BLOCKED_KEYWORDS_STORAGE_KEY) {
-        syncBlockedKeywordsState();
+        syncLegacyBlockedKeywordsState();
       }
       if (event.key === LEVEL_FILTERS_STORAGE_KEY) {
-        syncLevelFiltersState();
+        syncLegacyLevelFiltersState();
+      }
+    });
+
+    window.addEventListener(LOCAL_SETTINGS_CHANGED_EVENT, (event) => {
+      const detail = parseEventDetail(event.detail);
+      const values = detail.values || {};
+      if (Object.prototype.hasOwnProperty.call(values, HIDE_CY_COMMENTS_STORAGE_KEY)) {
+        syncHideCyCommentsState(values[HIDE_CY_COMMENTS_STORAGE_KEY]);
+      }
+      if (Object.prototype.hasOwnProperty.call(values, BLOCKED_KEYWORDS_STORAGE_KEY)) {
+        syncBlockedKeywordsState(values[BLOCKED_KEYWORDS_STORAGE_KEY]);
+      }
+      if (Object.prototype.hasOwnProperty.call(values, LEVEL_FILTERS_STORAGE_KEY)) {
+        syncLevelFiltersState(values[LEVEL_FILTERS_STORAGE_KEY]);
       }
     });
   }
@@ -6462,13 +6642,14 @@
     window.dispatchEvent(new CustomEvent(AI_SETTINGS_REQUEST_EVENT));
   }
 
-  function start() {
+  async function start() {
     installApiParamCapture();
     captureExistingApiEntries();
     bindFeedAiCapture();
     bindFeedAwardCapture();
     bindTopicBlockContextMenu();
     installLocalSettingsStateSync();
+    await loadLocalSettingsState();
     installAiSettingsSync();
     scheduleHandlePage();
     observePage();
