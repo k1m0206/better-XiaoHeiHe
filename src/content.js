@@ -997,15 +997,18 @@
       .${HOME_LAYOUT_CLASS} .${ROW_CLASS} {
         display: grid;
         grid-template-columns: minmax(0, 1fr) clamp(300px, 30vw, 380px);
-        gap: 8px;
+        gap: 0;
         align-items: start;
-        margin: 0;
-        border-bottom: 1px solid #f1f2f4;
+        margin: 0 0 14px;
+        border: 1px solid #eef0f2;
+        border-radius: 8px;
+        background: #fff;
+        box-shadow: 0 1px 2px rgba(20, 25, 30, 0.04);
         overflow: hidden;
       }
 
       .${HOME_LAYOUT_CLASS} .search-result__link.${ROW_CLASS} {
-        border-bottom: 0;
+        border-bottom: 1px solid #eef0f2;
       }
 
       .${HOME_LAYOUT_CLASS} .${ROW_CLASS} > .hb-cpt__bbs-list-content,
