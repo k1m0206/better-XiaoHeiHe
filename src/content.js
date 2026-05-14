@@ -5095,17 +5095,22 @@
 
       aiPendingRequests.set(id, { resolve, reject, timeout });
       window.dispatchEvent(new CustomEvent(AI_CHAT_REQUEST_EVENT, {
-        detail: {
+        detail: JSON.stringify({
           id,
           messages,
           temperature
-        }
+        })
       }));
     });
   }
 
   function handleAiChatResponse(event) {
-    const detail = event.detail || {};
+    let detail = {};
+    try {
+      detail = typeof event.detail === "string" ? JSON.parse(event.detail) : (event.detail || {});
+    } catch {
+      detail = {};
+    }
     const pending = aiPendingRequests.get(detail.id);
     if (!pending) {
       return;
@@ -5769,7 +5774,7 @@
     aiSettings = nextSettings;
     aiSummaryCache.clear();
     window.dispatchEvent(new CustomEvent(AI_SETTINGS_SAVE_EVENT, {
-      detail: nextSettings
+      detail: JSON.stringify(nextSettings)
     }));
     syncAiSummaryButtons();
     const status = panel.querySelector(".better-settings__message");
@@ -6432,8 +6437,14 @@
 
   function installAiSettingsSync() {
     window.addEventListener(AI_SETTINGS_EVENT, (event) => {
+      let settingsDetail = {};
+      try {
+        settingsDetail = typeof event.detail === "string" ? JSON.parse(event.detail) : (event.detail || {});
+      } catch {
+        settingsDetail = {};
+      }
       const previousSettingsKey = JSON.stringify(aiSettings);
-      aiSettings = normalizeAiSettings(event.detail);
+      aiSettings = normalizeAiSettings(settingsDetail);
       if (JSON.stringify(aiSettings) !== previousSettingsKey) {
         aiSummaryCache.clear();
       }

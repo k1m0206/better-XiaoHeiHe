@@ -57,8 +57,17 @@
     syncEnabledLabel();
   }
 
-  function buildChatUrl(baseUrl) {
-    return `${String(baseUrl || "").replace(/\/+$/, "")}/chat/completions`;
+  function sendMessage(message) {
+    return new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage(message, (response) => {
+        const error = chrome.runtime.lastError;
+        if (error) {
+          reject(new Error(error.message || "请求失败"));
+          return;
+        }
+        resolve(response || {});
+      });
+    });
   }
 
   async function testConnection() {
@@ -71,27 +80,14 @@
     testButton.disabled = true;
     setStatus("测试中...", false);
     try {
-      const headers = {
-        accept: "application/json",
-        "content-type": "application/json"
-      };
-      if (settings.apiKey) {
-        headers.authorization = `Bearer ${settings.apiKey}`;
-      }
-      const response = await fetch(buildChatUrl(settings.baseUrl), {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          model: settings.model,
-          messages: [
-            { role: "user", content: "请回复 OK" }
-          ],
-          temperature: 0
-        })
+      const response = await sendMessage({
+        type: "better-xiaoheihe-ai-test",
+        detail: {
+          settings
+        }
       });
-      const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setStatus(data?.error?.message || `连接失败：${response.status}`, true);
+        setStatus(response.error || "连接失败", true);
         return;
       }
       setStatus("连接成功", false);

@@ -28,7 +28,10 @@
   }
 
   function buildChatUrl(baseUrl) {
-    return `${String(baseUrl || "").replace(/\/+$/, "")}/chat/completions`;
+    const normalizedBaseUrl = String(baseUrl || "").trim().replace(/\/+$/, "");
+    return /\/chat\/completions$/i.test(normalizedBaseUrl)
+      ? normalizedBaseUrl
+      : `${normalizedBaseUrl}/chat/completions`;
   }
 
   function readAiSettings() {
@@ -39,8 +42,8 @@
     });
   }
 
-  async function requestChat(detail) {
-    const settings = await readAiSettings();
+  async function requestChat(detail, overrideSettings = null) {
+    const settings = overrideSettings ? normalizeAiSettings(overrideSettings) : await readAiSettings();
     if (!settings.enabled || !settings.baseUrl || !settings.model) {
       return { ok: false, error: "请先开启 AI，并填写 Base URL 和模型" };
     }
@@ -88,6 +91,14 @@
     if (message?.type === "better-xiaoheihe-open-ai-settings") {
       openAiSettings();
       return false;
+    }
+
+    if (message?.type === "better-xiaoheihe-ai-test") {
+      requestChat({
+        messages: [{ role: "user", content: "请回复 OK" }],
+        temperature: 0
+      }, message.detail?.settings).then(sendResponse);
+      return true;
     }
 
     if (message?.type !== "better-xiaoheihe-ai-chat") {
