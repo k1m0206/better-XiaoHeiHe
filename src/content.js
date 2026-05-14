@@ -23,6 +23,7 @@
   const LEVEL_FILTERS_STORAGE_KEY = "better-xiaoheihe-level-filters";
   const AI_SETTINGS_EVENT = "better-xiaoheihe-ai-settings";
   const AI_SETTINGS_REQUEST_EVENT = "better-xiaoheihe-ai-settings-request";
+  const AI_SETTINGS_SAVE_EVENT = "better-xiaoheihe-ai-settings-save";
   const AI_SETTINGS_OPEN_EVENT = "better-xiaoheihe-ai-settings-open";
   const AI_CHAT_REQUEST_EVENT = "better-xiaoheihe-ai-chat-request";
   const AI_CHAT_RESPONSE_EVENT = "better-xiaoheihe-ai-chat-response";
@@ -33,6 +34,11 @@
   const BLOCKED_KEYWORD_SCOPES = {
     COMMENT: "comment",
     FEED: "feed"
+  };
+  const SETTINGS_TABS = {
+    FEED: "feed",
+    COMMENT: "comment",
+    AI: "ai"
   };
   const BLOCKED_KEYWORD_SCOPE_LABELS = {
     [BLOCKED_KEYWORD_SCOPES.COMMENT]: "评论",
@@ -79,6 +85,7 @@
   let aiSettings = normalizeAiSettings();
   const aiPendingRequests = new Map();
   let activeBlockedKeywordScope = BLOCKED_KEYWORD_SCOPES.FEED;
+  let activeSettingsTab = SETTINGS_TABS.FEED;
   let hotSearchPromise = null;
   let leftMenuOriginalPosition = null;
   let emojiPromise = null;
@@ -420,7 +427,7 @@
         box-sizing: border-box;
         position: fixed;
         z-index: 10000;
-        width: 280px;
+        width: 360px;
         padding: 12px;
         border: 1px solid #eef0f2;
         border-radius: 8px;
@@ -614,7 +621,7 @@
 
       .${SETTINGS_PANEL_CLASS} .better-settings__tabs {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 4px;
         margin-bottom: 10px;
         padding: 3px;
@@ -656,6 +663,116 @@
         border-color: #2775d1;
       }
 
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-section {
+        overflow: hidden;
+        padding: 0;
+        background: #fbfcfd;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px;
+        border-bottom: 1px solid #eef0f2;
+        background: #fff;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-title {
+        color: #14191e;
+        font-size: 14px;
+        font-weight: 700;
+        line-height: 20px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-subtitle {
+        margin-top: 2px;
+        color: #8a9299;
+        font-size: 12px;
+        line-height: 17px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-status {
+        display: inline-flex;
+        height: 24px;
+        flex: 0 0 auto;
+        align-items: center;
+        padding: 0 9px;
+        border-radius: 999px;
+        background: #f0f3f6;
+        color: #68727d;
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 24px;
+        white-space: nowrap;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-status.is-on {
+        background: #e7f5ee;
+        color: #0b806f;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-body {
+        padding: 12px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__field {
+        display: block;
+        margin-bottom: 12px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__field-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 7px;
+        color: #3c4651;
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 18px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__text-input,
+      .${SETTINGS_PANEL_CLASS} .better-settings__textarea {
+        box-sizing: border-box;
+        width: 100%;
+        border: 1px solid #dde2e7;
+        border-radius: 7px;
+        outline: none;
+        background: #fbfcfd;
+        color: #14191e;
+        font-size: 13px;
+        transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__text-input {
+        height: 36px;
+        padding: 0 11px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__textarea {
+        min-height: 72px;
+        max-height: 240px;
+        overflow-y: hidden;
+        padding: 10px 11px;
+        resize: none;
+        line-height: 20px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__text-input::placeholder,
+      .${SETTINGS_PANEL_CLASS} .better-settings__textarea::placeholder {
+        color: #a1aab3;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__text-input:focus,
+      .${SETTINGS_PANEL_CLASS} .better-settings__textarea:focus {
+        border-color: #2775d1;
+        background: #fff;
+        box-shadow: 0 0 0 3px rgba(39, 117, 209, 0.12);
+      }
+
       .${SETTINGS_PANEL_CLASS} .better-settings__add {
         height: 32px;
         flex: 0 0 auto;
@@ -665,6 +782,64 @@
         background: #2775d1;
         color: #fff;
         cursor: pointer;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__text-button {
+        height: auto;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: #2775d1;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 18px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__text-button:hover {
+        text-decoration: underline;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 12px -12px -12px;
+        padding: 12px;
+        border-top: 1px solid #eef0f2;
+        background: #fff;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__primary {
+        height: 34px;
+        flex: 0 0 auto;
+        padding: 0 14px;
+        border: 0;
+        border-radius: 7px;
+        background: #2775d1;
+        color: #fff;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__primary:hover {
+        background: #1f66b8;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__primary:disabled {
+        cursor: default;
+        opacity: 0.65;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__message {
+        min-width: 0;
+        overflow: hidden;
+        color: #8a9299;
+        font-size: 12px;
+        line-height: 18px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
 
       .${SETTINGS_PANEL_CLASS} .better-settings__list {
@@ -5009,7 +5184,7 @@
     }
 
     if (!isAiConfigured()) {
-      window.dispatchEvent(new CustomEvent(AI_SETTINGS_OPEN_EVENT));
+      openSettingsPanelTab(SETTINGS_TABS.AI);
       return;
     }
 
@@ -5053,7 +5228,7 @@
     }
 
     if (!isAiConfigured()) {
-      window.dispatchEvent(new CustomEvent(AI_SETTINGS_OPEN_EVENT));
+      openSettingsPanelTab(SETTINGS_TABS.AI);
       return;
     }
 
@@ -5484,6 +5659,15 @@
 
   function setActiveBlockedKeywordScope(scope) {
     activeBlockedKeywordScope = normalizeBlockedKeywordScope(scope);
+    activeSettingsTab = activeBlockedKeywordScope;
+    renderSettingsPanel();
+  }
+
+  function setActiveSettingsTab(tab) {
+    activeSettingsTab = tab === SETTINGS_TABS.AI ? SETTINGS_TABS.AI : normalizeBlockedKeywordScope(tab);
+    if (activeSettingsTab !== SETTINGS_TABS.AI) {
+      activeBlockedKeywordScope = activeSettingsTab;
+    }
     renderSettingsPanel();
   }
 
@@ -5565,12 +5749,94 @@
     positionSettingsPanel(panel, button);
   }
 
-  function renderSettingsPanel() {
-    const panel = document.querySelector(`.${SETTINGS_PANEL_CLASS}`);
-    if (!panel) {
+  function getAiSettingsFormValues(panel) {
+    return normalizeAiSettings({
+      enabled: panel.querySelector(".better-settings__ai-enabled")?.checked,
+      baseUrl: panel.querySelector(".better-settings__ai-base-url")?.value,
+      model: panel.querySelector(".better-settings__ai-model")?.value,
+      apiKey: panel.querySelector(".better-settings__ai-api-key")?.value,
+      summaryPrompt: panel.querySelector(".better-settings__ai-summary-prompt")?.value
+    });
+  }
+
+  function saveAiSettingsFromPanel(panel) {
+    const nextSettings = getAiSettingsFormValues(panel);
+    aiSettings = nextSettings;
+    aiSummaryCache.clear();
+    window.dispatchEvent(new CustomEvent(AI_SETTINGS_SAVE_EVENT, {
+      detail: nextSettings
+    }));
+    syncAiSummaryButtons();
+    const status = panel.querySelector(".better-settings__message");
+    if (status) {
+      status.textContent = "已保存";
+      status.style.color = "#8a9299";
+    }
+    const statusPill = panel.querySelector(".better-settings__ai-status");
+    if (statusPill) {
+      statusPill.textContent = nextSettings.enabled ? "已开启" : "未开启";
+      statusPill.classList.toggle("is-on", nextSettings.enabled);
+    }
+  }
+
+  function syncAutoHeightTextarea(textarea) {
+    if (!textarea) {
       return;
     }
 
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 240)}px`;
+    textarea.style.overflowY = textarea.scrollHeight > 240 ? "auto" : "hidden";
+  }
+
+  function syncSettingsAutoHeightTextareas(panel) {
+    panel?.querySelectorAll(".better-settings__textarea").forEach(syncAutoHeightTextarea);
+  }
+
+  function renderAiSettingsPanelContent() {
+    return `
+      <div class="better-settings__section better-settings__ai-section">
+        <div class="better-settings__ai-header">
+          <div>
+            <div class="better-settings__ai-title">AI 总结</div>
+            <div class="better-settings__ai-subtitle">帖子和评论区摘要</div>
+          </div>
+          <span class="better-settings__ai-status${aiSettings.enabled ? " is-on" : ""}">${aiSettings.enabled ? "已开启" : "未开启"}</span>
+          <label class="better-settings__level-toggle">
+            <input class="better-settings__level-enabled better-settings__ai-enabled" type="checkbox"${aiSettings.enabled ? " checked" : ""}>
+            <span class="better-settings__level-switch" aria-hidden="true"></span>
+          </label>
+        </div>
+        <div class="better-settings__ai-body">
+          <label class="better-settings__field">
+            <span class="better-settings__field-title">Base URL</span>
+            <input class="better-settings__text-input better-settings__ai-base-url" type="url" value="${escapeHtml(aiSettings.baseUrl)}" placeholder="https://api.openai.com/v1">
+          </label>
+          <label class="better-settings__field">
+            <span class="better-settings__field-title">模型</span>
+            <input class="better-settings__text-input better-settings__ai-model" type="text" value="${escapeHtml(aiSettings.model)}" placeholder="gpt-4.1-mini">
+          </label>
+          <label class="better-settings__field">
+            <span class="better-settings__field-title">API Key</span>
+            <input class="better-settings__text-input better-settings__ai-api-key" type="password" value="${escapeHtml(aiSettings.apiKey)}" autocomplete="off" placeholder="sk-...">
+          </label>
+          <label class="better-settings__field">
+            <span class="better-settings__field-title">
+              总结提示词
+              <button class="better-settings__text-button better-settings__ai-reset-prompt" type="button">恢复默认</button>
+            </span>
+            <textarea class="better-settings__textarea better-settings__ai-summary-prompt">${escapeHtml(aiSettings.summaryPrompt)}</textarea>
+          </label>
+          <div class="better-settings__actions">
+            <button class="better-settings__primary better-settings__ai-test" type="button">测试连通</button>
+            <span class="better-settings__message" role="status">${isAiConfigured() ? "已配置" : "请填写 Base URL 和模型"}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderBlockedSettingsPanelContent() {
     const activeScope = normalizeBlockedKeywordScope(activeBlockedKeywordScope);
     const visibleBlockedKeywords = blockedKeywords.filter((item) => normalizeBlockedKeywordScope(item.scope) === activeScope);
     const activeLevelFilter = levelFilters[activeScope] || createDefaultLevelFilter();
@@ -5590,11 +5856,7 @@
         </div>`
       : `<div class="better-settings__empty">暂无${escapeHtml(BLOCKED_KEYWORD_SCOPE_LABELS[activeScope])}屏蔽关键词</div>`;
 
-    panel.innerHTML = `
-      <div class="better-settings__tabs" role="tablist" aria-label="屏蔽范围">
-        <button class="better-settings__tab" type="button" role="tab" data-scope="${BLOCKED_KEYWORD_SCOPES.FEED}" aria-selected="${activeBlockedKeywordScope === BLOCKED_KEYWORD_SCOPES.FEED ? "true" : "false"}">帖子</button>
-        <button class="better-settings__tab" type="button" role="tab" data-scope="${BLOCKED_KEYWORD_SCOPES.COMMENT}" aria-selected="${activeBlockedKeywordScope === BLOCKED_KEYWORD_SCOPES.COMMENT ? "true" : "false"}">评论</button>
-      </div>
+    return `
       <div class="better-settings__section">
         <div class="better-settings__level-row">
           <span class="better-settings__section-title">等级过滤</span>
@@ -5618,7 +5880,63 @@
         ${listHtml}
       </div>
     `;
+  }
+
+  function renderSettingsPanel() {
+    const panel = document.querySelector(`.${SETTINGS_PANEL_CLASS}`);
+    if (!panel) {
+      return;
+    }
+
+    panel.innerHTML = `
+      <div class="better-settings__tabs" role="tablist" aria-label="屏蔽范围">
+        <button class="better-settings__tab" type="button" role="tab" data-settings-tab="${SETTINGS_TABS.FEED}" aria-selected="${activeSettingsTab === SETTINGS_TABS.FEED ? "true" : "false"}">帖子</button>
+        <button class="better-settings__tab" type="button" role="tab" data-settings-tab="${SETTINGS_TABS.COMMENT}" aria-selected="${activeSettingsTab === SETTINGS_TABS.COMMENT ? "true" : "false"}">评论</button>
+        <button class="better-settings__tab" type="button" role="tab" data-settings-tab="${SETTINGS_TABS.AI}" aria-selected="${activeSettingsTab === SETTINGS_TABS.AI ? "true" : "false"}">AI 设置</button>
+      </div>
+      ${activeSettingsTab === SETTINGS_TABS.AI ? renderAiSettingsPanelContent() : renderBlockedSettingsPanelContent()}
+    `;
+    syncSettingsAutoHeightTextareas(panel);
     repositionSettingsPanelIfOpen();
+  }
+
+  function testAiSettingsFromPanel(panel, button) {
+    saveAiSettingsFromPanel(panel);
+    const status = panel.querySelector(".better-settings__message");
+    const settings = getAiSettingsFormValues(panel);
+    if (!settings.baseUrl || !settings.model) {
+      if (status) {
+        status.textContent = "请先填写 Base URL 和模型";
+        status.style.color = "#d33b4a";
+      }
+      return;
+    }
+
+    if (button) {
+      button.disabled = true;
+    }
+    if (status) {
+      status.textContent = "测试中...";
+      status.style.color = "#8a9299";
+    }
+
+    window.setTimeout(() => {
+      requestAiChat([{ role: "user", content: "请回复 OK" }], 0).then(() => {
+        if (status) {
+          status.textContent = "连接成功";
+          status.style.color = "#0b806f";
+        }
+      }).catch((error) => {
+        if (status) {
+          status.textContent = error?.message || "连接失败";
+          status.style.color = "#d33b4a";
+        }
+      }).finally(() => {
+        if (button) {
+          button.disabled = false;
+        }
+      });
+    }, 0);
   }
 
   function ensureSettingsPanel() {
@@ -5642,10 +5960,26 @@
         return;
       }
 
-      const scopeTab = event.target.closest(".better-settings__tab");
-      if (scopeTab && panel.contains(scopeTab)) {
-        setActiveBlockedKeywordScope(scopeTab.dataset.scope);
-        panel.querySelector(".better-settings__input")?.focus();
+      const settingsTab = event.target.closest(".better-settings__tab");
+      if (settingsTab && panel.contains(settingsTab)) {
+        setActiveSettingsTab(settingsTab.dataset.settingsTab);
+        panel.querySelector(".better-settings__input, .better-settings__ai-base-url")?.focus();
+        return;
+      }
+
+      const resetPromptButton = event.target.closest(".better-settings__ai-reset-prompt");
+      if (resetPromptButton && panel.contains(resetPromptButton)) {
+        const promptInput = panel.querySelector(".better-settings__ai-summary-prompt");
+        if (promptInput) {
+          promptInput.value = DEFAULT_SUMMARY_PROMPT;
+        }
+        saveAiSettingsFromPanel(panel);
+        return;
+      }
+
+      const testButton = event.target.closest(".better-settings__ai-test");
+      if (testButton && panel.contains(testButton)) {
+        testAiSettingsFromPanel(panel, testButton);
       }
     });
     panel.addEventListener("input", (event) => {
@@ -5666,9 +6000,22 @@
           valueLabel.textContent = `展示 ${getLevelFilterLabel(Number.parseInt(event.target.value, 10) || LEVEL_FILTER_MIN)} 及以上${BLOCKED_KEYWORD_SCOPE_LABELS[scope]}`;
         }
       }
+
+      if (event.target.matches(".better-settings__ai-base-url, .better-settings__ai-model, .better-settings__ai-api-key, .better-settings__ai-summary-prompt")) {
+        if (event.target.matches(".better-settings__ai-summary-prompt")) {
+          syncAutoHeightTextarea(event.target);
+          repositionSettingsPanelIfOpen();
+        }
+        saveAiSettingsFromPanel(panel);
+      }
     });
     panel.addEventListener("change", (event) => {
       if (!(event.target instanceof Element)) {
+        return;
+      }
+
+      if (event.target.matches(".better-settings__ai-enabled")) {
+        saveAiSettingsFromPanel(panel);
         return;
       }
 
@@ -5690,8 +6037,7 @@
         return;
       }
 
-      const selectedTab = panel.querySelector('.better-settings__tab[aria-selected="true"]');
-      addBlockedKeyword(input.value, selectedTab?.dataset.scope || activeBlockedKeywordScope);
+      addBlockedKeyword(input.value, activeBlockedKeywordScope);
       input.value = "";
       input.focus();
     });
@@ -5729,6 +6075,23 @@
       panel.querySelector(".better-settings__input")?.focus();
       bindSettingsPanelResizeSync();
     }
+  }
+
+  function openSettingsPanelTab(tab) {
+    activeSettingsTab = tab === SETTINGS_TABS.AI ? SETTINGS_TABS.AI : normalizeBlockedKeywordScope(tab);
+    const button = document.querySelector(`.${SETTINGS_ENTRY_CLASS}`);
+    if (!button) {
+      window.dispatchEvent(new CustomEvent(AI_SETTINGS_OPEN_EVENT));
+      return;
+    }
+
+    const panel = ensureSettingsPanel();
+    panel.hidden = false;
+    button.setAttribute("aria-expanded", "true");
+    renderSettingsPanel();
+    positionSettingsPanel(panel, button);
+    panel.querySelector(activeSettingsTab === SETTINGS_TABS.AI ? ".better-settings__ai-base-url" : ".better-settings__input")?.focus();
+    bindSettingsPanelResizeSync();
   }
 
   function ensureFavoriteEntry() {
@@ -6068,6 +6431,14 @@
       aiSettings = normalizeAiSettings(event.detail);
       if (JSON.stringify(aiSettings) !== previousSettingsKey) {
         aiSummaryCache.clear();
+      }
+      const settingsPanel = document.querySelector(`.${SETTINGS_PANEL_CLASS}`);
+      const isEditingAiSettings = activeSettingsTab === SETTINGS_TABS.AI
+        && settingsPanel
+        && !settingsPanel.hidden
+        && settingsPanel.contains(document.activeElement);
+      if (!isEditingAiSettings) {
+        renderSettingsPanel();
       }
       syncAiSummaryButtons();
     });

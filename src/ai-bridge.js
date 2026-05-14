@@ -2,6 +2,7 @@
   const AI_SETTINGS_STORAGE_KEY = "better-xiaoheihe-ai-settings";
   const SETTINGS_EVENT = "better-xiaoheihe-ai-settings";
   const SETTINGS_REQUEST_EVENT = "better-xiaoheihe-ai-settings-request";
+  const SETTINGS_SAVE_EVENT = "better-xiaoheihe-ai-settings-save";
   const SETTINGS_OPEN_EVENT = "better-xiaoheihe-ai-settings-open";
   const CHAT_REQUEST_EVENT = "better-xiaoheihe-ai-chat-request";
   const CHAT_RESPONSE_EVENT = "better-xiaoheihe-ai-chat-response";
@@ -25,6 +26,7 @@
         enabled: currentSettings.enabled,
         baseUrl: currentSettings.baseUrl,
         model: currentSettings.model,
+        apiKey: currentSettings.apiKey,
         summaryPrompt: currentSettings.summaryPrompt
       }
     }));
@@ -98,6 +100,13 @@
   }
 
   window.addEventListener(SETTINGS_REQUEST_EVENT, readSettings);
+  window.addEventListener(SETTINGS_SAVE_EVENT, (event) => {
+    const nextSettings = normalizeAiSettings(event.detail);
+    dispatchSettings(nextSettings);
+    chrome.storage.local.set({
+      [AI_SETTINGS_STORAGE_KEY]: nextSettings
+    });
+  });
   window.addEventListener(SETTINGS_OPEN_EVENT, () => {
     chrome.runtime.sendMessage({ type: "better-xiaoheihe-open-ai-settings" });
   });
