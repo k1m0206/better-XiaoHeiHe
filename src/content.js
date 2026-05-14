@@ -364,23 +364,27 @@
         box-sizing: border-box;
         display: inline-flex;
         min-width: 0;
-        height: 32px;
+        height: 36px;
         align-items: center;
         justify-content: center;
-        gap: 4px;
+        gap: 6px;
         margin-left: 8px;
-        padding: 0 10px;
-        border-radius: 6px;
-        color: #59636e;
+        padding: 0 12px;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: #14191e;
         font-size: 13px;
-        line-height: 32px;
+        font-weight: 600;
+        line-height: 36px;
         text-decoration: none;
         white-space: nowrap;
+        transition: background 0.16s ease, color 0.16s ease;
       }
 
       .${FAVORITE_ENTRY_CLASS}:hover {
-        background: #f3f4f5;
-        color: #14191e;
+        background: #eceff2;
+        color: #000;
       }
 
       .${FAVORITE_ENTRY_CLASS} .better-xiaoheihe-favorite-entry__icon {
@@ -401,14 +405,15 @@
         background: transparent;
         color: #14191e;
         cursor: pointer;
-        font-size: 22px;
-        font-weight: 700;
+        font-size: 20px;
+        font-weight: 600;
         line-height: 1;
+        transition: background 0.16s ease, color 0.16s ease;
       }
 
       .${SETTINGS_ENTRY_CLASS}:hover,
       .${SETTINGS_ENTRY_CLASS}[aria-expanded="true"] {
-        background: #f3f4f5;
+        background: #eceff2;
         color: #000;
       }
 
@@ -417,9 +422,9 @@
         align-items: center;
         justify-content: center;
         color: #000;
-        font-size: 22px;
+        font-size: 20px;
         font-style: normal;
-        font-weight: 800;
+        font-weight: 700;
         line-height: 1;
       }
 
