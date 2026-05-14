@@ -1,1 +1,0 @@
-import{f as a}from"./c2sykE0H.js";function s(s,e){return a("/bbs/app/api/search/found",s,{...e})}function e(s,e){return a("/bbs/app/api/search/welcome_page/v2",s,{...e})}function n(s,e){return a("/bbs/app/api/search/suggestion/v2",s,{...e})}function r(s,e){return a("/bbs/app/api/general/search/v1",s,{manual_failed_msg:!0,...e})}export{s as a,n as b,r as c,e as g};
