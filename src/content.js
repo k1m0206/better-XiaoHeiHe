@@ -1974,8 +1974,12 @@
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-bbs-image-text {
         grid-column: 1;
         min-width: 0;
+        min-height: 0 !important;
+        height: auto !important;
         width: 100% !important;
         max-width: none !important;
+        margin-bottom: 0 !important;
+        padding-bottom: 0 !important;
       }
 
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-bbs-post .post__container,
@@ -1993,6 +1997,9 @@
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-bbs-image-text .image-text__container {
         width: 100% !important;
         max-width: 100% !important;
+        min-height: 0 !important;
+        margin-bottom: 0 !important;
+        padding-bottom: 0 !important;
       }
 
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-bbs-image-text .header-image__container {
