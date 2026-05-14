@@ -1855,6 +1855,7 @@
 
       .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__chat-message {
         box-sizing: border-box;
+        width: fit-content;
         max-width: 88%;
         margin: 0 0 8px;
         padding: 8px 10px;
@@ -1879,6 +1880,13 @@
 
       .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__chat-message--muted {
         color: #8a9299;
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__chat-message-meta {
+        margin-top: 4px;
+        color: #8a9299;
+        font-size: 12px;
+        line-height: 1.4;
       }
 
       .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__chat-form {
@@ -4459,7 +4467,7 @@
     unlockAiSummaryPageScroll();
   }
 
-  function formatSummaryElapsedSeconds(elapsedMs) {
+  function formatAiElapsedSeconds(elapsedMs) {
     const seconds = Number(elapsedMs) / 1000;
     return Number.isFinite(seconds) && seconds >= 0 ? seconds.toFixed(1) : "";
   }
@@ -4475,7 +4483,8 @@
             role: message?.role === "user" ? "user" : "assistant",
             content: String(message?.content || ""),
             muted: message?.muted === true,
-            pending: message?.pending === true
+            pending: message?.pending === true,
+            elapsedMs: Number.isFinite(message?.elapsedMs) ? message.elapsedMs : null
           })).filter((message) => message.content)
           : []
       };
@@ -4493,7 +4502,9 @@
     const role = message?.role === "user" ? "user" : "assistant";
     const mutedClass = message?.muted ? " better-ai-summary__chat-message--muted" : "";
     const content = role === "assistant" ? renderMarkdown(message?.content || "") : escapeHtml(message?.content || "");
-    return `<div class="better-ai-summary__chat-message better-ai-summary__chat-message--${role}${mutedClass}">${content}</div>`;
+    const elapsedSeconds = role === "assistant" && !message?.pending ? formatAiElapsedSeconds(message?.elapsedMs) : "";
+    const meta = elapsedSeconds ? `<div class="better-ai-summary__chat-message-meta">思考耗时 ${elapsedSeconds} 秒</div>` : "";
+    return `<div class="better-ai-summary__chat-message better-ai-summary__chat-message--${role}${mutedClass}">${content}${meta}</div>`;
   }
 
   function renderAiSummaryChatMessages(messagesElement, messages) {
@@ -4589,6 +4600,7 @@
 
     const requestMessages = buildAiSummaryChatMessages(entry, question);
     aiSummaryChatSending.add(linkId);
+    const chatStartTime = performance.now();
     const messagesElement = modal.querySelector(".better-ai-summary__chat-messages");
     const nextEntry = updateAiSummaryChatCache(linkId, (cacheEntry) => ({
       ...cacheEntry,
@@ -4602,19 +4614,21 @@
     setAiSummaryChatControls(modal, false);
 
     requestAiChat(requestMessages).then((answer) => {
+      const elapsedMs = performance.now() - chatStartTime;
       updateAiSummaryChatCache(linkId, (cacheEntry) => ({
         ...cacheEntry,
         chatMessages: [
           ...cacheEntry.chatMessages.filter((message) => !message.pending),
-          { role: "assistant", content: answer || "模型没有返回内容" }
+          { role: "assistant", content: answer || "模型没有返回内容", elapsedMs }
         ]
       }));
     }).catch((error) => {
+      const elapsedMs = performance.now() - chatStartTime;
       updateAiSummaryChatCache(linkId, (cacheEntry) => ({
         ...cacheEntry,
         chatMessages: [
           ...cacheEntry.chatMessages.filter((message) => !message.pending),
-          { role: "assistant", content: error?.message || "AI 请求失败", muted: true }
+          { role: "assistant", content: error?.message || "AI 请求失败", muted: true, elapsedMs }
         ]
       }));
     }).finally(() => {
@@ -4635,7 +4649,7 @@
       titleElement.textContent = title || "AI 总结";
     }
     if (metaElement) {
-      const elapsedSeconds = formatSummaryElapsedSeconds(elapsedMs);
+      const elapsedSeconds = formatAiElapsedSeconds(elapsedMs);
       metaElement.textContent = elapsedSeconds ? `总结耗时 ${elapsedSeconds} 秒` : "";
     }
     if (contentElement) {
