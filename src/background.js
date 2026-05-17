@@ -1,6 +1,8 @@
 (function () {
   const AI_SETTINGS_STORAGE_KEY = "better-xiaoheihe-ai-settings";
   const DEFAULT_SUMMARY_PROMPT = "你是社区帖子总结助手，请用中文简洁输出：\n帖子总结\n一句话概括帖子核心内容。\n评论区信息\n提取评论区里有价值的观点、经验、补充或避坑信息，没有则跳过。\nAI简评\n像真实网友一样补充观点，避免AI味。\n返回md格式。";
+  const IDENTITY_COOKIE_NAMES = ["heybox_id", "user_heybox_id"];
+  const removedIdentityCookieSets = new Map();
 
   function normalizeAiSettings(settings) {
     return {
@@ -87,6 +89,81 @@
     }
   }
 
+  function getCookieUrl(cookie) {
+    const protocol = cookie.secure ? "https:" : "http:";
+    const domain = String(cookie.domain || "").replace(/^\./, "");
+    return `${protocol}//${domain}${cookie.path || "/"}`;
+  }
+
+  function getIdentityCookies() {
+    return new Promise((resolve) => {
+      chrome.cookies.getAll({}, (cookies) => {
+        const error = chrome.runtime.lastError;
+        if (error) {
+          resolve([]);
+          return;
+        }
+
+        resolve((cookies || []).filter((cookie) => {
+          const domain = String(cookie.domain || "").replace(/^\./, "");
+          return IDENTITY_COOKIE_NAMES.includes(cookie.name)
+            && (domain === "xiaoheihe.cn" || domain.endsWith(".xiaoheihe.cn"));
+        }));
+      });
+    });
+  }
+
+  function removeCookie(cookie) {
+    return new Promise((resolve) => {
+      chrome.cookies.remove({
+        url: getCookieUrl(cookie),
+        name: cookie.name,
+        storeId: cookie.storeId
+      }, () => resolve());
+    });
+  }
+
+  function setCookie(cookie) {
+    return new Promise((resolve) => {
+      const details = {
+        url: getCookieUrl(cookie),
+        name: cookie.name,
+        value: cookie.value,
+        path: cookie.path,
+        secure: cookie.secure,
+        httpOnly: cookie.httpOnly,
+        sameSite: cookie.sameSite,
+        storeId: cookie.storeId
+      };
+
+      if (cookie.domain?.startsWith(".")) {
+        details.domain = cookie.domain;
+      }
+
+      if (!cookie.session && Number.isFinite(cookie.expirationDate)) {
+        details.expirationDate = cookie.expirationDate;
+      }
+
+      chrome.cookies.set(details, () => resolve());
+    });
+  }
+
+  async function removeIdentityCookies(detail = {}) {
+    const id = detail.id || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const cookies = await getIdentityCookies();
+    await Promise.all(cookies.map(removeCookie));
+    removedIdentityCookieSets.set(id, cookies);
+    return { ok: true, id, count: cookies.length };
+  }
+
+  async function restoreIdentityCookies(detail = {}) {
+    const id = detail.id || "";
+    const cookies = removedIdentityCookieSets.get(id) || [];
+    removedIdentityCookieSets.delete(id);
+    await Promise.all(cookies.map(setCookie));
+    return { ok: true, id, count: cookies.length };
+  }
+
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message?.type === "better-xiaoheihe-open-ai-settings") {
       openAiSettings();
@@ -98,6 +175,16 @@
         messages: [{ role: "user", content: "请回复 OK" }],
         temperature: 0
       }, message.detail?.settings).then(sendResponse);
+      return true;
+    }
+
+    if (message?.type === "better-xiaoheihe-remove-identity-cookies") {
+      removeIdentityCookies(message.detail).then(sendResponse);
+      return true;
+    }
+
+    if (message?.type === "better-xiaoheihe-restore-identity-cookies") {
+      restoreIdentityCookies(message.detail).then(sendResponse);
       return true;
     }
 

@@ -5,7 +5,8 @@
   "version": "0.1.4.1",
   "description": "__MSG_extensionDescription__",
   "permissions": [
-    "storage"
+    "storage",
+    "cookies"
   ],
   "host_permissions": [
     "<all_urls>"

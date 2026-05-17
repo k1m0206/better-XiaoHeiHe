@@ -36,6 +36,8 @@
   const AI_SETTINGS_OPEN_EVENT = "better-xiaoheihe-ai-settings-open";
   const AI_CHAT_REQUEST_EVENT = "better-xiaoheihe-ai-chat-request";
   const AI_CHAT_RESPONSE_EVENT = "better-xiaoheihe-ai-chat-response";
+  const COOKIE_REQUEST_EVENT = "better-xiaoheihe-cookie-request";
+  const COOKIE_RESPONSE_EVENT = "better-xiaoheihe-cookie-response";
   const DEFAULT_SUMMARY_PROMPT = "你是社区帖子总结助手，请用中文简洁输出：\n帖子总结\n一句话概括帖子核心内容。\n评论区信息\n提取评论区里有价值的观点、经验、补充或避坑信息，没有则跳过。\nAI简评\n像真实网友一样补充观点，避免AI味。\n返回md格式。";
   const DEFAULT_USER_LEVEL = 6;
   const LEVEL_FILTER_MIN = 7;
@@ -113,6 +115,7 @@
   let activeImageViewerImages = [];
   let activeImageViewerIndex = 0;
   let documentOverflowBeforeImageViewer = "";
+  let identityCookieFetchQueue = Promise.resolve();
 
   function isEnhancedPage() {
     return window.location.hostname === "www.xiaoheihe.cn"
@@ -2748,6 +2751,58 @@
       ?.slice(name.length + 1) || "";
   }
 
+  function requestIdentityCookieChange(action, id, timeout = 5000) {
+    return new Promise((resolve) => {
+      const timer = window.setTimeout(() => {
+        window.removeEventListener(COOKIE_RESPONSE_EVENT, handleResponse);
+        resolve({ ok: false, error: "Cookie 处理超时" });
+      }, timeout);
+
+      function handleResponse(event) {
+        const detail = parseEventDetail(event.detail);
+        if (detail.id !== id) {
+          return;
+        }
+
+        window.clearTimeout(timer);
+        window.removeEventListener(COOKIE_RESPONSE_EVENT, handleResponse);
+        resolve(detail);
+      }
+
+      window.addEventListener(COOKIE_RESPONSE_EVENT, handleResponse);
+      window.dispatchEvent(new CustomEvent(COOKIE_REQUEST_EVENT, {
+        detail: stringifyEventDetail({
+          id,
+          action
+        })
+      }));
+    });
+  }
+
+  function runWithoutIdentityCookies(task) {
+    const run = () => {
+      const id = `better-cookie-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      return requestIdentityCookieChange("remove", id)
+        .then((result) => {
+          if (!result.ok) {
+            throw new Error(result.error || "Cookie 处理失败");
+          }
+
+          return Promise.resolve()
+            .then(task)
+            .finally(() => requestIdentityCookieChange("restore", id));
+        });
+    };
+
+    const next = identityCookieFetchQueue.then(run, run);
+    identityCookieFetchQueue = next.catch(() => {});
+    return next;
+  }
+
+  function runAfterIdentityCookiesRestored(task) {
+    return identityCookieFetchQueue.then(task, task);
+  }
+
   function captureApiParams(url) {
     let parsed;
 
@@ -3064,7 +3119,8 @@
     };
   }
 
-  function getBaseApiParams() {
+  function getBaseApiParams(options = {}) {
+    const { includeHeyboxId = true } = options;
     captureExistingApiEntries();
 
     const params = {
@@ -3086,12 +3142,16 @@
       }
     });
 
+    if (!includeHeyboxId) {
+      delete params.heybox_id;
+    }
+
     return params;
   }
 
   function buildCommentApiUrl(linkId, page) {
     const params = new URLSearchParams({
-      ...getBaseApiParams(),
+      ...getBaseApiParams({ includeHeyboxId: false }),
       ...createSignedParams(API_PATH),
       link_id: linkId,
       is_first: page === 1 ? "1" : "0",
@@ -3106,7 +3166,7 @@
 
   function buildSubCommentApiUrl(rootCommentId, lastval) {
     const params = new URLSearchParams({
-      ...getBaseApiParams(),
+      ...getBaseApiParams({ includeHeyboxId: false }),
       ...createSignedParams(SUB_COMMENT_API_PATH),
       root_comment_id: rootCommentId,
       lastval: lastval || rootCommentId,
@@ -3853,12 +3913,12 @@
   function fetchCommentPageData(linkId, page) {
     return Promise.all([
       loadEmojis(),
-      fetch(buildCommentApiUrl(linkId, page), {
+      runWithoutIdentityCookies(() => fetch(buildCommentApiUrl(linkId, page), {
         credentials: "include",
         headers: {
           accept: "*/*"
         }
-      }).then((response) => response.json())
+      }).then((response) => response.json()))
     ]).then(([, data]) => data);
   }
 
@@ -3943,12 +4003,12 @@
 
     Promise.all([
       loadEmojis(),
-      fetch(buildSubCommentApiUrl(rootCommentId, getLastReplyValue(group)), {
+      runWithoutIdentityCookies(() => fetch(buildSubCommentApiUrl(rootCommentId, getLastReplyValue(group)), {
         credentials: "include",
         headers: {
           accept: "*/*"
         }
-      }).then((response) => response.json())
+      }).then((response) => response.json()))
     ]).then(([, data]) => {
       const { state: nextState, group: nextGroup } = findCommentGroup(linkId, rootCommentId);
       if (!nextState || !nextGroup) {
@@ -4072,7 +4132,7 @@
     button.dataset.loading = "1";
     button.disabled = true;
 
-    fetch(buildCommentSupportApiUrl(), {
+    runAfterIdentityCookiesRestored(() => fetch(buildCommentSupportApiUrl(), {
       method: "POST",
       credentials: "include",
       headers: {
@@ -4083,7 +4143,7 @@
         comment_id: commentId,
         support_type: "1"
       }).toString()
-    }).then((response) => response.json()).then((data) => {
+    })).then((response) => response.json()).then((data) => {
       if (data?.status !== "ok") {
         delete button.dataset.loading;
         button.disabled = false;
@@ -4145,7 +4205,7 @@
     state.linkAwarding = true;
     commentCache.set(linkId, state);
 
-    fetch(buildLinkAwardApiUrl(), {
+    runAfterIdentityCookiesRestored(() => fetch(buildLinkAwardApiUrl(), {
       method: "POST",
       credentials: "include",
       headers: {
@@ -4156,7 +4216,7 @@
         link_id: linkId,
         award_type: "1"
       }).toString()
-    }).then((response) => response.json()).then((data) => {
+    })).then((response) => response.json()).then((data) => {
       const nextState = commentCache.get(linkId) || state;
       nextState.linkAwarding = false;
       if (data?.status === "ok") {

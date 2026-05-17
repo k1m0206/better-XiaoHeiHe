@@ -144,7 +144,7 @@ POST {baseUrl}/chat/completions
 - `device_info`
 - `device_id`
 
-评论列表接口会按页请求，第一页使用 `is_first=1&page=1`，继续滚动时使用 `is_first=0&page=2/3/...`，每页 `limit=20`。楼中楼更多回复接口使用 `root_comment_id` 和最后一条已展示回复的 `lastval` 继续请求。评论点赞接口使用 `comment_id` 和 `support_type=1` 提交点赞；内容点赞接口使用 `link_id` 和 `award_type=1` 提交点赞。
+右侧评论区的评论列表和楼中楼更多回复查询不会携带 `heybox_id` URL 参数，也会在发起查询时临时移除 Cookie 中的 `heybox_id` 和 `user_heybox_id` 字段；其它 Cookie 照常随请求发送。评论列表接口会按页请求，第一页使用 `is_first=1&page=1`，继续滚动时使用 `is_first=0&page=2/3/...`，每页 `limit=20`。楼中楼更多回复接口使用 `root_comment_id` 和最后一条已展示回复的 `lastval` 继续请求。评论点赞接口使用 `comment_id` 和 `support_type=1` 提交点赞；内容点赞接口使用 `link_id` 和 `award_type=1` 提交点赞。点赞请求会等待临时移除的身份 Cookie 恢复后再发送，并携带当前网页登录态。
 
 AI 接口使用设置弹框中填写的 `baseUrl`、`model` 和可选 `apiKey`，由扩展后台按 OpenAI 兼容 `chat/completions` 格式发起请求。请求会发送当前帖子标题、正文、话题和最多 30 条评论文本用于生成总结；评论超过 30 条时优先选取点赞量更高的评论。
 
@@ -154,7 +154,7 @@ AI 接口使用设置弹框中填写的 `baseUrl`、`model` 和可选 `apiKey`�
 ## 注意事项
 
 - 插件匹配 `https://www.xiaoheihe.cn/app/bbs`、`https://www.xiaoheihe.cn/app/topic/link`、`https://www.xiaoheihe.cn/app/user/profile`、`https://www.xiaoheihe.cn/app/user/favour`、`https://www.xiaoheihe.cn/app/search` 和它们的子路径。
-- 评论接口依赖当前网页登录态，未登录或登录态失效时可能无法展示评论。
+- 右侧评论区的评论列表和楼中楼查询会移除 Cookie 中的 `heybox_id` 和 `user_heybox_id` 字段；点赞等用户主动操作仍依赖当前网页登录态。
 - AI 总结接口由用户自行配置，开启且完成配置后，帖子内容和评论文本会发送到该接口服务商。
 - 小黑盒网页结构或接口签名变化时，插件可能需要适配。
 - 本项目只在页面内做展示优化，不保存用户 Cookie 或登录凭据。
