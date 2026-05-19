@@ -2,6 +2,7 @@
   const AI_SETTINGS_STORAGE_KEY = "better-xiaoheihe-ai-settings";
   const DEFAULT_SUMMARY_PROMPT = "你是社区帖子总结助手，请用中文简洁输出：\n帖子总结\n一句话概括帖子核心内容。\n评论区信息\n提取评论区里有价值的观点、经验、补充或避坑信息，没有则跳过。\nAI简评\n像真实网友一样补充观点，避免AI味。\n返回md格式。";
   const IDENTITY_COOKIE_NAMES = ["heybox_id", "user_heybox_id"];
+  const IDENTITY_COOKIE_AUTO_RESTORE_DELAY = 10000;
   const removedIdentityCookieSets = new Map();
 
   function normalizeAiSettings(settings) {
@@ -152,14 +153,22 @@
     const id = detail.id || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
     const cookies = await getIdentityCookies();
     await Promise.all(cookies.map(removeCookie));
-    removedIdentityCookieSets.set(id, cookies);
+    const timer = setTimeout(() => {
+      restoreIdentityCookies({ id });
+    }, IDENTITY_COOKIE_AUTO_RESTORE_DELAY);
+    removedIdentityCookieSets.set(id, { cookies, timer });
     return { ok: true, id, count: cookies.length };
   }
 
   async function restoreIdentityCookies(detail = {}) {
     const id = detail.id || "";
-    const cookies = removedIdentityCookieSets.get(id) || [];
+    const entry = removedIdentityCookieSets.get(id);
     removedIdentityCookieSets.delete(id);
+    if (entry?.timer) {
+      clearTimeout(entry.timer);
+    }
+
+    const cookies = Array.isArray(entry) ? entry : entry?.cookies || [];
     await Promise.all(cookies.map(setCookie));
     return { ok: true, id, count: cookies.length };
   }

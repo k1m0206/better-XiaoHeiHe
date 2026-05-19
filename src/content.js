@@ -118,6 +118,8 @@
   let activeImageViewerIndex = 0;
   let documentOverflowBeforeImageViewer = "";
   let identityCookieFetchQueue = Promise.resolve();
+  const IS_FIREFOX = /\bFirefox\//.test(window.navigator.userAgent);
+  const activeIdentityCookieRequestIds = new Set();
 
   function isEnhancedPage() {
     return window.location.hostname === "www.xiaoheihe.cn"
@@ -2798,23 +2800,37 @@
   }
 
   function runWithoutIdentityCookies(task) {
+    if (IS_FIREFOX) {
+      return Promise.resolve().then(task);
+    }
+
     const run = () => {
       const id = `better-cookie-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      activeIdentityCookieRequestIds.add(id);
       return requestIdentityCookieChange("remove", id)
         .then((result) => {
           if (!result.ok) {
+            activeIdentityCookieRequestIds.delete(id);
             throw new Error(result.error || "Cookie 处理失败");
           }
 
           return Promise.resolve()
             .then(task)
-            .finally(() => requestIdentityCookieChange("restore", id));
+            .finally(() => requestIdentityCookieChange("restore", id)
+              .finally(() => activeIdentityCookieRequestIds.delete(id)));
         });
     };
 
     const next = identityCookieFetchQueue.then(run, run);
     identityCookieFetchQueue = next.catch(() => {});
     return next;
+  }
+
+  function restoreActiveIdentityCookies() {
+    activeIdentityCookieRequestIds.forEach((id) => {
+      requestIdentityCookieChange("restore", id)
+        .finally(() => activeIdentityCookieRequestIds.delete(id));
+    });
   }
 
   function runAfterIdentityCookiesRestored(task) {
@@ -6758,9 +6774,15 @@
     window.dispatchEvent(new CustomEvent(AI_SETTINGS_REQUEST_EVENT));
   }
 
+  function installIdentityCookieRestoreGuards() {
+    window.addEventListener("pagehide", restoreActiveIdentityCookies);
+    window.addEventListener("beforeunload", restoreActiveIdentityCookies);
+  }
+
   async function start() {
     installApiParamCapture();
     captureExistingApiEntries();
+    installIdentityCookieRestoreGuards();
     bindFeedAiCapture();
     bindFeedAwardCapture();
     bindTopicBlockContextMenu();
