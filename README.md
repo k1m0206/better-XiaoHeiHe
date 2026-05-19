@@ -26,6 +26,11 @@
 
 ## 更新记录
 
+### 0.1.4.5
+
+- 不再临时移除小黑盒身份 Cookie，彻底避免刷新页面时登录态短暂丢失。
+- 移除 `cookies` 权限，仅保留评论接口 URL 参数中的身份字段过滤。
+
 ### 0.1.4.4
 
 - 修复 Firefox 刷新页面时临时移除身份 Cookie 可能导致小黑盒登录态丢失的问题。
@@ -149,7 +154,7 @@ POST {baseUrl}/chat/completions
 - `device_info`
 - `device_id`
 
-右侧评论区的评论列表和楼中楼更多回复查询不会携带 `heybox_id` URL 参数；非 Firefox 浏览器会在发起查询时临时移除 Cookie 中的 `heybox_id` 和 `user_heybox_id` 字段，并在请求结束后恢复，其它 Cookie 照常随请求发送。Firefox 为避免刷新页面时中断 Cookie 恢复导致登录态丢失，只移除 URL 参数，不物理移除身份 Cookie。评论列表接口会按页请求，第一页使用 `is_first=1&page=1`，继续滚动时使用 `is_first=0&page=2/3/...`，每页 `limit=20`。楼中楼更多回复接口使用 `root_comment_id` 和最后一条已展示回复的 `lastval` 继续请求。评论点赞接口使用 `comment_id` 和 `support_type=1` 提交点赞；内容点赞接口使用 `link_id` 和 `award_type=1` 提交点赞。点赞请求会等待临时移除的身份 Cookie 恢复后再发送，并携带当前网页登录态。
+右侧评论区的评论列表和楼中楼更多回复查询不会携带 `heybox_id` URL 参数，也不会临时移除或修改浏览器中的 `heybox_id`、`user_heybox_id` Cookie，避免刷新页面时影响小黑盒网页登录态。评论列表接口会按页请求，第一页使用 `is_first=1&page=1`，继续滚动时使用 `is_first=0&page=2/3/...`，每页 `limit=20`。楼中楼更多回复接口使用 `root_comment_id` 和最后一条已展示回复的 `lastval` 继续请求。评论点赞接口使用 `comment_id` 和 `support_type=1` 提交点赞；内容点赞接口使用 `link_id` 和 `award_type=1` 提交点赞。点赞请求会携带当前网页登录态。
 
 AI 接口使用设置弹框中填写的 `baseUrl`、`model` 和可选 `apiKey`，由扩展后台按 OpenAI 兼容 `chat/completions` 格式发起请求。请求会发送当前帖子标题、正文、话题和最多 30 条评论文本用于生成总结；评论超过 30 条时优先选取点赞量更高的评论。
 
@@ -159,7 +164,7 @@ AI 接口使用设置弹框中填写的 `baseUrl`、`model` 和可选 `apiKey`�
 ## 注意事项
 
 - 插件匹配 `https://www.xiaoheihe.cn/app/bbs`、`https://www.xiaoheihe.cn/app/topic/link`、`https://www.xiaoheihe.cn/app/user/profile`、`https://www.xiaoheihe.cn/app/user/favour`、`https://www.xiaoheihe.cn/app/search` 和它们的子路径。
-- 右侧评论区的评论列表和楼中楼查询不会携带 `heybox_id` URL 参数；非 Firefox 浏览器还会临时移除 Cookie 中的 `heybox_id` 和 `user_heybox_id` 字段，Firefox 会保留 Cookie 以避免刷新时登录态丢失。点赞等用户主动操作仍依赖当前网页登录态。
+- 右侧评论区的评论列表和楼中楼查询不会携带 `heybox_id` URL 参数，也不会移除或修改小黑盒登录 Cookie；点赞等用户主动操作仍依赖当前网页登录态。
 - AI 总结接口由用户自行配置，开启且完成配置后，帖子内容和评论文本会发送到该接口服务商。
 - 小黑盒网页结构或接口签名变化时，插件可能需要适配。
 - 本项目只在页面内做展示优化，不保存用户 Cookie 或登录凭据。

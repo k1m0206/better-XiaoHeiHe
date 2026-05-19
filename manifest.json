@@ -2,11 +2,10 @@
   "manifest_version": 3,
   "name": "__MSG_extensionName__",
   "short_name": "__MSG_extensionShortName__",
-  "version": "0.1.4.4",
+  "version": "0.1.4.5",
   "description": "__MSG_extensionDescription__",
   "permissions": [
-    "storage",
-    "cookies"
+    "storage"
   ],
   "host_permissions": [
     "<all_urls>"

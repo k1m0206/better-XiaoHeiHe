@@ -36,8 +36,6 @@
   const AI_SETTINGS_OPEN_EVENT = "better-xiaoheihe-ai-settings-open";
   const AI_CHAT_REQUEST_EVENT = "better-xiaoheihe-ai-chat-request";
   const AI_CHAT_RESPONSE_EVENT = "better-xiaoheihe-ai-chat-response";
-  const COOKIE_REQUEST_EVENT = "better-xiaoheihe-cookie-request";
-  const COOKIE_RESPONSE_EVENT = "better-xiaoheihe-cookie-response";
   const DEFAULT_SUMMARY_PROMPT = "你是社区帖子总结助手，请用中文简洁输出：\n帖子总结\n一句话概括帖子核心内容。\n评论区信息\n提取评论区里有价值的观点、经验、补充或避坑信息，没有则跳过。\nAI简评\n像真实网友一样补充观点，避免AI味。\n返回md格式。";
   const DEFAULT_USER_LEVEL = 6;
   const LEVEL_FILTER_MIN = 7;
@@ -117,9 +115,6 @@
   let activeImageViewerImages = [];
   let activeImageViewerIndex = 0;
   let documentOverflowBeforeImageViewer = "";
-  let identityCookieFetchQueue = Promise.resolve();
-  const IS_FIREFOX = /\bFirefox\//.test(window.navigator.userAgent);
-  const activeIdentityCookieRequestIds = new Set();
 
   function isEnhancedPage() {
     return window.location.hostname === "www.xiaoheihe.cn"
@@ -2771,70 +2766,12 @@
       ?.slice(name.length + 1) || "";
   }
 
-  function requestIdentityCookieChange(action, id, timeout = 5000) {
-    return new Promise((resolve) => {
-      const timer = window.setTimeout(() => {
-        window.removeEventListener(COOKIE_RESPONSE_EVENT, handleResponse);
-        resolve({ ok: false, error: "Cookie 处理超时" });
-      }, timeout);
-
-      function handleResponse(event) {
-        const detail = parseEventDetail(event.detail);
-        if (detail.id !== id) {
-          return;
-        }
-
-        window.clearTimeout(timer);
-        window.removeEventListener(COOKIE_RESPONSE_EVENT, handleResponse);
-        resolve(detail);
-      }
-
-      window.addEventListener(COOKIE_RESPONSE_EVENT, handleResponse);
-      window.dispatchEvent(new CustomEvent(COOKIE_REQUEST_EVENT, {
-        detail: stringifyEventDetail({
-          id,
-          action
-        })
-      }));
-    });
-  }
-
   function runWithoutIdentityCookies(task) {
-    if (IS_FIREFOX) {
-      return Promise.resolve().then(task);
-    }
-
-    const run = () => {
-      const id = `better-cookie-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-      activeIdentityCookieRequestIds.add(id);
-      return requestIdentityCookieChange("remove", id)
-        .then((result) => {
-          if (!result.ok) {
-            activeIdentityCookieRequestIds.delete(id);
-            throw new Error(result.error || "Cookie 处理失败");
-          }
-
-          return Promise.resolve()
-            .then(task)
-            .finally(() => requestIdentityCookieChange("restore", id)
-              .finally(() => activeIdentityCookieRequestIds.delete(id)));
-        });
-    };
-
-    const next = identityCookieFetchQueue.then(run, run);
-    identityCookieFetchQueue = next.catch(() => {});
-    return next;
-  }
-
-  function restoreActiveIdentityCookies() {
-    activeIdentityCookieRequestIds.forEach((id) => {
-      requestIdentityCookieChange("restore", id)
-        .finally(() => activeIdentityCookieRequestIds.delete(id));
-    });
+    return Promise.resolve().then(task);
   }
 
   function runAfterIdentityCookiesRestored(task) {
-    return identityCookieFetchQueue.then(task, task);
+    return Promise.resolve().then(task);
   }
 
   function captureApiParams(url) {
@@ -6774,15 +6711,9 @@
     window.dispatchEvent(new CustomEvent(AI_SETTINGS_REQUEST_EVENT));
   }
 
-  function installIdentityCookieRestoreGuards() {
-    window.addEventListener("pagehide", restoreActiveIdentityCookies);
-    window.addEventListener("beforeunload", restoreActiveIdentityCookies);
-  }
-
   async function start() {
     installApiParamCapture();
     captureExistingApiEntries();
-    installIdentityCookieRestoreGuards();
     bindFeedAiCapture();
     bindFeedAwardCapture();
     bindTopicBlockContextMenu();

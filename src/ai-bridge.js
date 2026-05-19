@@ -6,8 +6,6 @@
   const SETTINGS_OPEN_EVENT = "better-xiaoheihe-ai-settings-open";
   const CHAT_REQUEST_EVENT = "better-xiaoheihe-ai-chat-request";
   const CHAT_RESPONSE_EVENT = "better-xiaoheihe-ai-chat-response";
-  const COOKIE_REQUEST_EVENT = "better-xiaoheihe-cookie-request";
-  const COOKIE_RESPONSE_EVENT = "better-xiaoheihe-cookie-response";
   const LOCAL_SETTINGS_REQUEST_EVENT = "better-xiaoheihe-local-settings-request";
   const LOCAL_SETTINGS_RESPONSE_EVENT = "better-xiaoheihe-local-settings-response";
   const LOCAL_SETTINGS_SAVE_EVENT = "better-xiaoheihe-local-settings-save";
@@ -74,15 +72,6 @@
     }));
   }
 
-  function sendCookieResponse(id, payload) {
-    window.dispatchEvent(new CustomEvent(COOKIE_RESPONSE_EVENT, {
-      detail: stringifyEventDetail({
-        id,
-        ...payload
-      })
-    }));
-  }
-
   function requestChat(detail) {
     const id = detail?.id || "";
     const settings = currentSettings;
@@ -109,32 +98,6 @@
       sendChatResponse(id, response || {
         ok: false,
         error: "AI 请求失败"
-      });
-    });
-  }
-
-  function requestCookieChange(detail = {}) {
-    const id = detail?.id || "";
-    const action = detail?.action === "restore" ? "restore" : "remove";
-    chrome.runtime.sendMessage({
-      type: action === "restore"
-        ? "better-xiaoheihe-restore-identity-cookies"
-        : "better-xiaoheihe-remove-identity-cookies",
-      detail: {
-        id
-      }
-    }, (response) => {
-      if (chrome.runtime.lastError) {
-        sendCookieResponse(id, {
-          ok: false,
-          error: chrome.runtime.lastError.message || "Cookie 处理失败"
-        });
-        return;
-      }
-
-      sendCookieResponse(id, response || {
-        ok: false,
-        error: "Cookie 处理失败"
       });
     });
   }
@@ -206,7 +169,6 @@
     chrome.runtime.sendMessage({ type: "better-xiaoheihe-open-ai-settings" });
   });
   window.addEventListener(CHAT_REQUEST_EVENT, (event) => requestChat(parseEventDetail(event.detail)));
-  window.addEventListener(COOKIE_REQUEST_EVENT, (event) => requestCookieChange(parseEventDetail(event.detail)));
   window.addEventListener(LOCAL_SETTINGS_REQUEST_EVENT, (event) => readLocalSettings(parseEventDetail(event.detail)));
   window.addEventListener(LOCAL_SETTINGS_SAVE_EVENT, (event) => saveLocalSettings(parseEventDetail(event.detail)));
 
