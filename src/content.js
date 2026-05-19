@@ -68,6 +68,8 @@
   const API_ORIGIN = "https://api.xiaoheihe.cn";
   const COMMENT_PAGE_LIMIT = 20;
   const SUB_COMMENT_PAGE_LIMIT = 20;
+  const COMMENT_CAPTCHA_RETRY_LIMIT = 1;
+  const CAPTCHA_STATUS = "show_captcha";
   const SUMMARY_COMMENT_LIMIT = 10;
   const CAPTURED_API_PARAM_KEYS = [
     "os_type",
@@ -1926,6 +1928,22 @@
         text-align: center;
       }
 
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reload {
+        display: block;
+        margin: 8px auto 0;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: #2775d1;
+        cursor: pointer;
+        font-size: 12px;
+        line-height: 18px;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reload:hover {
+        text-decoration: underline;
+      }
+
       .${IMAGE_VIEWER_CLASS} {
         position: fixed;
         inset: 0;
@@ -3133,7 +3151,7 @@
       x_app: "heybox_website",
       heybox_id: getCookie("heybox_id") || getCookie("user_heybox_id") || "",
       x_os_type: "Windows",
-      device_info: "Edge"
+      device_info: "Chrome"
     };
 
     CAPTURED_API_PARAM_KEYS.forEach((key) => {
@@ -3149,9 +3167,9 @@
     return params;
   }
 
-  function buildCommentApiUrl(linkId, page) {
+  function buildCommentApiUrl(linkId, page, options = {}) {
     const params = new URLSearchParams({
-      ...getBaseApiParams({ includeHeyboxId: false }),
+      ...getBaseApiParams({ includeHeyboxId: options.includeHeyboxId === true }),
       ...createSignedParams(API_PATH),
       link_id: linkId,
       is_first: page === 1 ? "1" : "0",
@@ -3164,9 +3182,9 @@
     return `https://api.xiaoheihe.cn${API_PATH}?${params.toString().replace("&link_id=", "&h_src&link_id=")}`;
   }
 
-  function buildSubCommentApiUrl(rootCommentId, lastval) {
+  function buildSubCommentApiUrl(rootCommentId, lastval, options = {}) {
     const params = new URLSearchParams({
-      ...getBaseApiParams({ includeHeyboxId: false }),
+      ...getBaseApiParams({ includeHeyboxId: options.includeHeyboxId === true }),
       ...createSignedParams(SUB_COMMENT_API_PATH),
       root_comment_id: rootCommentId,
       lastval: lastval || rootCommentId,
@@ -3888,7 +3906,13 @@
     }
 
     if (failed) {
-      preview.innerHTML = '<div class="better-comment-preview__empty">评论暂时加载失败</div>';
+      preview.innerHTML = `
+        <div class="better-comment-preview__empty">
+          <div>评论暂时加载失败</div>
+          <button class="better-comment-preview__reload" type="button">重新加载</button>
+        </div>
+      `;
+      bindPreviewActions(preview);
       scheduleRowHeightSync(preview.closest(`.${ROW_CLASS}`));
       return;
     }
@@ -3910,20 +3934,40 @@
     scheduleRowHeightSync(preview.closest(`.${ROW_CLASS}`));
   }
 
-  function fetchCommentPageData(linkId, page) {
+  function fetchCommentPageData(linkId, page, options = {}) {
     return Promise.all([
       loadEmojis(),
-      runWithoutIdentityCookies(() => fetch(buildCommentApiUrl(linkId, page), {
-        credentials: "include",
-        headers: {
-          accept: "*/*"
-        }
-      }).then((response) => response.json()))
+      fetchCommentApiJsonWithCaptchaRetry(
+        (requestOptions) => buildCommentApiUrl(linkId, page, requestOptions),
+        COMMENT_CAPTCHA_RETRY_LIMIT,
+        options.preserveIdentity === true
+      )
     ]).then(([, data]) => data);
   }
 
-  function fetchCommentPage(linkId, page) {
-    fetchCommentPageData(linkId, page).then((data) => {
+  function fetchCommentApiJson(buildUrl, options = {}) {
+    const request = () => fetch(buildUrl({ includeHeyboxId: options.preserveIdentity === true }), {
+      credentials: "include",
+      headers: {
+        accept: "*/*"
+      }
+    }).then((response) => response.json());
+
+    return options.preserveIdentity === true ? request() : runWithoutIdentityCookies(request);
+  }
+
+  function fetchCommentApiJsonWithCaptchaRetry(buildUrl, retryCount = COMMENT_CAPTCHA_RETRY_LIMIT, preserveIdentity = false) {
+    return fetchCommentApiJson(buildUrl, { preserveIdentity }).then((data) => {
+      if (data?.status === CAPTCHA_STATUS && retryCount > 0) {
+        return fetchCommentApiJsonWithCaptchaRetry(buildUrl, retryCount - 1, true);
+      }
+
+      return data;
+    });
+  }
+
+  function fetchCommentPage(linkId, page, options = {}) {
+    fetchCommentPageData(linkId, page, options).then((data) => {
       const state = commentCache.get(linkId) || { commentGroups: [] };
       if (data?.status !== "ok") {
         state.failed = page === 1;
@@ -4003,12 +4047,7 @@
 
     Promise.all([
       loadEmojis(),
-      runWithoutIdentityCookies(() => fetch(buildSubCommentApiUrl(rootCommentId, getLastReplyValue(group)), {
-        credentials: "include",
-        headers: {
-          accept: "*/*"
-        }
-      }).then((response) => response.json()))
+      fetchCommentApiJsonWithCaptchaRetry((options) => buildSubCommentApiUrl(rootCommentId, getLastReplyValue(group), options))
     ]).then(([, data]) => {
       const { state: nextState, group: nextGroup } = findCommentGroup(linkId, rootCommentId);
       if (!nextState || !nextGroup) {
@@ -4409,6 +4448,14 @@
         return;
       }
 
+      const reloadButton = event.target.closest(".better-comment-preview__reload");
+      if (reloadButton && preview.contains(reloadButton)) {
+        event.preventDefault();
+        event.stopPropagation();
+        reloadPreviewComments(preview, { preserveIdentity: true });
+        return;
+      }
+
       const replyMoreButton = event.target.closest(".better-comment-preview__reply-more");
       if (replyMoreButton && preview.contains(replyMoreButton)) {
         event.preventDefault();
@@ -4449,6 +4496,23 @@
     fetchCommentPage(linkId, (state.page || 1) + 1);
   }
 
+  function reloadPreviewComments(preview, options = {}) {
+    const linkId = preview.dataset.linkId;
+    if (!linkId) {
+      return;
+    }
+
+    const pending = {
+      commentGroups: [],
+      page: 0,
+      hasMore: true,
+      loadingMore: true
+    };
+    commentCache.set(linkId, pending);
+    renderLinkedPreviews(linkId);
+    fetchCommentPage(linkId, 1, options);
+  }
+
   function bindPreviewListScroll(preview) {
     const list = preview.querySelector(".better-comment-preview__list");
     if (!list) {
@@ -4477,15 +4541,7 @@
       return;
     }
 
-    const pending = {
-      commentGroups: [],
-      page: 0,
-      hasMore: true,
-      loadingMore: true
-    };
-    commentCache.set(linkId, pending);
-    renderPreview(preview, pending);
-    fetchCommentPage(linkId, 1);
+    reloadPreviewComments(preview);
   }
 
   function observePreview(preview) {
