@@ -36,6 +36,8 @@
   const AI_SETTINGS_OPEN_EVENT = "better-xiaoheihe-ai-settings-open";
   const AI_CHAT_REQUEST_EVENT = "better-xiaoheihe-ai-chat-request";
   const AI_CHAT_RESPONSE_EVENT = "better-xiaoheihe-ai-chat-response";
+  const SANITIZED_COOKIE_RULE_REQUEST_EVENT = "better-xiaoheihe-sanitized-cookie-rule-request";
+  const SANITIZED_COOKIE_RULE_RESPONSE_EVENT = "better-xiaoheihe-sanitized-cookie-rule-response";
   const DEFAULT_SUMMARY_PROMPT = "你是社区帖子总结助手，请用中文简洁输出：\n帖子总结\n一句话概括帖子核心内容。\n评论区信息\n提取评论区里有价值的观点、经验、补充或避坑信息，没有则跳过。\nAI简评\n像真实网友一样补充观点，避免AI味。\n返回md格式。";
   const DEFAULT_USER_LEVEL = 6;
   const LEVEL_FILTER_MIN = 7;
@@ -66,9 +68,8 @@
   const API_ORIGIN = "https://api.xiaoheihe.cn";
   const COMMENT_PAGE_LIMIT = 20;
   const SUB_COMMENT_PAGE_LIMIT = 20;
-  const COMMENT_CAPTCHA_RETRY_LIMIT = 1;
-  const CAPTCHA_STATUS = "show_captcha";
   const SUMMARY_COMMENT_LIMIT = 10;
+  const IDENTITY_COOKIE_NAMES = ["heybox_id", "user_heybox_id"];
   const CAPTURED_API_PARAM_KEYS = [
     "os_type",
     "app",
@@ -2766,6 +2767,61 @@
       ?.slice(name.length + 1) || "";
   }
 
+  function getSanitizedCookieHeader() {
+    return document.cookie
+      .split(";")
+      .map((item) => item.trim())
+      .filter((item) => {
+        const name = item.split("=")[0]?.trim();
+        return name && !IDENTITY_COOKIE_NAMES.includes(name);
+      })
+      .join("; ");
+  }
+
+  function requestSanitizedCookieRuleChange(action, id, cookieHeader = "", timeout = 5000) {
+    return new Promise((resolve) => {
+      const timer = window.setTimeout(() => {
+        window.removeEventListener(SANITIZED_COOKIE_RULE_RESPONSE_EVENT, handleResponse);
+        resolve({ ok: false, error: "请求头规则处理超时" });
+      }, timeout);
+
+      function handleResponse(event) {
+        const detail = parseEventDetail(event.detail);
+        if (detail.id !== id) {
+          return;
+        }
+
+        window.clearTimeout(timer);
+        window.removeEventListener(SANITIZED_COOKIE_RULE_RESPONSE_EVENT, handleResponse);
+        resolve(detail);
+      }
+
+      window.addEventListener(SANITIZED_COOKIE_RULE_RESPONSE_EVENT, handleResponse);
+      window.dispatchEvent(new CustomEvent(SANITIZED_COOKIE_RULE_REQUEST_EVENT, {
+        detail: stringifyEventDetail({
+          id,
+          action,
+          cookieHeader
+        })
+      }));
+    });
+  }
+
+  function runWithSanitizedCommentCookie(task) {
+    const id = `better-comment-cookie-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const cookieHeader = getSanitizedCookieHeader();
+    return requestSanitizedCookieRuleChange("activate", id, cookieHeader)
+      .then((result) => {
+        if (!result.ok) {
+          throw new Error(result.error || "请求头规则处理失败");
+        }
+
+        return Promise.resolve()
+          .then(task)
+          .finally(() => requestSanitizedCookieRuleChange("release", id));
+      });
+  }
+
   function runWithoutIdentityCookies(task) {
     return Promise.resolve().then(task);
   }
@@ -3887,40 +3943,28 @@
     scheduleRowHeightSync(preview.closest(`.${ROW_CLASS}`));
   }
 
-  function fetchCommentPageData(linkId, page, options = {}) {
+  function fetchCommentPageData(linkId, page) {
     return Promise.all([
       loadEmojis(),
-      fetchCommentApiJsonWithCaptchaRetry(
-        (requestOptions) => buildCommentApiUrl(linkId, page, requestOptions),
-        COMMENT_CAPTCHA_RETRY_LIMIT,
-        options.preserveIdentity === true
-      )
+      fetchCommentApiJson((requestOptions) => buildCommentApiUrl(linkId, page, requestOptions))
     ]).then(([, data]) => data);
   }
 
-  function fetchCommentApiJson(buildUrl, options = {}) {
-    const request = () => fetch(buildUrl({ includeHeyboxId: options.preserveIdentity === true }), {
+  function fetchCommentApiJson(buildUrl) {
+    const request = (includeIdentity) => fetch(buildUrl({ includeHeyboxId: includeIdentity }), {
       credentials: "include",
       headers: {
         accept: "*/*"
       }
     }).then((response) => response.json());
 
-    return options.preserveIdentity === true ? request() : runWithoutIdentityCookies(request);
+    return runWithSanitizedCommentCookie(() => request(false))
+      .then((data) => (data?.status === "ok" ? data : request(true)))
+      .catch(() => request(true));
   }
 
-  function fetchCommentApiJsonWithCaptchaRetry(buildUrl, retryCount = COMMENT_CAPTCHA_RETRY_LIMIT, preserveIdentity = false) {
-    return fetchCommentApiJson(buildUrl, { preserveIdentity }).then((data) => {
-      if (data?.status === CAPTCHA_STATUS && retryCount > 0) {
-        return fetchCommentApiJsonWithCaptchaRetry(buildUrl, retryCount - 1, true);
-      }
-
-      return data;
-    });
-  }
-
-  function fetchCommentPage(linkId, page, options = {}) {
-    fetchCommentPageData(linkId, page, options).then((data) => {
+  function fetchCommentPage(linkId, page) {
+    fetchCommentPageData(linkId, page).then((data) => {
       const state = commentCache.get(linkId) || { commentGroups: [] };
       if (data?.status !== "ok") {
         state.failed = page === 1;
@@ -4000,7 +4044,7 @@
 
     Promise.all([
       loadEmojis(),
-      fetchCommentApiJsonWithCaptchaRetry((options) => buildSubCommentApiUrl(rootCommentId, getLastReplyValue(group), options))
+      fetchCommentApiJson((options) => buildSubCommentApiUrl(rootCommentId, getLastReplyValue(group), options))
     ]).then(([, data]) => {
       const { state: nextState, group: nextGroup } = findCommentGroup(linkId, rootCommentId);
       if (!nextState || !nextGroup) {
@@ -4405,7 +4449,7 @@
       if (reloadButton && preview.contains(reloadButton)) {
         event.preventDefault();
         event.stopPropagation();
-        reloadPreviewComments(preview, { preserveIdentity: true });
+        reloadPreviewComments(preview);
         return;
       }
 
@@ -4449,7 +4493,7 @@
     fetchCommentPage(linkId, (state.page || 1) + 1);
   }
 
-  function reloadPreviewComments(preview, options = {}) {
+  function reloadPreviewComments(preview) {
     const linkId = preview.dataset.linkId;
     if (!linkId) {
       return;
@@ -4463,7 +4507,7 @@
     };
     commentCache.set(linkId, pending);
     renderLinkedPreviews(linkId);
-    fetchCommentPage(linkId, 1, options);
+    fetchCommentPage(linkId, 1);
   }
 
   function bindPreviewListScroll(preview) {

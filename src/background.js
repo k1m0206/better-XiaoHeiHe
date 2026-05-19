@@ -1,6 +1,9 @@
 (function () {
   const AI_SETTINGS_STORAGE_KEY = "better-xiaoheihe-ai-settings";
   const DEFAULT_SUMMARY_PROMPT = "你是社区帖子总结助手，请用中文简洁输出：\n帖子总结\n一句话概括帖子核心内容。\n评论区信息\n提取评论区里有价值的观点、经验、补充或避坑信息，没有则跳过。\nAI简评\n像真实网友一样补充观点，避免AI味。\n返回md格式。";
+  const SANITIZED_COMMENT_COOKIE_RULE_ID = 101;
+  const sanitizedCommentCookieRules = new Map();
+  let sanitizedCommentCookieRuleQueue = Promise.resolve();
 
   function normalizeAiSettings(settings) {
     return {
@@ -87,6 +90,111 @@
     }
   }
 
+  function updateSanitizedCommentCookieRule(cookieHeader) {
+    return new Promise((resolve) => {
+      if (!chrome.declarativeNetRequest?.updateSessionRules) {
+        resolve({
+          ok: false,
+          error: "当前浏览器不支持请求头规则"
+        });
+        return;
+      }
+
+      const requestHeaderRule = cookieHeader
+        ? { header: "cookie", operation: "set", value: cookieHeader }
+        : { header: "cookie", operation: "remove" };
+      const addRules = [{
+        id: SANITIZED_COMMENT_COOKIE_RULE_ID,
+        priority: 1,
+        action: {
+          type: "modifyHeaders",
+          requestHeaders: [requestHeaderRule]
+        },
+        condition: {
+          regexFilter: "^https://api\\.xiaoheihe\\.cn/bbs/app/(link/tree|comment/sub/comments)(\\?|$)",
+          initiatorDomains: ["xiaoheihe.cn"],
+          requestMethods: ["get"],
+          resourceTypes: ["xmlhttprequest"]
+        }
+      }];
+
+      chrome.declarativeNetRequest.updateSessionRules({
+        removeRuleIds: [SANITIZED_COMMENT_COOKIE_RULE_ID],
+        addRules
+      }, () => {
+        const error = chrome.runtime.lastError;
+        resolve(error ? {
+          ok: false,
+          error: error.message || "请求头规则更新失败"
+        } : { ok: true });
+      });
+    });
+  }
+
+  function clearSanitizedCommentCookieRule() {
+    return new Promise((resolve) => {
+      if (!chrome.declarativeNetRequest?.updateSessionRules) {
+        resolve({ ok: true });
+        return;
+      }
+
+      chrome.declarativeNetRequest.updateSessionRules({
+        removeRuleIds: [SANITIZED_COMMENT_COOKIE_RULE_ID]
+      }, () => {
+        const error = chrome.runtime.lastError;
+        resolve(error ? {
+          ok: false,
+          error: error.message || "请求头规则清理失败"
+        } : { ok: true });
+      });
+    });
+  }
+
+  function getLastSanitizedCookieHeader() {
+    let lastCookieHeader = "";
+    sanitizedCommentCookieRules.forEach((cookieHeader) => {
+      lastCookieHeader = cookieHeader;
+    });
+    return lastCookieHeader;
+  }
+
+  function queueSanitizedCommentCookieRuleUpdate(task) {
+    const next = sanitizedCommentCookieRuleQueue.then(task, task);
+    sanitizedCommentCookieRuleQueue = next.catch(() => {});
+    return next;
+  }
+
+  function activateSanitizedCommentCookieRule(detail = {}) {
+    return queueSanitizedCommentCookieRuleUpdate(async () => {
+      const id = String(detail.id || "");
+      if (!id) {
+        return { ok: false, error: "缺少请求头规则 ID" };
+      }
+
+      const cookieHeader = String(detail.cookieHeader || "");
+      sanitizedCommentCookieRules.set(id, cookieHeader);
+      const result = await updateSanitizedCommentCookieRule(cookieHeader);
+      if (!result.ok) {
+        sanitizedCommentCookieRules.delete(id);
+      }
+      return { id, ...result };
+    });
+  }
+
+  function releaseSanitizedCommentCookieRule(detail = {}) {
+    return queueSanitizedCommentCookieRuleUpdate(async () => {
+      const id = String(detail.id || "");
+      if (id) {
+        sanitizedCommentCookieRules.delete(id);
+      }
+
+      const result = sanitizedCommentCookieRules.size
+        ? await updateSanitizedCommentCookieRule(getLastSanitizedCookieHeader())
+        : await clearSanitizedCommentCookieRule();
+      return { id, ...result };
+    });
+  }
+
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message?.type === "better-xiaoheihe-open-ai-settings") {
       openAiSettings();
@@ -98,6 +206,16 @@
         messages: [{ role: "user", content: "请回复 OK" }],
         temperature: 0
       }, message.detail?.settings).then(sendResponse);
+      return true;
+    }
+
+    if (message?.type === "better-xiaoheihe-activate-sanitized-comment-cookie") {
+      activateSanitizedCommentCookieRule(message.detail).then(sendResponse);
+      return true;
+    }
+
+    if (message?.type === "better-xiaoheihe-release-sanitized-comment-cookie") {
+      releaseSanitizedCommentCookieRule(message.detail).then(sendResponse);
       return true;
     }
 

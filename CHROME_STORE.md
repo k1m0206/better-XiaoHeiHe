@@ -110,7 +110,7 @@ Productivity
 
 ## 权限说明
 
-本插件申请 `storage` 权限用于在用户浏览器本地保存插件设置，包括 AI 总结开关、AI Base URL、模型、API Key、总结提示词、屏蔽关键词、等级过滤规则和相关本地偏好；这些设置不会上传到插件作者服务器。插件不申请 `cookies` 权限，也不会移除或修改小黑盒 Cookie。插件申请主机权限以支持用户自定义 AI Base URL 的请求。
+本插件申请 `storage` 权限用于在用户浏览器本地保存插件设置，包括 AI 总结开关、AI Base URL、模型、API Key、总结提示词、屏蔽关键词、等级过滤规则和相关本地偏好；这些设置不会上传到插件作者服务器。插件申请 `declarativeNetRequestWithHostAccess` 权限，仅用于右侧评论区读取接口发送前替换请求头 Cookie，去除 `heybox_id` 和 `user_heybox_id`。插件不申请 `cookies` 权限，也不会移除或修改小黑盒 Cookie。插件申请主机权限以支持用户自定义 AI Base URL 的请求。
 
 页面匹配范围：
 
