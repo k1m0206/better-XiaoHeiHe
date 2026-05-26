@@ -108,6 +108,7 @@
   let topMenuOutsideClickBound = false;
   let feedAiCaptureBound = false;
   let feedAwardCaptureBound = false;
+  let heyboxWebLinkCaptureBound = false;
   let topicBlockContextMenuBound = false;
   let imageViewerKeydownBound = false;
   let aiSummaryScrollLocked = false;
@@ -3341,20 +3342,24 @@
   }
 
   function normalizeCommentLinkHref(href) {
-    if (!href.toLowerCase().startsWith("heybox://")) {
-      return href;
-    }
-
     const webHref = getHeyboxWebHref(href);
     if (webHref) {
       return webHref;
+    }
+
+    if (!href.toLowerCase().startsWith("heybox://")) {
+      return href;
     }
 
     return href.replace(/%(?!25)([0-9a-f]{2})/gi, "%25$1");
   }
 
   function getHeyboxWebHref(href) {
-    let payload = String(href || "").replace(/^heybox:\/\//i, "");
+    let payload = getHeyboxLinkPayload(href);
+    if (!payload) {
+      return "";
+    }
+
     for (let index = 0; index < 3; index += 1) {
       try {
         const decoded = decodeURIComponent(payload);
@@ -3382,7 +3387,27 @@
           : "";
       }
 
+      if (data?.protocol_type === "openUser") {
+        const userId = data?.user_id;
+        return /^\d+$/.test(String(userId)) ? `/app/user/profile/${userId}` : "";
+      }
+
       return "";
+    } catch {
+      return "";
+    }
+  }
+
+  function getHeyboxLinkPayload(href) {
+    const rawHref = String(href || "");
+    if (/^heybox:\/\//i.test(rawHref)) {
+      return rawHref.replace(/^heybox:\/\//i, "");
+    }
+
+    try {
+      const parsedUrl = new URL(rawHref, window.location.href);
+      const hash = parsedUrl.hash.replace(/^#/, "");
+      return /^heybox:\/\//i.test(hash) ? hash.replace(/^heybox:\/\//i, "") : "";
     } catch {
       return "";
     }
@@ -6779,6 +6804,36 @@
     }, true);
   }
 
+  function bindHeyboxWebLinkCapture() {
+    if (heyboxWebLinkCaptureBound) {
+      return;
+    }
+
+    heyboxWebLinkCaptureBound = true;
+    document.addEventListener("click", (event) => {
+      if (!(event.target instanceof Element)) {
+        return;
+      }
+
+      const link = event.target.closest(
+        ".better-comment-preview__text a, .better-comment-preview__reply-text a, .link-comment .comment-item__content a"
+      );
+      if (!link || !document.documentElement.classList.contains(HOME_LAYOUT_CLASS)) {
+        return;
+      }
+
+      const webHref = getHeyboxWebHref(link.getAttribute("href") || "");
+      if (!webHref) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      window.location.href = webHref;
+    }, true);
+  }
+
   function installAiSettingsSync() {
     window.addEventListener(AI_SETTINGS_EVENT, (event) => {
       let settingsDetail = {};
@@ -6811,6 +6866,7 @@
     captureExistingApiEntries();
     bindFeedAiCapture();
     bindFeedAwardCapture();
+    bindHeyboxWebLinkCapture();
     bindTopicBlockContextMenu();
     installLocalSettingsStateSync();
     await loadLocalSettingsState();
