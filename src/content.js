@@ -3345,7 +3345,47 @@
       return href;
     }
 
+    const webHref = getHeyboxWebHref(href);
+    if (webHref) {
+      return webHref;
+    }
+
     return href.replace(/%(?!25)([0-9a-f]{2})/gi, "%25$1");
+  }
+
+  function getHeyboxWebHref(href) {
+    let payload = String(href || "").replace(/^heybox:\/\//i, "");
+    for (let index = 0; index < 3; index += 1) {
+      try {
+        const decoded = decodeURIComponent(payload);
+        if (decoded === payload) {
+          break;
+        }
+        payload = decoded;
+      } catch {
+        break;
+      }
+    }
+
+    try {
+      const data = JSON.parse(payload);
+      if (data?.protocol_type === "openLink") {
+        const linkId = data?.link?.linkid;
+        return /^\d+$/.test(String(linkId)) ? `/app/bbs/link/${linkId}` : "";
+      }
+
+      if (data?.protocol_type === "openGameDetail") {
+        const gameType = String(data?.game_type || "").toLowerCase();
+        const appId = data?.app_id;
+        return /^[a-z0-9_-]+$/.test(gameType) && /^\d+$/.test(String(appId))
+          ? `/app/topic/game/${gameType}/${appId}`
+          : "";
+      }
+
+      return "";
+    } catch {
+      return "";
+    }
   }
 
   function renderCommentLink(node) {
@@ -4467,6 +4507,17 @@
         event.stopPropagation();
         toggleCommentExpansion(expandButton.previousElementSibling);
         return;
+      }
+
+      const commentLink = event.target.closest(".better-comment-preview__text a, .better-comment-preview__reply-text a");
+      if (commentLink && preview.contains(commentLink)) {
+        const webHref = getHeyboxWebHref(commentLink.getAttribute("href") || "");
+        if (webHref) {
+          event.preventDefault();
+          event.stopPropagation();
+          window.location.href = webHref;
+          return;
+        }
       }
 
       const supportButton = event.target.closest(".better-comment-preview__up");
