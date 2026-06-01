@@ -26,13 +26,27 @@
         <div class="section">
           <div class="section-title">接入配置</div>
           <label class="field">
+            <span>服务商 / 端点</span>
+            <select id="provider">
+              <option value="openai-compatible">OpenAI Compatible · Chat Completions</option>
+              <option value="openai-responses">OpenAI · Responses</option>
+              <option value="anthropic">Anthropic · Messages</option>
+              <option value="gemini">Gemini · Generate Content</option>
+            </select>
+          </label>
+
+          <label class="field">
             <span>Base URL</span>
             <input id="baseUrl" type="url" placeholder="https://api.openai.com/v1">
           </label>
 
           <label class="field">
-            <span>模型</span>
-            <input id="model" type="text" placeholder="gpt-4.1-mini">
+            <span class="field-title">
+              模型
+              <button id="fetchModels" class="text-button" type="button">拉取模型</button>
+            </span>
+            <input id="model" list="modelOptions" type="text" placeholder="gpt-4.1-mini">
+            <datalist id="modelOptions"></datalist>
           </label>
 
           <label class="field">

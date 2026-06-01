@@ -36,9 +36,24 @@
   const AI_SETTINGS_OPEN_EVENT = "better-xiaoheihe-ai-settings-open";
   const AI_CHAT_REQUEST_EVENT = "better-xiaoheihe-ai-chat-request";
   const AI_CHAT_RESPONSE_EVENT = "better-xiaoheihe-ai-chat-response";
+  const AI_MODEL_LIST_REQUEST_EVENT = "better-xiaoheihe-ai-model-list-request";
+  const AI_MODEL_LIST_RESPONSE_EVENT = "better-xiaoheihe-ai-model-list-response";
   const SANITIZED_COOKIE_RULE_REQUEST_EVENT = "better-xiaoheihe-sanitized-cookie-rule-request";
   const SANITIZED_COOKIE_RULE_RESPONSE_EVENT = "better-xiaoheihe-sanitized-cookie-rule-response";
   const DEFAULT_SUMMARY_PROMPT = "你是社区帖子总结助手，请用中文简洁输出：\n帖子总结\n一句话概括帖子核心内容。\n评论区信息\n提取评论区里有价值的观点、经验、补充或避坑信息，没有则跳过。\nAI简评\n像真实网友一样补充观点，避免AI味。\n返回md格式。";
+  const AI_PROVIDERS = {
+    OPENAI_COMPATIBLE: "openai-compatible",
+    OPENAI_RESPONSES: "openai-responses",
+    ANTHROPIC: "anthropic",
+    GEMINI: "gemini"
+  };
+  const DEFAULT_AI_PROVIDER = AI_PROVIDERS.OPENAI_COMPATIBLE;
+  const AI_PROVIDER_DEFAULT_BASE_URLS = {
+    [AI_PROVIDERS.OPENAI_COMPATIBLE]: "https://api.openai.com/v1",
+    [AI_PROVIDERS.OPENAI_RESPONSES]: "https://api.openai.com/v1",
+    [AI_PROVIDERS.ANTHROPIC]: "https://api.anthropic.com/v1",
+    [AI_PROVIDERS.GEMINI]: "https://generativelanguage.googleapis.com/v1beta"
+  };
   const DEFAULT_USER_LEVEL = 6;
   const LEVEL_FILTER_MIN = 7;
   const LEVEL_FILTER_MAX = 18;
@@ -293,9 +308,14 @@
   }
 
   function normalizeAiSettings(settings = {}) {
+    const provider = Object.values(AI_PROVIDERS).includes(settings?.provider || settings?.endpointMode)
+      ? (settings?.provider || settings?.endpointMode)
+      : DEFAULT_AI_PROVIDER;
     return {
       enabled: settings?.enabled !== false,
-      baseUrl: String(settings?.baseUrl || "").trim().replace(/\/+$/, ""),
+      provider,
+      endpointMode: provider,
+      baseUrl: String(settings?.baseUrl || AI_PROVIDER_DEFAULT_BASE_URLS[provider] || "").trim().replace(/\/+$/, ""),
       model: String(settings?.model || "").trim(),
       apiKey: String(settings?.apiKey || ""),
       summaryPrompt: String(settings?.summaryPrompt || "").trim() || DEFAULT_SUMMARY_PROMPT
@@ -906,6 +926,7 @@
       }
 
       .${SETTINGS_PANEL_CLASS} .better-settings__text-input,
+      .${SETTINGS_PANEL_CLASS} .better-settings__select,
       .${SETTINGS_PANEL_CLASS} .better-settings__textarea {
         box-sizing: border-box;
         width: 100%;
@@ -918,7 +939,8 @@
         transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
       }
 
-      .${SETTINGS_PANEL_CLASS} .better-settings__text-input {
+      .${SETTINGS_PANEL_CLASS} .better-settings__text-input,
+      .${SETTINGS_PANEL_CLASS} .better-settings__select {
         height: 36px;
         padding: 0 11px;
       }
@@ -938,6 +960,7 @@
       }
 
       .${SETTINGS_PANEL_CLASS} .better-settings__text-input:focus,
+      .${SETTINGS_PANEL_CLASS} .better-settings__select:focus,
       .${SETTINGS_PANEL_CLASS} .better-settings__textarea:focus {
         border-color: #2775d1;
         background: #fff;
@@ -6113,6 +6136,7 @@
   function getAiSettingsFormValues(panel) {
     return normalizeAiSettings({
       enabled: panel.querySelector(".better-settings__ai-enabled")?.checked,
+      provider: panel.querySelector(".better-settings__ai-provider")?.value,
       baseUrl: panel.querySelector(".better-settings__ai-base-url")?.value,
       model: panel.querySelector(".better-settings__ai-model")?.value,
       apiKey: panel.querySelector(".better-settings__ai-api-key")?.value,
@@ -6154,6 +6178,18 @@
     panel?.querySelectorAll(".better-settings__textarea").forEach(syncAutoHeightTextarea);
   }
 
+  function renderAiProviderOptions() {
+    const options = [
+      [AI_PROVIDERS.OPENAI_COMPATIBLE, "OpenAI Compatible · Chat Completions"],
+      [AI_PROVIDERS.OPENAI_RESPONSES, "OpenAI · Responses"],
+      [AI_PROVIDERS.ANTHROPIC, "Anthropic · Messages"],
+      [AI_PROVIDERS.GEMINI, "Gemini · Generate Content"]
+    ];
+    return options.map(([value, label]) => `
+      <option value="${escapeHtml(value)}"${aiSettings.provider === value ? " selected" : ""}>${escapeHtml(label)}</option>
+    `).join("");
+  }
+
   function renderAiSettingsPanelContent() {
     return `
       <div class="better-settings__section better-settings__ai-section">
@@ -6170,12 +6206,22 @@
         </div>
         <div class="better-settings__ai-body">
           <label class="better-settings__field">
+            <span class="better-settings__field-title">服务商 / 端点</span>
+            <select class="better-settings__select better-settings__ai-provider">
+              ${renderAiProviderOptions()}
+            </select>
+          </label>
+          <label class="better-settings__field">
             <span class="better-settings__field-title">Base URL</span>
             <input class="better-settings__text-input better-settings__ai-base-url" type="url" value="${escapeHtml(aiSettings.baseUrl)}" placeholder="https://api.openai.com/v1">
           </label>
           <label class="better-settings__field">
-            <span class="better-settings__field-title">模型</span>
-            <input class="better-settings__text-input better-settings__ai-model" type="text" value="${escapeHtml(aiSettings.model)}" placeholder="gpt-4.1-mini">
+            <span class="better-settings__field-title">
+              模型
+              <button class="better-settings__text-button better-settings__ai-fetch-models" type="button">拉取模型</button>
+            </span>
+            <input class="better-settings__text-input better-settings__ai-model" list="better-xiaoheihe-ai-model-options" type="text" value="${escapeHtml(aiSettings.model)}" placeholder="gpt-4.1-mini">
+            <datalist id="better-xiaoheihe-ai-model-options" class="better-settings__ai-model-options"></datalist>
           </label>
           <label class="better-settings__field">
             <span class="better-settings__field-title">API Key</span>
@@ -6300,6 +6346,103 @@
     }, 0);
   }
 
+  function requestAiModelList(settings) {
+    const requestId = `models-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    return new Promise((resolve, reject) => {
+      const timeoutId = window.setTimeout(() => {
+        window.removeEventListener(AI_MODEL_LIST_RESPONSE_EVENT, handleResponse);
+        reject(new Error("模型列表拉取超时"));
+      }, 30000);
+
+      function handleResponse(event) {
+        const detail = parseEventDetail(event.detail);
+        if (detail.id !== requestId) {
+          return;
+        }
+
+        window.clearTimeout(timeoutId);
+        window.removeEventListener(AI_MODEL_LIST_RESPONSE_EVENT, handleResponse);
+        if (!detail.ok) {
+          reject(new Error(detail.error || "模型列表拉取失败"));
+          return;
+        }
+        resolve(Array.isArray(detail.models) ? detail.models : []);
+      }
+
+      window.addEventListener(AI_MODEL_LIST_RESPONSE_EVENT, handleResponse);
+      window.dispatchEvent(new CustomEvent(AI_MODEL_LIST_REQUEST_EVENT, {
+        detail: JSON.stringify({
+          id: requestId,
+          settings
+        })
+      }));
+    });
+  }
+
+  function fillAiModelOptions(panel, models) {
+    const modelOptions = panel.querySelector(".better-settings__ai-model-options");
+    if (!modelOptions) {
+      return;
+    }
+
+    modelOptions.innerHTML = models.map((model) => `<option value="${escapeHtml(model)}"></option>`).join("");
+  }
+
+  function fetchAiModelsFromPanel(panel, button) {
+    saveAiSettingsFromPanel(panel);
+    const status = panel.querySelector(".better-settings__message");
+    const settings = getAiSettingsFormValues(panel);
+    if (!settings.baseUrl) {
+      if (status) {
+        status.textContent = "请先填写 Base URL";
+        status.style.color = "#d33b4a";
+      }
+      return;
+    }
+
+    if (button) {
+      button.disabled = true;
+    }
+    if (status) {
+      status.textContent = "正在拉取模型...";
+      status.style.color = "#8a9299";
+    }
+
+    requestAiModelList(settings).then((models) => {
+      fillAiModelOptions(panel, models);
+      if (status) {
+        status.textContent = models.length ? `已拉取 ${models.length} 个模型` : "未返回可用模型，可手动填写";
+        status.style.color = "#0b806f";
+      }
+    }).catch((error) => {
+      if (status) {
+        status.textContent = error?.message || "模型列表拉取失败";
+        status.style.color = "#d33b4a";
+      }
+    }).finally(() => {
+      if (button) {
+        button.disabled = false;
+      }
+    });
+  }
+
+  function syncAiProviderDefaultBaseUrl(panel) {
+    const providerInput = panel.querySelector(".better-settings__ai-provider");
+    const baseUrlInput = panel.querySelector(".better-settings__ai-base-url");
+    if (!providerInput || !baseUrlInput) {
+      return;
+    }
+
+    const nextProvider = Object.values(AI_PROVIDERS).includes(providerInput.value) ? providerInput.value : DEFAULT_AI_PROVIDER;
+    const defaultBaseUrls = Object.values(AI_PROVIDER_DEFAULT_BASE_URLS);
+    const currentBaseUrl = baseUrlInput.value.replace(/\/+$/, "");
+    if (!currentBaseUrl || defaultBaseUrls.includes(currentBaseUrl)) {
+      baseUrlInput.value = AI_PROVIDER_DEFAULT_BASE_URLS[nextProvider] || "";
+    }
+    fillAiModelOptions(panel, []);
+    saveAiSettingsFromPanel(panel);
+  }
+
   function ensureSettingsPanel() {
     let panel = document.querySelector(`.${SETTINGS_PANEL_CLASS}`);
     if (panel) {
@@ -6342,6 +6485,11 @@
       if (testButton && panel.contains(testButton)) {
         testAiSettingsFromPanel(panel, testButton);
       }
+
+      const fetchModelsButton = event.target.closest(".better-settings__ai-fetch-models");
+      if (fetchModelsButton && panel.contains(fetchModelsButton)) {
+        fetchAiModelsFromPanel(panel, fetchModelsButton);
+      }
     });
     panel.addEventListener("input", (event) => {
       if (!(event.target instanceof Element)) {
@@ -6377,6 +6525,11 @@
 
       if (event.target.matches(".better-settings__ai-enabled")) {
         saveAiSettingsFromPanel(panel);
+        return;
+      }
+
+      if (event.target.matches(".better-settings__ai-provider")) {
+        syncAiProviderDefaultBaseUrl(panel);
         return;
       }
 

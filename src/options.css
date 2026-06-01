@@ -172,6 +172,7 @@ p {
 }
 
 .field input,
+.field select,
 .field textarea {
   width: 100%;
   border: 1px solid #d8dfe6;
@@ -183,7 +184,8 @@ p {
   transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
 }
 
-.field input {
+.field input,
+.field select {
   height: 38px;
   padding: 0 11px;
 }
@@ -202,6 +204,7 @@ p {
 }
 
 .field input:focus,
+.field select:focus,
 .field textarea:focus {
   border-color: #2775d1;
   background: #fff;

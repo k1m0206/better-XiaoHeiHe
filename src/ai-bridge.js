@@ -6,6 +6,8 @@
   const SETTINGS_OPEN_EVENT = "better-xiaoheihe-ai-settings-open";
   const CHAT_REQUEST_EVENT = "better-xiaoheihe-ai-chat-request";
   const CHAT_RESPONSE_EVENT = "better-xiaoheihe-ai-chat-response";
+  const MODEL_LIST_REQUEST_EVENT = "better-xiaoheihe-ai-model-list-request";
+  const MODEL_LIST_RESPONSE_EVENT = "better-xiaoheihe-ai-model-list-response";
   const SANITIZED_COOKIE_RULE_REQUEST_EVENT = "better-xiaoheihe-sanitized-cookie-rule-request";
   const SANITIZED_COOKIE_RULE_RESPONSE_EVENT = "better-xiaoheihe-sanitized-cookie-rule-response";
   const LOCAL_SETTINGS_REQUEST_EVENT = "better-xiaoheihe-local-settings-request";
@@ -18,6 +20,19 @@
     "better-xiaoheihe-level-filters"
   ];
   const DEFAULT_SUMMARY_PROMPT = "你是社区帖子总结助手，请用中文简洁输出：\n帖子总结\n一句话概括帖子核心内容。\n评论区信息\n提取评论区里有价值的观点、经验、补充或避坑信息，没有则跳过。\nAI简评\n像真实网友一样补充观点，避免AI味。\n返回md格式。";
+  const AI_PROVIDERS = {
+    OPENAI_COMPATIBLE: "openai-compatible",
+    OPENAI_RESPONSES: "openai-responses",
+    ANTHROPIC: "anthropic",
+    GEMINI: "gemini"
+  };
+  const DEFAULT_PROVIDER = AI_PROVIDERS.OPENAI_COMPATIBLE;
+  const PROVIDER_DEFAULT_BASE_URLS = {
+    [AI_PROVIDERS.OPENAI_COMPATIBLE]: "https://api.openai.com/v1",
+    [AI_PROVIDERS.OPENAI_RESPONSES]: "https://api.openai.com/v1",
+    [AI_PROVIDERS.ANTHROPIC]: "https://api.anthropic.com/v1",
+    [AI_PROVIDERS.GEMINI]: "https://generativelanguage.googleapis.com/v1beta"
+  };
   let currentSettings = normalizeAiSettings();
 
   function parseEventDetail(detail) {
@@ -37,9 +52,14 @@
   }
 
   function normalizeAiSettings(settings) {
+    const provider = Object.values(AI_PROVIDERS).includes(settings?.provider || settings?.endpointMode)
+      ? (settings?.provider || settings?.endpointMode)
+      : DEFAULT_PROVIDER;
     return {
       enabled: settings?.enabled !== false,
-      baseUrl: String(settings?.baseUrl || "").trim().replace(/\/+$/, ""),
+      provider,
+      endpointMode: provider,
+      baseUrl: String(settings?.baseUrl || PROVIDER_DEFAULT_BASE_URLS[provider] || "").trim().replace(/\/+$/, ""),
       model: String(settings?.model || "").trim(),
       apiKey: String(settings?.apiKey || ""),
       summaryPrompt: String(settings?.summaryPrompt || "").trim() || DEFAULT_SUMMARY_PROMPT
@@ -51,6 +71,8 @@
     window.dispatchEvent(new CustomEvent(SETTINGS_EVENT, {
       detail: stringifyEventDetail({
         enabled: currentSettings.enabled,
+        provider: currentSettings.provider,
+        endpointMode: currentSettings.endpointMode,
         baseUrl: currentSettings.baseUrl,
         model: currentSettings.model,
         apiKey: currentSettings.apiKey,
@@ -67,6 +89,15 @@
 
   function sendChatResponse(id, payload) {
     window.dispatchEvent(new CustomEvent(CHAT_RESPONSE_EVENT, {
+      detail: stringifyEventDetail({
+        id,
+        ...payload
+      })
+    }));
+  }
+
+  function sendModelListResponse(id, payload) {
+    window.dispatchEvent(new CustomEvent(MODEL_LIST_RESPONSE_EVENT, {
       detail: stringifyEventDetail({
         id,
         ...payload
@@ -109,6 +140,35 @@
       sendChatResponse(id, response || {
         ok: false,
         error: "AI 请求失败"
+      });
+    });
+  }
+
+  function requestModelList(detail) {
+    const id = detail?.id || "";
+    const settings = normalizeAiSettings(detail?.settings || currentSettings);
+    if (!id || !settings.baseUrl) {
+      sendModelListResponse(id, { ok: false, error: "请先填写 Base URL" });
+      return;
+    }
+
+    chrome.runtime.sendMessage({
+      type: "better-xiaoheihe-ai-list-models",
+      detail: {
+        settings
+      }
+    }, (response) => {
+      if (chrome.runtime.lastError) {
+        sendModelListResponse(id, {
+          ok: false,
+          error: chrome.runtime.lastError.message || "模型列表拉取失败"
+        });
+        return;
+      }
+
+      sendModelListResponse(id, response || {
+        ok: false,
+        error: "模型列表拉取失败"
       });
     });
   }
@@ -207,6 +267,7 @@
     chrome.runtime.sendMessage({ type: "better-xiaoheihe-open-ai-settings" });
   });
   window.addEventListener(CHAT_REQUEST_EVENT, (event) => requestChat(parseEventDetail(event.detail)));
+  window.addEventListener(MODEL_LIST_REQUEST_EVENT, (event) => requestModelList(parseEventDetail(event.detail)));
   window.addEventListener(SANITIZED_COOKIE_RULE_REQUEST_EVENT, (event) => requestSanitizedCookieRuleChange(parseEventDetail(event.detail)));
   window.addEventListener(LOCAL_SETTINGS_REQUEST_EVENT, (event) => readLocalSettings(parseEventDetail(event.detail)));
   window.addEventListener(LOCAL_SETTINGS_SAVE_EVENT, (event) => saveLocalSettings(parseEventDetail(event.detail)));

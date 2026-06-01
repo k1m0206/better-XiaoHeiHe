@@ -26,6 +26,12 @@
 
 ## 更新记录
 
+### 0.1.4.7
+
+- AI 设置支持选择 OpenAI Compatible、OpenAI Responses、Anthropic 和 Gemini 接入方式。
+- AI 设置支持按当前服务商、Base URL 和 API Key 拉取模型列表，同时保留手动填写模型能力。
+- AI 总结请求会根据不同服务商自动适配 Chat Completions、Responses、Messages 和 Gemini Generate Content 端点。
+
 ### 0.1.4.5
 
 - 不再临时移除小黑盒身份 Cookie，彻底避免刷新页面时登录态短暂丢失。
@@ -120,7 +126,7 @@ better-XiaoHeiHe/
 - 首页、帖子详情页、话题链接页、个人主页和搜索页时调整页面布局，移除原右侧推荐栏。
 - 识别每条帖子链接 ID，请求评论接口并缓存结果。
 - 根据左侧帖子实际高度同步右侧评论预览高度。
-- AI 功能默认开启，帖子右上角三个点左侧默认显示 AI 总结按钮；关闭后不再显示。未配置 Base URL 或模型时，点击 AI 按钮会打开设置界面；AI 请求统一由扩展后台发起。
+- AI 功能默认开启，帖子右上角三个点左侧默认显示 AI 总结按钮；关闭后不再显示。未配置 Base URL 或模型时，点击 AI 按钮会打开设置界面；AI 请求统一由扩展后台发起，并支持多服务商端点适配。
 - 离开适配页面时恢复原始左侧菜单位置。
 
 ## 接口说明
@@ -135,11 +141,16 @@ POST https://api.xiaoheihe.cn/bbs/app/comment/support
 POST https://api.xiaoheihe.cn/bbs/app/profile/award/link
 ```
 
-AI 总结功能开启后，会请求用户在插件设置弹框中配置的 OpenAI 兼容接口：
+AI 总结功能开启后，会请求用户在插件设置弹框中配置的 AI 接口。当前支持：
 
 ```text
-POST {baseUrl}/chat/completions
+OpenAI Compatible: POST {baseUrl}/chat/completions
+OpenAI Responses: POST {baseUrl}/responses
+Anthropic: POST {baseUrl}/messages
+Gemini: POST {baseUrl}/models/{model}:generateContent
 ```
+
+设置页可通过当前服务商、Base URL 和 API Key 拉取模型列表；如果接口不支持模型列表，也可以继续手动填写模型名称。
 
 请求会复用页面中已出现过的基础参数，例如：
 
@@ -157,7 +168,7 @@ POST {baseUrl}/chat/completions
 
 右侧评论区的评论列表和楼中楼更多回复查询会先使用去除个人标识后的 Cookie 请求，请求头 `Cookie` 会过滤掉 `heybox_id` 和 `user_heybox_id`，同时不携带 `heybox_id` URL 参数；如果请求失败或接口未返回 `status: "ok"`，会回退到携带当前 Cookie 和 `heybox_id` URL 参数的正常请求。整个过程不会临时移除或修改浏览器中的 `heybox_id`、`user_heybox_id` Cookie，避免刷新页面时影响小黑盒网页登录态。评论列表接口会按页请求，第一页使用 `is_first=1&page=1`，继续滚动时使用 `is_first=0&page=2/3/...`，每页 `limit=20`。楼中楼更多回复接口使用 `root_comment_id` 和最后一条已展示回复的 `lastval` 继续请求。评论点赞接口使用 `comment_id` 和 `support_type=1` 提交点赞；内容点赞接口使用 `link_id` 和 `award_type=1` 提交点赞。点赞请求会携带当前网页登录态。
 
-AI 接口使用设置弹框中填写的 `baseUrl`、`model` 和可选 `apiKey`，由扩展后台按 OpenAI 兼容 `chat/completions` 格式发起请求。请求会发送当前帖子标题、正文、话题和最多 30 条评论文本用于生成总结；评论超过 30 条时优先选取点赞量更高的评论。
+AI 接口使用设置弹框中填写的 `provider`、`baseUrl`、`model` 和可选 `apiKey`，由扩展后台按所选服务商格式发起请求。请求会发送当前帖子标题、正文、话题和最多 30 条评论文本用于生成总结；评论超过 30 条时优先选取点赞量更高的评论。模型列表拉取会请求对应服务商的模型列表端点，仅用于辅助选择模型。
 
 接口签名参数 `hkey`、`_time`、`nonce` 在 `src/content.js` 中生成。后续如果修改接口参数或签名逻辑，需要同步更新代码里的接口注释和本文档。
 评论文本中的表情标记会根据表情列表接口返回的 `code` 和 `img` 映射成图片展示；表情列表只做运行时内存缓存。
@@ -166,6 +177,6 @@ AI 接口使用设置弹框中填写的 `baseUrl`、`model` 和可选 `apiKey`�
 
 - 插件匹配 `https://www.xiaoheihe.cn/app/bbs`、`https://www.xiaoheihe.cn/app/topic/link`、`https://www.xiaoheihe.cn/app/user/profile`、`https://www.xiaoheihe.cn/app/user/favour`、`https://www.xiaoheihe.cn/app/search` 和它们的子路径。
 - 右侧评论区的评论列表和楼中楼查询优先使用去除 `heybox_id`、`user_heybox_id` 后的 Cookie 请求，且不携带 `heybox_id` URL 参数；失败时回退到当前网页登录态请求。整个过程不会移除或修改小黑盒登录 Cookie。点赞等用户主动操作仍依赖当前网页登录态。
-- AI 总结接口由用户自行配置，开启且完成配置后，帖子内容和评论文本会发送到该接口服务商。
+- AI 总结接口由用户自行配置，开启且完成配置后，帖子内容和评论文本会发送到所选 AI 服务商；拉取模型时会向该服务商请求模型列表。
 - 小黑盒网页结构或接口签名变化时，插件可能需要适配。
 - 本项目只在页面内做展示优化，不保存用户 Cookie 或登录凭据。
