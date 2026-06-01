@@ -21,10 +21,12 @@
   const HIDE_CY_COMMENTS_STORAGE_KEY = "better-xiaoheihe-hide-cy-comments";
   const BLOCKED_KEYWORDS_STORAGE_KEY = "better-xiaoheihe-blocked-keywords";
   const LEVEL_FILTERS_STORAGE_KEY = "better-xiaoheihe-level-filters";
+  const COMMENT_PREVIEW_SORT_STORAGE_KEY = "better-xiaoheihe-comment-preview-sort";
   const LOCAL_SETTINGS_STORAGE_KEYS = [
     HIDE_CY_COMMENTS_STORAGE_KEY,
     BLOCKED_KEYWORDS_STORAGE_KEY,
-    LEVEL_FILTERS_STORAGE_KEY
+    LEVEL_FILTERS_STORAGE_KEY,
+    COMMENT_PREVIEW_SORT_STORAGE_KEY
   ];
   const LOCAL_SETTINGS_REQUEST_EVENT = "better-xiaoheihe-local-settings-request";
   const LOCAL_SETTINGS_RESPONSE_EVENT = "better-xiaoheihe-local-settings-response";
@@ -50,6 +52,18 @@
     FEED: "feed",
     COMMENT: "comment",
     AI: "ai"
+  };
+  const COMMENT_PREVIEW_SORTS = {
+    DEFAULT: "default",
+    HOT: "hot",
+    NEWEST: "newest",
+    AUTHOR: "author"
+  };
+  const COMMENT_PREVIEW_SORT_LABELS = {
+    [COMMENT_PREVIEW_SORTS.DEFAULT]: "默认",
+    [COMMENT_PREVIEW_SORTS.HOT]: "热度",
+    [COMMENT_PREVIEW_SORTS.NEWEST]: "最新",
+    [COMMENT_PREVIEW_SORTS.AUTHOR]: "作者优先"
   };
   const BLOCKED_KEYWORD_SCOPE_LABELS = {
     [BLOCKED_KEYWORD_SCOPES.COMMENT]: "评论",
@@ -92,6 +106,7 @@
   const blockedKeywordHitKeys = new Set();
   const capturedApiParams = {};
   let hideCyComments = false;
+  let commentPreviewSort = COMMENT_PREVIEW_SORTS.DEFAULT;
   let blockedKeywords = [];
   let levelFilters = normalizeLevelFilters({});
   let aiSettings = normalizeAiSettings();
@@ -195,6 +210,30 @@
 
     hideCyComments = savedState;
     syncCyToggleControls();
+    refreshAllCommentFilters();
+  }
+
+  function normalizeCommentPreviewSort(sort) {
+    return Object.values(COMMENT_PREVIEW_SORTS).includes(sort)
+      ? sort
+      : COMMENT_PREVIEW_SORTS.DEFAULT;
+  }
+
+  function writeCommentPreviewSortState(sort) {
+    saveLocalSettings({
+      [COMMENT_PREVIEW_SORT_STORAGE_KEY]: normalizeCommentPreviewSort(sort)
+    });
+  }
+
+  function syncCommentPreviewSortState(savedState) {
+    const normalizedSort = normalizeCommentPreviewSort(savedState);
+    if (normalizedSort === commentPreviewSort) {
+      syncCommentSortControls();
+      return;
+    }
+
+    commentPreviewSort = normalizedSort;
+    syncCommentSortControls();
     refreshAllCommentFilters();
   }
 
@@ -422,6 +461,7 @@
       || values[HIDE_CY_COMMENTS_STORAGE_KEY] === "true";
     blockedKeywords = normalizeBlockedKeywords(values[BLOCKED_KEYWORDS_STORAGE_KEY]);
     levelFilters = normalizeLevelFilters(values[LEVEL_FILTERS_STORAGE_KEY]);
+    commentPreviewSort = normalizeCommentPreviewSort(values[COMMENT_PREVIEW_SORT_STORAGE_KEY]);
   }
 
   async function loadLocalSettingsState() {
@@ -464,6 +504,12 @@
       migrationValues[LEVEL_FILTERS_STORAGE_KEY] = nextValues[LEVEL_FILTERS_STORAGE_KEY];
     } else {
       nextValues[LEVEL_FILTERS_STORAGE_KEY] = normalizeLevelFilters({});
+    }
+
+    if (keysPresent[COMMENT_PREVIEW_SORT_STORAGE_KEY]) {
+      nextValues[COMMENT_PREVIEW_SORT_STORAGE_KEY] = normalizeCommentPreviewSort(values[COMMENT_PREVIEW_SORT_STORAGE_KEY]);
+    } else {
+      nextValues[COMMENT_PREVIEW_SORT_STORAGE_KEY] = COMMENT_PREVIEW_SORTS.DEFAULT;
     }
 
     applyLocalSettingsValues(nextValues);
@@ -1508,6 +1554,46 @@
         font-size: 12px;
         line-height: 16px;
         white-space: nowrap;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__sort-group,
+      .${HOME_LAYOUT_CLASS} .link-comment .better-comment-preview__sort-group {
+        display: inline-flex;
+        overflow: hidden;
+        border: 1px solid #dde2e7;
+        border-radius: 6px;
+        background: #fff;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__sort-option,
+      .${HOME_LAYOUT_CLASS} .link-comment .better-comment-preview__sort-option {
+        height: 22px;
+        padding: 0 6px;
+        border: 0;
+        border-right: 1px solid #eef0f2;
+        background: transparent;
+        color: #59636e;
+        cursor: pointer;
+        font-size: 12px;
+        line-height: 22px;
+        white-space: nowrap;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__sort-option:last-child,
+      .${HOME_LAYOUT_CLASS} .link-comment .better-comment-preview__sort-option:last-child {
+        border-right: 0;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__sort-option:hover,
+      .${HOME_LAYOUT_CLASS} .link-comment .better-comment-preview__sort-option:hover {
+        background: #f5f8fb;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__sort-option[aria-pressed="true"],
+      .${HOME_LAYOUT_CLASS} .link-comment .better-comment-preview__sort-option[aria-pressed="true"] {
+        background: #2775d1;
+        color: #fff;
+        font-weight: 600;
       }
 
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__cy-toggle,
@@ -3503,6 +3589,23 @@
     return link?.create_at || link?.created_at || link?.publish_at || link?.time || "";
   }
 
+  function getCommentCreateTime(comment) {
+    return pickFirstNumber(
+      comment?.create_at,
+      comment?.created_at,
+      comment?.publish_at,
+      comment?.time,
+      comment?.timestamp
+    );
+  }
+
+  function isOwnerComment(comment) {
+    return comment?.is_link_owner === 1
+      || comment?.is_link_owner === true
+      || comment?.is_owner === 1
+      || comment?.is_owner === true;
+  }
+
   function pickFirstNumber(...values) {
     const value = values.find((item) => item !== undefined && item !== null && item !== "");
     const number = Number(value);
@@ -3529,7 +3632,7 @@
 
   function normalizeCommentGroups(data) {
     const groups = Array.isArray(data?.result?.comments) ? data.result.comments : [];
-    return groups.map((group) => {
+    return groups.map((group, index) => {
       const list = Array.isArray(group.comment) ? group.comment : [];
       list.forEach(rememberCommentUserLevels);
       const root = list[0];
@@ -3537,6 +3640,7 @@
       return {
         root,
         replies,
+        originalIndex: index,
         replyCount: getRootReplyCount(root, group),
         repliesHasMore: root?.has_more === 1 || root?.has_more === true || getRootReplyCount(root, group) > replies.length,
         repliesLoading: false,
@@ -3919,9 +4023,52 @@
       });
   }
 
+  function getCommentGroupOriginalIndex(group) {
+    return Number.isFinite(group?.originalIndex) ? group.originalIndex : 0;
+  }
+
+  function compareCommentGroups(left, right) {
+    if (commentPreviewSort === COMMENT_PREVIEW_SORTS.HOT) {
+      const hotDiff = getCommentUpCount(right.root) - getCommentUpCount(left.root);
+      return hotDiff || getCommentGroupOriginalIndex(left) - getCommentGroupOriginalIndex(right);
+    }
+
+    if (commentPreviewSort === COMMENT_PREVIEW_SORTS.NEWEST) {
+      const timeDiff = getCommentCreateTime(right.root) - getCommentCreateTime(left.root);
+      return timeDiff || getCommentGroupOriginalIndex(left) - getCommentGroupOriginalIndex(right);
+    }
+
+    if (commentPreviewSort === COMMENT_PREVIEW_SORTS.AUTHOR) {
+      const ownerDiff = Number(isOwnerComment(right.root)) - Number(isOwnerComment(left.root));
+      return ownerDiff || getCommentGroupOriginalIndex(left) - getCommentGroupOriginalIndex(right);
+    }
+
+    return getCommentGroupOriginalIndex(left) - getCommentGroupOriginalIndex(right);
+  }
+
+  function sortCommentGroups(commentGroups) {
+    if (commentPreviewSort === COMMENT_PREVIEW_SORTS.DEFAULT) {
+      return commentGroups;
+    }
+
+    return [...commentGroups].sort(compareCommentGroups);
+  }
+
+  function renderCommentSortControls() {
+    const options = Object.values(COMMENT_PREVIEW_SORTS).map((sort) => `
+      <button class="better-comment-preview__sort-option" type="button" data-sort="${escapeHtml(sort)}" aria-pressed="${commentPreviewSort === sort ? "true" : "false"}">${escapeHtml(COMMENT_PREVIEW_SORT_LABELS[sort])}</button>
+    `).join("");
+    return `
+      <div class="better-comment-preview__sort-group" role="group" aria-label="评论排序">
+        ${options}
+      </div>
+    `;
+  }
+
   function renderCyToggle(hiddenCount) {
     return `
       <div class="better-comment-preview__toolbar">
+        ${renderCommentSortControls()}
         <button class="better-comment-preview__cy-toggle" type="button" aria-pressed="${hideCyComments ? "true" : "false"}" title="${hideCyComments ? "显示插眼评论" : "屏蔽插眼评论"}">
           <span class="better-comment-preview__cy-toggle-switch" aria-hidden="true"></span>
           <span>屏蔽CY</span>
@@ -3935,6 +4082,27 @@
     document.querySelectorAll(".better-comment-preview__cy-toggle").forEach((toggle) => {
       toggle.setAttribute("aria-pressed", hideCyComments ? "true" : "false");
       toggle.setAttribute("title", hideCyComments ? "显示插眼评论" : "屏蔽插眼评论");
+    });
+  }
+
+  function syncCommentSortControls() {
+    document.querySelectorAll(".better-comment-preview__sort-option").forEach((button) => {
+      button.setAttribute("aria-pressed", button.dataset.sort === commentPreviewSort ? "true" : "false");
+    });
+  }
+
+  function bindLinkPageSortControls(toolbar) {
+    toolbar.querySelectorAll(".better-comment-preview__sort-option").forEach((button) => {
+      if (button.dataset.sortBound === "1") {
+        return;
+      }
+
+      button.dataset.sortBound = "1";
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        setCommentPreviewSort(button.dataset.sort);
+      });
     });
   }
 
@@ -3968,7 +4136,7 @@
     const linkId = preview.dataset.linkId || "";
     const count = state?.commentCount || preview.dataset.commentCount || "0";
     const allCommentGroups = state?.commentGroups || [];
-    const commentGroups = getVisibleCommentGroups(allCommentGroups);
+    const commentGroups = sortCommentGroups(getVisibleCommentGroups(allCommentGroups));
     const totalHiddenCount = countCommentGroupItems(allCommentGroups) - countCommentGroupItems(commentGroups);
     const cyHiddenCount = hideCyComments ? countCyCommentGroupItems(allCommentGroups) : 0;
     const failed = state?.failed;
@@ -4042,6 +4210,10 @@
       }
 
       const pageGroups = normalizeCommentGroups(data);
+      const originalIndexOffset = page === 1 ? 0 : (state.commentGroups?.length || 0);
+      pageGroups.forEach((group, index) => {
+        group.originalIndex = originalIndexOffset + index;
+      });
       state.commentGroups = page === 1 ? pageGroups : state.commentGroups.concat(pageGroups);
       state.commentCount = data.result?.link?.comment_num || data.result?.total_floor_num || state.commentCount;
       state.linkCreateAt = getLinkCreateTime(data.result?.link) || state.linkCreateAt;
@@ -4182,6 +4354,13 @@
     hideCyComments = isHidden;
     writeHideCyCommentsState(isHidden);
     syncCyToggleControls();
+    refreshAllCommentFilters();
+  }
+
+  function setCommentPreviewSort(sort) {
+    commentPreviewSort = normalizeCommentPreviewSort(sort);
+    writeCommentPreviewSortState(commentPreviewSort);
+    syncCommentSortControls();
     refreshAllCommentFilters();
   }
 
@@ -4510,6 +4689,14 @@
         return;
       }
 
+      const sortButton = event.target.closest(".better-comment-preview__sort-option");
+      if (sortButton && preview.contains(sortButton)) {
+        event.preventDefault();
+        event.stopPropagation();
+        setCommentPreviewSort(sortButton.dataset.sort);
+        return;
+      }
+
       const reloadButton = event.target.closest(".better-comment-preview__reload");
       if (reloadButton && preview.contains(reloadButton)) {
         event.preventDefault();
@@ -4554,6 +4741,7 @@
       event.stopPropagation();
       supportComment(supportButton.dataset.commentId, supportButton);
     });
+
   }
 
   function loadMorePreviewComments(preview) {
@@ -6563,6 +6751,72 @@
     return hiddenCount;
   }
 
+  function getLinkPageCommentOriginalIndex(item) {
+    if (!item.dataset.betterOriginalIndex) {
+      const siblings = Array.from(item.parentElement?.querySelectorAll('.link-comment__comment-item') || []);
+      item.dataset.betterOriginalIndex = String(Math.max(0, siblings.indexOf(item)));
+    }
+    return Number.parseInt(item.dataset.betterOriginalIndex, 10) || 0;
+  }
+
+  function getLinkPageCommentUpCount(item) {
+    const text = item.querySelector('.comment-item__like, .comment-item__support, .comment-item__action-like, .heybox-thumbs-up')?.parentElement?.textContent
+      || item.querySelector('[class*="like"], [class*="support"]')?.textContent
+      || '';
+    const match = text.match(/\d+/);
+    return match ? Number.parseInt(match[0], 10) || 0 : 0;
+  }
+
+  function getLinkPageCommentCreateTime(item) {
+    const text = item.querySelector('.info-box__time, .comment-item__time, [class*="time"]')?.textContent || '';
+    const dateMatch = text.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (dateMatch) {
+      return new Date(Number(dateMatch[1]), Number(dateMatch[2]) - 1, Number(dateMatch[3])).getTime() || 0;
+    }
+    if (/\d+\s*分钟前/.test(text)) {
+      return Date.now() - (Number.parseInt(text, 10) || 0) * 60 * 1000;
+    }
+    if (/\d+\s*小时前/.test(text)) {
+      return Date.now() - (Number.parseInt(text, 10) || 0) * 60 * 60 * 1000;
+    }
+    if (/\d+\s*天前/.test(text)) {
+      return Date.now() - (Number.parseInt(text, 10) || 0) * 24 * 60 * 60 * 1000;
+    }
+    return 0;
+  }
+
+  function isLinkPageOwnerComment(item) {
+    return Boolean(item.querySelector('.better-comment-preview__owner'))
+      || /作者/.test(item.querySelector('.info-box__username')?.parentElement?.textContent || '');
+  }
+
+  function compareLinkPageCommentItems(left, right) {
+    if (commentPreviewSort === COMMENT_PREVIEW_SORTS.HOT) {
+      const hotDiff = getLinkPageCommentUpCount(right) - getLinkPageCommentUpCount(left);
+      return hotDiff || getLinkPageCommentOriginalIndex(left) - getLinkPageCommentOriginalIndex(right);
+    }
+    if (commentPreviewSort === COMMENT_PREVIEW_SORTS.NEWEST) {
+      const timeDiff = getLinkPageCommentCreateTime(right) - getLinkPageCommentCreateTime(left);
+      return timeDiff || getLinkPageCommentOriginalIndex(left) - getLinkPageCommentOriginalIndex(right);
+    }
+    if (commentPreviewSort === COMMENT_PREVIEW_SORTS.AUTHOR) {
+      const ownerDiff = Number(isLinkPageOwnerComment(right)) - Number(isLinkPageOwnerComment(left));
+      return ownerDiff || getLinkPageCommentOriginalIndex(left) - getLinkPageCommentOriginalIndex(right);
+    }
+    return getLinkPageCommentOriginalIndex(left) - getLinkPageCommentOriginalIndex(right);
+  }
+
+  function sortLinkPageComments() {
+    const list = document.querySelector('.link-comment__list');
+    if (!list) {
+      return;
+    }
+
+    const items = Array.from(list.querySelectorAll(':scope > .link-comment__comment-item'));
+    items.forEach(getLinkPageCommentOriginalIndex);
+    [...items].sort(compareLinkPageCommentItems).forEach((item) => list.appendChild(item));
+  }
+
   function updateLinkPageFilterControls() {
     if (!isLinkPage()) {
       return;
@@ -6576,6 +6830,8 @@
     toggleButton.setAttribute('aria-pressed', hideCyComments ? 'true' : 'false');
     toggleButton.setAttribute('title', hideCyComments ? '显示插眼及屏蔽评论' : '隐藏插眼及屏蔽评论');
 
+    sortLinkPageComments();
+    syncCommentSortControls();
     const hiddenCount = filterLinkPageComments();
 
     const countSpan = document.querySelector('.link-comment .better-comment-preview__filtered-count');
@@ -6631,6 +6887,10 @@
       const toolbar = document.createElement('div');
       toolbar.className = 'better-comment-preview__toolbar';
 
+      const sortWrapper = document.createElement('div');
+      sortWrapper.innerHTML = renderCommentSortControls();
+      const sortControls = sortWrapper.firstElementChild;
+
       const toggleButton = document.createElement('button');
       toggleButton.className = 'better-comment-preview__cy-toggle';
       toggleButton.type = 'button';
@@ -6646,13 +6906,23 @@
       countSpan.className = 'better-comment-preview__filtered-count';
 
       toggleButton.append(switchSpan, labelSpan);
-      toolbar.append(toggleButton, countSpan);
+      toolbar.append(sortControls, toggleButton, countSpan);
 
       toggleButton.addEventListener('click', () => {
         setHideCyComments(!hideCyComments);
       });
 
       mountPoint.append(toolbar);
+    }
+
+    const toolbar = mountPoint.querySelector('.better-comment-preview__toolbar');
+    if (toolbar && !toolbar.querySelector('.better-comment-preview__sort-group')) {
+      const sortWrapper = document.createElement('div');
+      sortWrapper.innerHTML = renderCommentSortControls();
+      toolbar.insertAdjacentElement('afterbegin', sortWrapper.firstElementChild);
+    }
+    if (toolbar) {
+      bindLinkPageSortControls(toolbar);
     }
 
     ensureLinkPageAiSummaryButton(mountPoint);
@@ -6758,6 +7028,9 @@
       if (event.key === LEVEL_FILTERS_STORAGE_KEY) {
         syncLegacyLevelFiltersState();
       }
+      if (event.key === COMMENT_PREVIEW_SORT_STORAGE_KEY) {
+        syncCommentPreviewSortState(localStorage.getItem(COMMENT_PREVIEW_SORT_STORAGE_KEY));
+      }
     });
 
     window.addEventListener(LOCAL_SETTINGS_CHANGED_EVENT, (event) => {
@@ -6771,6 +7044,9 @@
       }
       if (Object.prototype.hasOwnProperty.call(values, LEVEL_FILTERS_STORAGE_KEY)) {
         syncLevelFiltersState(values[LEVEL_FILTERS_STORAGE_KEY]);
+      }
+      if (Object.prototype.hasOwnProperty.call(values, COMMENT_PREVIEW_SORT_STORAGE_KEY)) {
+        syncCommentPreviewSortState(values[COMMENT_PREVIEW_SORT_STORAGE_KEY]);
       }
     });
   }
