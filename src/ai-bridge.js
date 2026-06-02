@@ -17,7 +17,8 @@
   const LOCAL_SETTINGS_STORAGE_KEYS = [
     "better-xiaoheihe-hide-cy-comments",
     "better-xiaoheihe-blocked-keywords",
-    "better-xiaoheihe-level-filters"
+    "better-xiaoheihe-level-filters",
+    "better-xiaoheihe-comment-preview-sort"
   ];
   const DEFAULT_SUMMARY_PROMPT = "你是社区帖子总结助手，请用中文简洁输出：\n帖子总结\n一句话概括帖子核心内容。\n评论区信息\n提取评论区里有价值的观点、经验、补充或避坑信息，没有则跳过。\nAI简评\n像真实网友一样补充观点，避免AI味。\n返回md格式。";
   const AI_PROVIDERS = {

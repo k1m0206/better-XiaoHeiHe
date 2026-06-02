@@ -21,10 +21,12 @@
   const HIDE_CY_COMMENTS_STORAGE_KEY = "better-xiaoheihe-hide-cy-comments";
   const BLOCKED_KEYWORDS_STORAGE_KEY = "better-xiaoheihe-blocked-keywords";
   const LEVEL_FILTERS_STORAGE_KEY = "better-xiaoheihe-level-filters";
+  const COMMENT_PREVIEW_SORT_STORAGE_KEY = "better-xiaoheihe-comment-preview-sort";
   const LOCAL_SETTINGS_STORAGE_KEYS = [
     HIDE_CY_COMMENTS_STORAGE_KEY,
     BLOCKED_KEYWORDS_STORAGE_KEY,
-    LEVEL_FILTERS_STORAGE_KEY
+    LEVEL_FILTERS_STORAGE_KEY,
+    COMMENT_PREVIEW_SORT_STORAGE_KEY
   ];
   const LOCAL_SETTINGS_REQUEST_EVENT = "better-xiaoheihe-local-settings-request";
   const LOCAL_SETTINGS_RESPONSE_EVENT = "better-xiaoheihe-local-settings-response";
@@ -65,6 +67,18 @@
     FEED: "feed",
     COMMENT: "comment",
     AI: "ai"
+  };
+  const COMMENT_PREVIEW_SORTS = {
+    DEFAULT: "default",
+    HOT: "hot",
+    NEWEST: "newest",
+    AUTHOR: "author"
+  };
+  const COMMENT_PREVIEW_SORT_LABELS = {
+    [COMMENT_PREVIEW_SORTS.DEFAULT]: "默认",
+    [COMMENT_PREVIEW_SORTS.HOT]: "热度",
+    [COMMENT_PREVIEW_SORTS.NEWEST]: "最新",
+    [COMMENT_PREVIEW_SORTS.AUTHOR]: "作者优先"
   };
   const BLOCKED_KEYWORD_SCOPE_LABELS = {
     [BLOCKED_KEYWORD_SCOPES.COMMENT]: "评论",
@@ -107,6 +121,7 @@
   const blockedKeywordHitKeys = new Set();
   const capturedApiParams = {};
   let hideCyComments = false;
+  let commentPreviewSort = COMMENT_PREVIEW_SORTS.DEFAULT;
   let blockedKeywords = [];
   let levelFilters = normalizeLevelFilters({});
   let aiSettings = normalizeAiSettings();
@@ -210,6 +225,30 @@
 
     hideCyComments = savedState;
     syncCyToggleControls();
+    refreshAllCommentFilters();
+  }
+
+  function normalizeCommentPreviewSort(sort) {
+    return Object.values(COMMENT_PREVIEW_SORTS).includes(sort)
+      ? sort
+      : COMMENT_PREVIEW_SORTS.DEFAULT;
+  }
+
+  function writeCommentPreviewSortState(sort) {
+    saveLocalSettings({
+      [COMMENT_PREVIEW_SORT_STORAGE_KEY]: normalizeCommentPreviewSort(sort)
+    });
+  }
+
+  function syncCommentPreviewSortState(savedState) {
+    const normalizedSort = normalizeCommentPreviewSort(savedState);
+    if (normalizedSort === commentPreviewSort) {
+      syncCommentSortControls();
+      return;
+    }
+
+    commentPreviewSort = normalizedSort;
+    syncCommentSortControls();
     refreshAllCommentFilters();
   }
 
@@ -442,6 +481,7 @@
       || values[HIDE_CY_COMMENTS_STORAGE_KEY] === "true";
     blockedKeywords = normalizeBlockedKeywords(values[BLOCKED_KEYWORDS_STORAGE_KEY]);
     levelFilters = normalizeLevelFilters(values[LEVEL_FILTERS_STORAGE_KEY]);
+    commentPreviewSort = normalizeCommentPreviewSort(values[COMMENT_PREVIEW_SORT_STORAGE_KEY]);
   }
 
   async function loadLocalSettingsState() {
@@ -484,6 +524,12 @@
       migrationValues[LEVEL_FILTERS_STORAGE_KEY] = nextValues[LEVEL_FILTERS_STORAGE_KEY];
     } else {
       nextValues[LEVEL_FILTERS_STORAGE_KEY] = normalizeLevelFilters({});
+    }
+
+    if (keysPresent[COMMENT_PREVIEW_SORT_STORAGE_KEY]) {
+      nextValues[COMMENT_PREVIEW_SORT_STORAGE_KEY] = normalizeCommentPreviewSort(values[COMMENT_PREVIEW_SORT_STORAGE_KEY]);
+    } else {
+      nextValues[COMMENT_PREVIEW_SORT_STORAGE_KEY] = COMMENT_PREVIEW_SORTS.DEFAULT;
     }
 
     applyLocalSettingsValues(nextValues);
@@ -1533,7 +1579,8 @@
       }
 
       .${HOME_LAYOUT_CLASS} .${ROW_CLASS} .better-ai-summary-button,
-      .${HOME_LAYOUT_CLASS} .link-comment .better-ai-summary-button {
+      .${HOME_LAYOUT_CLASS} .link-comment .better-ai-summary-button,
+      .${HOME_LAYOUT_CLASS} .hb-bbs-link__header .better-ai-summary-button {
         display: inline-flex;
         width: 26px;
         height: 26px;
@@ -1552,7 +1599,8 @@
       }
 
       .${HOME_LAYOUT_CLASS} .${ROW_CLASS} .better-ai-summary-button:hover,
-      .${HOME_LAYOUT_CLASS} .link-comment .better-ai-summary-button:hover {
+      .${HOME_LAYOUT_CLASS} .link-comment .better-ai-summary-button:hover,
+      .${HOME_LAYOUT_CLASS} .hb-bbs-link__header .better-ai-summary-button:hover {
         background: #e9f2ff;
         border-color: #9ec6f2;
       }
@@ -1563,14 +1611,16 @@
       }
 
       .${HOME_LAYOUT_CLASS} .${ROW_CLASS} .better-ai-summary-button.is-loading,
-      .${HOME_LAYOUT_CLASS} .link-comment .better-ai-summary-button.is-loading {
+      .${HOME_LAYOUT_CLASS} .link-comment .better-ai-summary-button.is-loading,
+      .${HOME_LAYOUT_CLASS} .hb-bbs-link__header .better-ai-summary-button.is-loading {
         position: relative;
         color: transparent;
         pointer-events: none;
       }
 
       .${HOME_LAYOUT_CLASS} .${ROW_CLASS} .better-ai-summary-button.is-loading::after,
-      .${HOME_LAYOUT_CLASS} .link-comment .better-ai-summary-button.is-loading::after {
+      .${HOME_LAYOUT_CLASS} .link-comment .better-ai-summary-button.is-loading::after,
+      .${HOME_LAYOUT_CLASS} .hb-bbs-link__header .better-ai-summary-button.is-loading::after {
         content: "";
         box-sizing: border-box;
         position: absolute;
@@ -1636,6 +1686,46 @@
         font-size: 12px;
         line-height: 16px;
         white-space: nowrap;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__sort-group,
+      .${HOME_LAYOUT_CLASS} .link-comment .better-comment-preview__sort-group {
+        display: inline-flex;
+        overflow: hidden;
+        border: 1px solid #dde2e7;
+        border-radius: 6px;
+        background: #fff;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__sort-option,
+      .${HOME_LAYOUT_CLASS} .link-comment .better-comment-preview__sort-option {
+        height: 22px;
+        padding: 0 6px;
+        border: 0;
+        border-right: 1px solid #eef0f2;
+        background: transparent;
+        color: #59636e;
+        cursor: pointer;
+        font-size: 12px;
+        line-height: 22px;
+        white-space: nowrap;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__sort-option:last-child,
+      .${HOME_LAYOUT_CLASS} .link-comment .better-comment-preview__sort-option:last-child {
+        border-right: 0;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__sort-option:hover,
+      .${HOME_LAYOUT_CLASS} .link-comment .better-comment-preview__sort-option:hover {
+        background: #f5f8fb;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__sort-option[aria-pressed="true"],
+      .${HOME_LAYOUT_CLASS} .link-comment .better-comment-preview__sort-option[aria-pressed="true"] {
+        background: #2775d1;
+        color: #fff;
+        font-weight: 600;
       }
 
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__cy-toggle,
@@ -2453,7 +2543,35 @@
       }
 
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-bbs-link__header {
-        grid-column: 1 / -1;
+        grid-column: 1;
+        min-width: 0;
+        width: 100% !important;
+        max-width: 100% !important;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-bbs-link__header .page-header__container {
+        box-sizing: border-box;
+        position: relative !important;
+        width: 100% !important;
+        max-width: 100% !important;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-bbs-link__header .page-header__other-trans {
+        overflow: visible;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-bbs-link__header .page-header--right {
+        overflow: visible;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-bbs-link__header .better-link-page-ai-summary {
+        position: absolute !important;
+        top: 50% !important;
+        right: 44px !important;
+        z-index: 2;
+        flex: 0 0 auto;
+        margin: 0;
+        transform: translateY(-50%);
       }
 
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-bbs-link__container {
@@ -2499,23 +2617,23 @@
 
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment {
         box-sizing: border-box;
-        display: flex;
+        display: block;
         grid-column: 2;
-        position: sticky;
-        top: 76px;
+        position: fixed !important;
+        top: 76px !important;
+        right: 16px !important;
+        z-index: 30;
         height: calc(100vh - 168px);
         max-height: calc(100vh - 168px);
         min-height: 0;
-        overflow: auto;
-        flex-direction: column;
-        width: 100% !important;
-        max-width: none !important;
-        padding: 0 0 12px 16px;
+        overflow: hidden;
+        width: max(360px, calc((100vw - 48px) * 0.4)) !important;
+        max-width: calc(100vw - 32px) !important;
+        padding: 0;
         border-left: 1px solid #eef0f2;
         background: #fff;
       }
 
-      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .comment__comment-header,
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .hb-cpt__pagination,
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .hb-cpt__pagination-outer,
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .hb-cpt__pagination-inner {
@@ -2530,10 +2648,26 @@
 
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .comment__comment-header {
         box-sizing: border-box;
-        flex: 0 0 auto;
+        position: absolute !important;
+        top: 0 !important;
+        right: 0 !important;
+        bottom: auto !important;
+        left: 16px !important;
+        z-index: 3 !important;
+        display: block !important;
+        width: auto !important;
+        max-width: none !important;
+        height: 36px !important;
+        min-height: 36px !important;
         margin: 0 !important;
         padding: 0 0 10px !important;
+        border-bottom: 1px solid #eef0f2;
         background: #fff;
+        opacity: 1 !important;
+        overflow: visible !important;
+        pointer-events: auto !important;
+        transform: none !important;
+        visibility: visible !important;
       }
 
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .hb-cpt__pagination,
@@ -2549,15 +2683,32 @@
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .hb-cpt__pagination-inner {
         display: flex !important;
         align-items: center;
+        flex-wrap: nowrap;
+        gap: 8px;
+        min-height: 32px !important;
+        overflow: visible !important;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .slide-tab__tab-item {
+        flex: 0 0 auto;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .slide-tab-tab__bar {
+        display: none !important;
       }
 
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .better-link-page-ai-summary {
-        margin-left: auto;
+        flex: 0 0 auto;
+        margin-left: 0;
         margin-right: 4px;
       }
 
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .better-comment-preview__toolbar {
+        flex: 0 1 auto;
+        justify-content: flex-end;
         margin-left: auto !important;
+        overflow: visible;
+        width: auto;
       }
 
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .better-link-page-ai-summary + .better-comment-preview__toolbar {
@@ -2565,11 +2716,18 @@
       }
 
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .link-comment__list {
-        flex: 1 1 auto;
+        position: absolute !important;
+        top: 42px !important;
+        right: 0 !important;
+        bottom: 12px !important;
+        left: 16px !important;
         min-height: 0;
-        width: 100% !important;
+        overflow-x: hidden;
+        overflow-y: auto;
+        width: auto !important;
         margin-top: 0 !important;
         padding-top: 0 !important;
+        overscroll-behavior: contain;
       }
 
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .link-comment__comment-item,
@@ -2599,29 +2757,29 @@
         padding: 16px 0 4px !important;
       }
 
-      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment::-webkit-scrollbar {
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .link-comment__list::-webkit-scrollbar {
         width: 6px;
       }
 
-      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment::-webkit-scrollbar-thumb {
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .link-comment__list::-webkit-scrollbar-thumb {
         border-radius: 999px;
         background: #d7dce1;
       }
 
-      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment::-webkit-scrollbar-track {
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .link-comment__list::-webkit-scrollbar-track {
         background: transparent;
       }
 
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-reply {
         box-sizing: border-box;
         grid-column: 2;
-        position: sticky !important;
-        right: auto !important;
+        position: fixed !important;
+        right: 16px !important;
         bottom: 12px !important;
         left: auto !important;
         z-index: 20;
-        width: 100% !important;
-        max-width: none !important;
+        width: max(360px, calc((100vw - 48px) * 0.4)) !important;
+        max-width: calc(100vw - 32px) !important;
         margin-top: -8px;
         border-left: 1px solid #eef0f2;
         background: #fff;
@@ -2667,6 +2825,28 @@
           overflow: visible;
           padding-left: 0;
           border-left: 0;
+        }
+
+        .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .comment__comment-header {
+          position: static !important;
+          top: auto !important;
+          right: auto !important;
+          bottom: auto !important;
+          left: auto !important;
+          height: auto !important;
+          min-height: 0 !important;
+          width: auto !important;
+          max-width: none !important;
+        }
+
+        .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .link-comment__list {
+          position: static !important;
+          top: auto !important;
+          right: auto !important;
+          bottom: auto !important;
+          left: auto !important;
+          overflow: visible;
+          width: 100% !important;
         }
 
         .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-reply {
@@ -3631,6 +3811,23 @@
     return link?.create_at || link?.created_at || link?.publish_at || link?.time || "";
   }
 
+  function getCommentCreateTime(comment) {
+    return pickFirstNumber(
+      comment?.create_at,
+      comment?.created_at,
+      comment?.publish_at,
+      comment?.time,
+      comment?.timestamp
+    );
+  }
+
+  function isOwnerComment(comment) {
+    return comment?.is_link_owner === 1
+      || comment?.is_link_owner === true
+      || comment?.is_owner === 1
+      || comment?.is_owner === true;
+  }
+
   function pickFirstNumber(...values) {
     const value = values.find((item) => item !== undefined && item !== null && item !== "");
     const number = Number(value);
@@ -3657,7 +3854,7 @@
 
   function normalizeCommentGroups(data) {
     const groups = Array.isArray(data?.result?.comments) ? data.result.comments : [];
-    return groups.map((group) => {
+    return groups.map((group, index) => {
       const list = Array.isArray(group.comment) ? group.comment : [];
       list.forEach(rememberCommentUserLevels);
       const root = list[0];
@@ -3665,6 +3862,7 @@
       return {
         root,
         replies,
+        originalIndex: index,
         replyCount: getRootReplyCount(root, group),
         repliesHasMore: root?.has_more === 1 || root?.has_more === true || getRootReplyCount(root, group) > replies.length,
         repliesLoading: false,
@@ -4047,9 +4245,52 @@
       });
   }
 
+  function getCommentGroupOriginalIndex(group) {
+    return Number.isFinite(group?.originalIndex) ? group.originalIndex : 0;
+  }
+
+  function compareCommentGroups(left, right) {
+    if (commentPreviewSort === COMMENT_PREVIEW_SORTS.HOT) {
+      const hotDiff = getCommentUpCount(right.root) - getCommentUpCount(left.root);
+      return hotDiff || getCommentGroupOriginalIndex(left) - getCommentGroupOriginalIndex(right);
+    }
+
+    if (commentPreviewSort === COMMENT_PREVIEW_SORTS.NEWEST) {
+      const timeDiff = getCommentCreateTime(right.root) - getCommentCreateTime(left.root);
+      return timeDiff || getCommentGroupOriginalIndex(left) - getCommentGroupOriginalIndex(right);
+    }
+
+    if (commentPreviewSort === COMMENT_PREVIEW_SORTS.AUTHOR) {
+      const ownerDiff = Number(isOwnerComment(right.root)) - Number(isOwnerComment(left.root));
+      return ownerDiff || getCommentGroupOriginalIndex(left) - getCommentGroupOriginalIndex(right);
+    }
+
+    return getCommentGroupOriginalIndex(left) - getCommentGroupOriginalIndex(right);
+  }
+
+  function sortCommentGroups(commentGroups) {
+    if (commentPreviewSort === COMMENT_PREVIEW_SORTS.DEFAULT) {
+      return commentGroups;
+    }
+
+    return [...commentGroups].sort(compareCommentGroups);
+  }
+
+  function renderCommentSortControls() {
+    const options = Object.values(COMMENT_PREVIEW_SORTS).map((sort) => `
+      <button class="better-comment-preview__sort-option" type="button" data-sort="${escapeHtml(sort)}" aria-pressed="${commentPreviewSort === sort ? "true" : "false"}">${escapeHtml(COMMENT_PREVIEW_SORT_LABELS[sort])}</button>
+    `).join("");
+    return `
+      <div class="better-comment-preview__sort-group" role="group" aria-label="评论排序">
+        ${options}
+      </div>
+    `;
+  }
+
   function renderCyToggle(hiddenCount) {
     return `
       <div class="better-comment-preview__toolbar">
+        ${renderCommentSortControls()}
         <button class="better-comment-preview__cy-toggle" type="button" aria-pressed="${hideCyComments ? "true" : "false"}" title="${hideCyComments ? "显示插眼评论" : "屏蔽插眼评论"}">
           <span class="better-comment-preview__cy-toggle-switch" aria-hidden="true"></span>
           <span>屏蔽CY</span>
@@ -4063,6 +4304,27 @@
     document.querySelectorAll(".better-comment-preview__cy-toggle").forEach((toggle) => {
       toggle.setAttribute("aria-pressed", hideCyComments ? "true" : "false");
       toggle.setAttribute("title", hideCyComments ? "显示插眼评论" : "屏蔽插眼评论");
+    });
+  }
+
+  function syncCommentSortControls() {
+    document.querySelectorAll(".better-comment-preview__sort-option").forEach((button) => {
+      button.setAttribute("aria-pressed", button.dataset.sort === commentPreviewSort ? "true" : "false");
+    });
+  }
+
+  function bindLinkPageSortControls(toolbar) {
+    toolbar.querySelectorAll(".better-comment-preview__sort-option").forEach((button) => {
+      if (button.dataset.sortBound === "1") {
+        return;
+      }
+
+      button.dataset.sortBound = "1";
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        setCommentPreviewSort(button.dataset.sort);
+      });
     });
   }
 
@@ -4096,7 +4358,7 @@
     const linkId = preview.dataset.linkId || "";
     const count = state?.commentCount || preview.dataset.commentCount || "0";
     const allCommentGroups = state?.commentGroups || [];
-    const commentGroups = getVisibleCommentGroups(allCommentGroups);
+    const commentGroups = sortCommentGroups(getVisibleCommentGroups(allCommentGroups));
     const totalHiddenCount = countCommentGroupItems(allCommentGroups) - countCommentGroupItems(commentGroups);
     const cyHiddenCount = hideCyComments ? countCyCommentGroupItems(allCommentGroups) : 0;
     const failed = state?.failed;
@@ -4170,6 +4432,10 @@
       }
 
       const pageGroups = normalizeCommentGroups(data);
+      const originalIndexOffset = page === 1 ? 0 : (state.commentGroups?.length || 0);
+      pageGroups.forEach((group, index) => {
+        group.originalIndex = originalIndexOffset + index;
+      });
       state.commentGroups = page === 1 ? pageGroups : state.commentGroups.concat(pageGroups);
       state.commentCount = data.result?.link?.comment_num || data.result?.total_floor_num || state.commentCount;
       state.linkCreateAt = getLinkCreateTime(data.result?.link) || state.linkCreateAt;
@@ -4310,6 +4576,13 @@
     hideCyComments = isHidden;
     writeHideCyCommentsState(isHidden);
     syncCyToggleControls();
+    refreshAllCommentFilters();
+  }
+
+  function setCommentPreviewSort(sort) {
+    commentPreviewSort = normalizeCommentPreviewSort(sort);
+    writeCommentPreviewSortState(commentPreviewSort);
+    syncCommentSortControls();
     refreshAllCommentFilters();
   }
 
@@ -4638,6 +4911,14 @@
         return;
       }
 
+      const sortButton = event.target.closest(".better-comment-preview__sort-option");
+      if (sortButton && preview.contains(sortButton)) {
+        event.preventDefault();
+        event.stopPropagation();
+        setCommentPreviewSort(sortButton.dataset.sort);
+        return;
+      }
+
       const reloadButton = event.target.closest(".better-comment-preview__reload");
       if (reloadButton && preview.contains(reloadButton)) {
         event.preventDefault();
@@ -4682,6 +4963,7 @@
       event.stopPropagation();
       supportComment(supportButton.dataset.commentId, supportButton);
     });
+
   }
 
   function loadMorePreviewComments(preview) {
@@ -5016,10 +5298,7 @@
 
   function syncAiSummaryButtons() {
     document.querySelectorAll(FEED_ITEM_SELECTOR).forEach(ensureAiSummaryButton);
-    const linkPageMountPoint = document.querySelector('.link-comment .hb-cpt__pagination-inner');
-    if (linkPageMountPoint) {
-      ensureLinkPageAiSummaryButton(linkPageMountPoint);
-    }
+    ensureLinkPageAiSummaryButton();
   }
 
   function ensureAiSummaryModal() {
@@ -5073,7 +5352,7 @@
           if (item) {
             summarizeFeedItem(item, linkId, button, { force: true });
           } else if (isLinkPage() && getCurrentLinkId() === linkId) {
-            summarizeLinkPage(document.querySelector(".link-comment .better-ai-summary-button"), { force: true });
+            summarizeLinkPage(getLinkPageAiSummaryButton(), { force: true });
           }
         }
       }
@@ -6914,6 +7193,72 @@
     return hiddenCount;
   }
 
+  function getLinkPageCommentOriginalIndex(item) {
+    if (!item.dataset.betterOriginalIndex) {
+      const siblings = Array.from(item.parentElement?.querySelectorAll('.link-comment__comment-item') || []);
+      item.dataset.betterOriginalIndex = String(Math.max(0, siblings.indexOf(item)));
+    }
+    return Number.parseInt(item.dataset.betterOriginalIndex, 10) || 0;
+  }
+
+  function getLinkPageCommentUpCount(item) {
+    const text = item.querySelector('.comment-item__like, .comment-item__support, .comment-item__action-like, .heybox-thumbs-up')?.parentElement?.textContent
+      || item.querySelector('[class*="like"], [class*="support"]')?.textContent
+      || '';
+    const match = text.match(/\d+/);
+    return match ? Number.parseInt(match[0], 10) || 0 : 0;
+  }
+
+  function getLinkPageCommentCreateTime(item) {
+    const text = item.querySelector('.info-box__time, .comment-item__time, [class*="time"]')?.textContent || '';
+    const dateMatch = text.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (dateMatch) {
+      return new Date(Number(dateMatch[1]), Number(dateMatch[2]) - 1, Number(dateMatch[3])).getTime() || 0;
+    }
+    if (/\d+\s*分钟前/.test(text)) {
+      return Date.now() - (Number.parseInt(text, 10) || 0) * 60 * 1000;
+    }
+    if (/\d+\s*小时前/.test(text)) {
+      return Date.now() - (Number.parseInt(text, 10) || 0) * 60 * 60 * 1000;
+    }
+    if (/\d+\s*天前/.test(text)) {
+      return Date.now() - (Number.parseInt(text, 10) || 0) * 24 * 60 * 60 * 1000;
+    }
+    return 0;
+  }
+
+  function isLinkPageOwnerComment(item) {
+    return Boolean(item.querySelector('.better-comment-preview__owner'))
+      || /作者/.test(item.querySelector('.info-box__username')?.parentElement?.textContent || '');
+  }
+
+  function compareLinkPageCommentItems(left, right) {
+    if (commentPreviewSort === COMMENT_PREVIEW_SORTS.HOT) {
+      const hotDiff = getLinkPageCommentUpCount(right) - getLinkPageCommentUpCount(left);
+      return hotDiff || getLinkPageCommentOriginalIndex(left) - getLinkPageCommentOriginalIndex(right);
+    }
+    if (commentPreviewSort === COMMENT_PREVIEW_SORTS.NEWEST) {
+      const timeDiff = getLinkPageCommentCreateTime(right) - getLinkPageCommentCreateTime(left);
+      return timeDiff || getLinkPageCommentOriginalIndex(left) - getLinkPageCommentOriginalIndex(right);
+    }
+    if (commentPreviewSort === COMMENT_PREVIEW_SORTS.AUTHOR) {
+      const ownerDiff = Number(isLinkPageOwnerComment(right)) - Number(isLinkPageOwnerComment(left));
+      return ownerDiff || getLinkPageCommentOriginalIndex(left) - getLinkPageCommentOriginalIndex(right);
+    }
+    return getLinkPageCommentOriginalIndex(left) - getLinkPageCommentOriginalIndex(right);
+  }
+
+  function sortLinkPageComments() {
+    const list = document.querySelector('.link-comment__list');
+    if (!list) {
+      return;
+    }
+
+    const items = Array.from(list.querySelectorAll(':scope > .link-comment__comment-item'));
+    items.forEach(getLinkPageCommentOriginalIndex);
+    [...items].sort(compareLinkPageCommentItems).forEach((item) => list.appendChild(item));
+  }
+
   function updateLinkPageFilterControls() {
     if (!isLinkPage()) {
       return;
@@ -6927,6 +7272,8 @@
     toggleButton.setAttribute('aria-pressed', hideCyComments ? 'true' : 'false');
     toggleButton.setAttribute('title', hideCyComments ? '显示插眼及屏蔽评论' : '隐藏插眼及屏蔽评论');
 
+    sortLinkPageComments();
+    syncCommentSortControls();
     const hiddenCount = filterLinkPageComments();
 
     const countSpan = document.querySelector('.link-comment .better-comment-preview__filtered-count');
@@ -6936,10 +7283,22 @@
     }
   }
 
-  function ensureLinkPageAiSummaryButton(mountPoint) {
-    let button = mountPoint.querySelector(".better-link-page-ai-summary");
+  function getLinkPageAiSummaryButton() {
+    return document.querySelector(".hb-bbs-link__header .better-link-page-ai-summary");
+  }
+
+  function ensureLinkPageAiSummaryButton() {
+    document.querySelectorAll(".link-comment .better-link-page-ai-summary").forEach((button) => {
+      button.remove();
+    });
+
+    const mountPoint = document.querySelector(".hb-bbs-link__header .page-header__container");
+    let button = getLinkPageAiSummaryButton();
     if (!isAiFeatureEnabled()) {
       button?.remove();
+      return;
+    }
+    if (!mountPoint) {
       return;
     }
 
@@ -6957,10 +7316,7 @@
       });
     }
 
-    const toolbar = mountPoint.querySelector(".better-comment-preview__toolbar");
-    if (toolbar && button.nextElementSibling !== toolbar) {
-      toolbar.insertAdjacentElement("beforebegin", button);
-    } else if (!toolbar && button.parentElement !== mountPoint) {
+    if (button.parentElement !== mountPoint) {
       mountPoint.appendChild(button);
     }
   }
@@ -6972,6 +7328,7 @@
 
     ensureLinkPageCommentUserLevels();
     moveLinkPageEmptyStateIntoCommentPanel();
+    ensureLinkPageAiSummaryButton();
 
     const mountPoint = document.querySelector('.link-comment .hb-cpt__pagination-inner');
     if (!mountPoint) {
@@ -6981,6 +7338,10 @@
     if (!mountPoint.querySelector('.better-comment-preview__toolbar')) {
       const toolbar = document.createElement('div');
       toolbar.className = 'better-comment-preview__toolbar';
+
+      const sortWrapper = document.createElement('div');
+      sortWrapper.innerHTML = renderCommentSortControls();
+      const sortControls = sortWrapper.firstElementChild;
 
       const toggleButton = document.createElement('button');
       toggleButton.className = 'better-comment-preview__cy-toggle';
@@ -6997,7 +7358,7 @@
       countSpan.className = 'better-comment-preview__filtered-count';
 
       toggleButton.append(switchSpan, labelSpan);
-      toolbar.append(toggleButton, countSpan);
+      toolbar.append(sortControls, toggleButton, countSpan);
 
       toggleButton.addEventListener('click', () => {
         setHideCyComments(!hideCyComments);
@@ -7006,7 +7367,16 @@
       mountPoint.append(toolbar);
     }
 
-    ensureLinkPageAiSummaryButton(mountPoint);
+    const toolbar = mountPoint.querySelector('.better-comment-preview__toolbar');
+    if (toolbar && !toolbar.querySelector('.better-comment-preview__sort-group')) {
+      const sortWrapper = document.createElement('div');
+      sortWrapper.innerHTML = renderCommentSortControls();
+      toolbar.insertAdjacentElement('afterbegin', sortWrapper.firstElementChild);
+    }
+    if (toolbar) {
+      bindLinkPageSortControls(toolbar);
+    }
+
     updateLinkPageFilterControls();
   }
 
@@ -7109,6 +7479,9 @@
       if (event.key === LEVEL_FILTERS_STORAGE_KEY) {
         syncLegacyLevelFiltersState();
       }
+      if (event.key === COMMENT_PREVIEW_SORT_STORAGE_KEY) {
+        syncCommentPreviewSortState(localStorage.getItem(COMMENT_PREVIEW_SORT_STORAGE_KEY));
+      }
     });
 
     window.addEventListener(LOCAL_SETTINGS_CHANGED_EVENT, (event) => {
@@ -7122,6 +7495,9 @@
       }
       if (Object.prototype.hasOwnProperty.call(values, LEVEL_FILTERS_STORAGE_KEY)) {
         syncLevelFiltersState(values[LEVEL_FILTERS_STORAGE_KEY]);
+      }
+      if (Object.prototype.hasOwnProperty.call(values, COMMENT_PREVIEW_SORT_STORAGE_KEY)) {
+        syncCommentPreviewSortState(values[COMMENT_PREVIEW_SORT_STORAGE_KEY]);
       }
     });
   }
