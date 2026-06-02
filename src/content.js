@@ -5791,8 +5791,14 @@
     return `<p>${lines.map(renderInlineMarkdown).join("<br>")}</p>`;
   }
 
+  function unwrapMarkdownCodeFence(markdown) {
+    const text = String(markdown || "").replace(/\r\n?/g, "\n").trim();
+    const match = text.match(/^```(?:md|markdown)\s*\n([\s\S]*?)\n```$/i);
+    return match ? match[1].trim() : text;
+  }
+
   function renderMarkdown(markdown) {
-    const lines = String(markdown || "").replace(/\r\n?/g, "\n").split("\n");
+    const lines = unwrapMarkdownCodeFence(markdown).split("\n");
     const blocks = [];
     let blockLines = [];
     let blockType = "";
