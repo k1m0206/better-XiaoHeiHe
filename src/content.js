@@ -2579,7 +2579,8 @@
       }
 
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-bbs-post,
-      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-bbs-image-text {
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-bbs-image-text,
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-bbs__video {
         grid-column: 1;
         min-width: 0;
         min-height: 0 !important;
@@ -2588,6 +2589,10 @@
         max-width: none !important;
         margin-bottom: 0 !important;
         padding-bottom: 0 !important;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-bbs__video .bbs-video__video-container {
+        max-width: 100% !important;
       }
 
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-bbs-post .post__container,
@@ -3728,7 +3733,7 @@
       return renderPlainCommentText(node.textContent || "");
     }
 
-    return `<a href="${escapeHtml(normalizeCommentLinkHref(href))}"${linkType ? ` data-link-type="${escapeHtml(linkType)}"` : ""}>${renderPlainCommentText(node.textContent || "")}</a>`;
+    return `<a href="${escapeHtml(normalizeCommentLinkHref(href))}" target="_blank" rel="noopener noreferrer"${linkType ? ` data-link-type="${escapeHtml(linkType)}"` : ""}>${renderPlainCommentText(node.textContent || "")}</a>`;
   }
 
   function renderCommentNode(node) {
