@@ -153,7 +153,7 @@
     }
 
     chrome.runtime.sendMessage({
-      type: "better-xiaoheihe-ai-list-models",
+      type: detail?.cacheOnly ? "better-xiaoheihe-ai-get-model-cache" : "better-xiaoheihe-ai-list-models",
       detail: {
         settings
       }

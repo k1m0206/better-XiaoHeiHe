@@ -11,7 +11,9 @@
   "host_permissions": [
     "<all_urls>"
   ],
-  "action": {},
+  "action": {
+    "default_popup": "src/options.html"
+  },
   "background": {
     "service_worker": "src/background.js"
   },

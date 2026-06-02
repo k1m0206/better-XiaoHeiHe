@@ -1,5 +1,6 @@
 (function () {
   const AI_SETTINGS_STORAGE_KEY = "better-xiaoheihe-ai-settings";
+  const AI_MODEL_CACHE_STORAGE_KEY = "better-xiaoheihe-ai-model-cache";
   const DEFAULT_SUMMARY_PROMPT = "你是社区帖子总结助手，请用中文简洁输出：\n帖子总结\n一句话概括帖子核心内容。\n评论区信息\n提取评论区里有价值的观点、经验、补充或避坑信息，没有则跳过。\nAI简评\n像真实网友一样补充观点，避免AI味。\n返回md格式。";
   const AI_PROVIDERS = {
     OPENAI_COMPATIBLE: "openai-compatible",
@@ -37,6 +38,71 @@
       apiKey: String(settings?.apiKey || ""),
       summaryPrompt: String(settings?.summaryPrompt || "").trim() || DEFAULT_SUMMARY_PROMPT
     };
+  }
+
+  function normalizeModelList(models) {
+    return [...new Set((Array.isArray(models) ? models : [])
+      .map((model) => String(model || "").trim())
+      .filter(Boolean))]
+      .sort((left, right) => left.localeCompare(right));
+  }
+
+  function getModelCacheKey(settings) {
+    const normalized = normalizeAiSettings(settings);
+    return `${normalized.provider}:${normalized.baseUrl}`;
+  }
+
+  function getProviderModelCacheKey(settings) {
+    return normalizeAiSettings(settings).provider;
+  }
+
+  function readModelListCache() {
+    return new Promise((resolve) => {
+      chrome.storage.local.get(AI_MODEL_CACHE_STORAGE_KEY, (result) => {
+        const cache = result?.[AI_MODEL_CACHE_STORAGE_KEY];
+        resolve(cache && typeof cache === "object" ? cache : {});
+      });
+    });
+  }
+
+  async function getCachedModelList(settings) {
+    const cache = await readModelListCache();
+    const provider = normalizeAiSettings(settings).provider;
+    const exactCache = cache[getModelCacheKey(settings)];
+    const providerCache = cache[getProviderModelCacheKey(settings)];
+    const legacyProviderCache = Object.values(cache)
+      .filter((item) => item?.provider === provider)
+      .sort((left, right) => Number(right?.updatedAt || 0) - Number(left?.updatedAt || 0))[0];
+    return {
+      ok: true,
+      models: normalizeModelList((exactCache || providerCache || legacyProviderCache)?.models)
+    };
+  }
+
+  async function writeModelListCache(settings, models) {
+    const normalizedSettings = normalizeAiSettings(settings);
+    const normalizedModels = normalizeModelList(models);
+    const cache = await readModelListCache();
+    await new Promise((resolve) => {
+      chrome.storage.local.set({
+        [AI_MODEL_CACHE_STORAGE_KEY]: {
+          ...cache,
+          [getModelCacheKey(normalizedSettings)]: {
+            provider: normalizedSettings.provider,
+            baseUrl: normalizedSettings.baseUrl,
+            models: normalizedModels,
+            updatedAt: Date.now()
+          },
+          [getProviderModelCacheKey(normalizedSettings)]: {
+            provider: normalizedSettings.provider,
+            baseUrl: normalizedSettings.baseUrl,
+            models: normalizedModels,
+            updatedAt: Date.now()
+          }
+        }
+      }, resolve);
+    });
+    return normalizedModels;
   }
 
   function openAiSettings() {
@@ -243,20 +309,28 @@
 
   async function requestGeminiChat(settings, detail) {
     const { system, messages } = splitSystemMessages(detail?.messages);
+    const geminiMessages = messages.map((message) => ({
+      role: message.role === "assistant" ? "model" : "user",
+      parts: [{ text: message.content }]
+    }));
+    if (system) {
+      const firstUserMessage = geminiMessages.find((message) => message.role === "user");
+      if (firstUserMessage) {
+        firstUserMessage.parts[0].text = `${system}\n\n${firstUserMessage.parts[0].text}`;
+      } else {
+        geminiMessages.unshift({
+          role: "user",
+          parts: [{ text: system }]
+        });
+      }
+    }
+
     const body = {
-      contents: messages.map((message) => ({
-        role: message.role === "assistant" ? "model" : "user",
-        parts: [{ text: message.content }]
-      })),
+      contents: geminiMessages,
       generationConfig: {
         temperature: getTemperature(detail)
       }
     };
-    if (system) {
-      body.systemInstruction = {
-        parts: [{ text: system }]
-      };
-    }
 
     const url = appendGeminiApiKey(buildProviderUrl(settings.baseUrl, `models/${encodeURIComponent(settings.model)}:generateContent`), settings.apiKey);
     const data = await fetchJson(url, {
@@ -357,9 +431,10 @@
         [AI_PROVIDERS.GEMINI]: listGeminiModels
       };
       const models = await listers[settings.provider](settings);
+      const cachedModels = await writeModelListCache(settings, models);
       return {
         ok: true,
-        models: [...new Set(models)].sort((left, right) => left.localeCompare(right))
+        models: cachedModels
       };
     } catch (error) {
       return {
@@ -474,6 +549,10 @@
     });
   }
 
+  chrome.action?.onClicked?.addListener(() => {
+    openAiSettings();
+  });
+
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message?.type === "better-xiaoheihe-open-ai-settings") {
       openAiSettings();
@@ -490,6 +569,11 @@
 
     if (message?.type === "better-xiaoheihe-ai-list-models") {
       listModels(message.detail?.settings).then(sendResponse);
+      return true;
+    }
+
+    if (message?.type === "better-xiaoheihe-ai-get-model-cache") {
+      getCachedModelList(message.detail?.settings).then(sendResponse);
       return true;
     }
 

@@ -110,7 +110,7 @@ Productivity
 
 ## 权限说明
 
-本插件申请 `storage` 权限用于在用户浏览器本地保存插件设置，包括 AI 总结开关、AI 服务商/端点类型、AI Base URL、模型、API Key、总结提示词、屏蔽关键词、等级过滤规则和相关本地偏好；这些设置不会上传到插件作者服务器。插件申请 `declarativeNetRequestWithHostAccess` 权限，仅用于右侧评论区读取接口发送前替换请求头 Cookie，去除 `heybox_id` 和 `user_heybox_id`。插件不申请 `cookies` 权限，也不会移除或修改小黑盒 Cookie。插件申请主机权限以支持用户自定义 AI Base URL 的模型拉取、连通测试和总结请求。
+本插件申请 `storage` 权限用于在用户浏览器本地保存插件设置，包括 AI 总结开关、AI 服务商类型、AI Base URL、模型、API Key、总结提示词、屏蔽关键词、等级过滤规则和相关本地偏好；这些设置不会上传到插件作者服务器。插件申请 `declarativeNetRequestWithHostAccess` 权限，仅用于右侧评论区读取接口发送前替换请求头 Cookie，去除 `heybox_id` 和 `user_heybox_id`。插件不申请 `cookies` 权限，也不会移除或修改小黑盒 Cookie。插件申请主机权限以支持用户自定义 AI Base URL 的模型拉取、连通测试和总结请求。
 
 页面匹配范围：
 
@@ -142,7 +142,7 @@ https://www.xiaoheihe.cn/app/search*
 storage 权限使用理由：
 
 ```text
-用于在用户浏览器的扩展本地存储中保存插件设置，包括 AI 总结开关、AI 服务商/端点类型、AI Base URL、模型、API Key、总结提示词、屏蔽关键词、等级过滤规则和相关本地偏好。所有设置仅保存在用户浏览器本地，不会上传到插件作者服务器。
+用于在用户浏览器的扩展本地存储中保存插件设置，包括 AI 总结开关、AI 服务商类型、AI Base URL、模型、API Key、总结提示词、屏蔽关键词、等级过滤规则和相关本地偏好。所有设置仅保存在用户浏览器本地，不会上传到插件作者服务器。
 ```
 
 ## 单一用途说明

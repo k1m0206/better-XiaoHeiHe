@@ -11,63 +11,134 @@
       <section class="panel">
         <div class="header">
           <div>
-            <h1>AI 总结</h1>
-            <p>帖子与评论区摘要</p>
+            <h1>Better XiaoHeiHe</h1>
+            <p>帖子、评论和 AI 总结设置</p>
           </div>
-          <div class="header-actions">
-            <span id="enabledLabel" class="status-pill">未开启</span>
-            <label class="switch" aria-label="开启 AI 总结">
-              <input id="enabled" type="checkbox">
-              <span></span>
+        </div>
+
+        <div class="tabs" role="tablist" aria-label="设置分类">
+          <button class="tab is-active" type="button" role="tab" data-tab="feed" aria-selected="true">帖子</button>
+          <button class="tab" type="button" role="tab" data-tab="comment" aria-selected="false">评论</button>
+          <button class="tab" type="button" role="tab" data-tab="ai" aria-selected="false">AI 设置</button>
+        </div>
+
+        <div id="panel-feed" class="tab-panel is-active" data-panel="feed">
+          <div class="section">
+            <div class="level-row">
+              <div>
+                <div class="section-title">等级过滤</div>
+                <div class="section-desc" id="feedLevelValue">展示 Lv.7 及以上帖子</div>
+              </div>
+              <label class="switch" aria-label="开启帖子等级过滤">
+                <input class="level-enabled" type="checkbox" data-scope="feed">
+                <span></span>
+              </label>
+            </div>
+            <input class="level-range" type="range" min="7" max="18" step="1" value="7" data-scope="feed">
+          </div>
+
+          <div class="section">
+            <div class="section-title">屏蔽关键词</div>
+            <div class="section-desc">匹配帖子标题、正文和分区/话题，命中后隐藏整条帖子。</div>
+            <form class="keyword-form" data-scope="feed">
+              <input class="keyword-input" type="text" placeholder="输入帖子关键词">
+              <button class="keyword-add" type="submit">添加</button>
+            </form>
+            <div class="keyword-list" data-scope="feed"></div>
+          </div>
+        </div>
+
+        <div id="panel-comment" class="tab-panel" data-panel="comment" hidden>
+          <div class="section">
+            <div class="level-row">
+              <div>
+                <div class="section-title">等级过滤</div>
+                <div class="section-desc" id="commentLevelValue">展示 Lv.7 及以上评论</div>
+              </div>
+              <label class="switch" aria-label="开启评论等级过滤">
+                <input class="level-enabled" type="checkbox" data-scope="comment">
+                <span></span>
+              </label>
+            </div>
+            <input class="level-range" type="range" min="7" max="18" step="1" value="7" data-scope="comment">
+          </div>
+
+          <div class="section">
+            <div class="section-title">屏蔽关键词</div>
+            <div class="section-desc">匹配评论内容，命中后隐藏对应评论。</div>
+            <form class="keyword-form" data-scope="comment">
+              <input class="keyword-input" type="text" placeholder="输入评论关键词">
+              <button class="keyword-add" type="submit">添加</button>
+            </form>
+            <div class="keyword-list" data-scope="comment"></div>
+          </div>
+        </div>
+
+        <div id="panel-ai" class="tab-panel" data-panel="ai" hidden>
+          <div class="section ai-header">
+            <div>
+              <div class="section-title">AI 总结</div>
+              <div class="section-desc">帖子和评论区摘要</div>
+            </div>
+            <div class="header-actions">
+              <span id="enabledLabel" class="status-pill">未开启</span>
+              <label class="switch" aria-label="开启 AI 总结">
+                <input id="enabled" type="checkbox">
+                <span></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">接入配置</div>
+            <label class="field">
+              <span>服务商类型</span>
+              <select id="provider">
+                <option value="openai-compatible">OpenAI Compatible · Chat Completions</option>
+                <option value="openai-responses">OpenAI · Responses</option>
+                <option value="anthropic">Anthropic · Messages</option>
+                <option value="gemini">Gemini · Generate Content</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>Base URL</span>
+              <input id="baseUrl" type="url" placeholder="https://api.openai.com/v1">
+            </label>
+
+            <label class="field">
+              <span class="field-title">
+                模型
+                <button id="fetchModels" class="text-button" type="button">拉取模型</button>
+              </span>
+              <div class="model-combobox">
+                <input id="model" list="modelOptions" type="text" placeholder="gpt-4.1-mini">
+                <button id="modelDropdown" class="model-dropdown" type="button" aria-label="选择已拉取模型" aria-expanded="false" disabled></button>
+                <div id="modelMenu" class="model-menu" role="listbox" hidden></div>
+              </div>
+              <datalist id="modelOptions"></datalist>
+            </label>
+
+            <label class="field">
+              <span>API Key</span>
+              <input id="apiKey" type="password" autocomplete="off" placeholder="sk-...">
             </label>
           </div>
-        </div>
 
-        <div class="section">
-          <div class="section-title">接入配置</div>
-          <label class="field">
-            <span>服务商 / 端点</span>
-            <select id="provider">
-              <option value="openai-compatible">OpenAI Compatible · Chat Completions</option>
-              <option value="openai-responses">OpenAI · Responses</option>
-              <option value="anthropic">Anthropic · Messages</option>
-              <option value="gemini">Gemini · Generate Content</option>
-            </select>
-          </label>
+          <div class="section">
+            <label class="field field--prompt">
+              <span class="field-title">
+                总结提示词
+                <button id="resetPrompt" class="text-button" type="button">恢复默认</button>
+              </span>
+              <textarea id="summaryPrompt" rows="6"></textarea>
+            </label>
+          </div>
 
-          <label class="field">
-            <span>Base URL</span>
-            <input id="baseUrl" type="url" placeholder="https://api.openai.com/v1">
-          </label>
-
-          <label class="field">
-            <span class="field-title">
-              模型
-              <button id="fetchModels" class="text-button" type="button">拉取模型</button>
-            </span>
-            <input id="model" list="modelOptions" type="text" placeholder="gpt-4.1-mini">
-            <datalist id="modelOptions"></datalist>
-          </label>
-
-          <label class="field">
-            <span>API Key</span>
-            <input id="apiKey" type="password" autocomplete="off" placeholder="sk-...">
-          </label>
-        </div>
-
-        <div class="section">
-          <label class="field field--prompt">
-            <span class="field-title">
-              总结提示词
-              <button id="resetPrompt" class="text-button" type="button">恢复默认</button>
-            </span>
-            <textarea id="summaryPrompt" rows="6"></textarea>
-          </label>
-        </div>
-
-        <div class="actions">
-          <button id="test" type="button">测试连通</button>
-          <span id="status" role="status"></span>
+          <div class="actions">
+            <button id="test" type="button">测试连通</button>
+            <span id="status" role="status"></span>
+          </div>
         </div>
       </section>
     </main>

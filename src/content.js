@@ -945,6 +945,111 @@
         padding: 0 11px;
       }
 
+      .${SETTINGS_PANEL_CLASS} .better-settings__select {
+        appearance: none;
+        padding-right: 34px;
+        background-color: #fff;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23505b66' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        background-size: 14px;
+        cursor: pointer;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-model-combobox {
+        position: relative;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-model {
+        border-color: #d3dbe3;
+        background: #fff;
+        padding-right: 42px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-model-dropdown {
+        position: absolute;
+        top: 0;
+        right: 0;
+        display: inline-flex;
+        width: 36px;
+        height: 36px;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        border: 1px solid #d3dbe3;
+        border-left-color: #e7ebef;
+        border-radius: 0 7px 7px 0;
+        background: linear-gradient(180deg, #ffffff 0%, #f1f5f8 100%);
+        color: #3c4651;
+        cursor: pointer;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-model-dropdown::before {
+        width: 0;
+        height: 0;
+        border-top: 5px solid #505b66;
+        border-right: 4px solid transparent;
+        border-left: 4px solid transparent;
+        content: "";
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-model-dropdown:hover {
+        border-color: #b9c7d5;
+        background: #eef5ff;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-model-dropdown:disabled,
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-model-dropdown:disabled:hover {
+        border-color: #dde2e7;
+        background: #f3f6f8;
+        cursor: default;
+        opacity: 0.55;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-model-combobox:focus-within .better-settings__ai-model,
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-model-combobox:focus-within .better-settings__ai-model-dropdown {
+        border-color: #2775d1;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-model-menu {
+        position: absolute;
+        z-index: 2;
+        top: 41px;
+        left: 0;
+        right: 0;
+        max-height: 168px;
+        overflow-y: auto;
+        border: 1px solid #cfd9e3;
+        border-radius: 8px;
+        background: #fff;
+        box-shadow: 0 14px 28px rgba(23, 31, 39, 0.18);
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-model-option {
+        display: block;
+        width: 100%;
+        height: auto;
+        padding: 8px 11px;
+        border: 0;
+        border-radius: 0;
+        background: #fff;
+        color: #1d2730;
+        cursor: pointer;
+        overflow: hidden;
+        text-align: left;
+        text-overflow: ellipsis;
+        font-size: 12px;
+        font-weight: 500;
+        line-height: 18px;
+        white-space: nowrap;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-model-option:hover,
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-model-option.is-selected {
+        background: #eef5ff;
+        color: #1f66b8;
+      }
+
       .${SETTINGS_PANEL_CLASS} .better-settings__textarea {
         min-height: 72px;
         max-height: 240px;
@@ -6206,7 +6311,7 @@
         </div>
         <div class="better-settings__ai-body">
           <label class="better-settings__field">
-            <span class="better-settings__field-title">服务商 / 端点</span>
+            <span class="better-settings__field-title">服务商类型</span>
             <select class="better-settings__select better-settings__ai-provider">
               ${renderAiProviderOptions()}
             </select>
@@ -6220,7 +6325,11 @@
               模型
               <button class="better-settings__text-button better-settings__ai-fetch-models" type="button">拉取模型</button>
             </span>
-            <input class="better-settings__text-input better-settings__ai-model" list="better-xiaoheihe-ai-model-options" type="text" value="${escapeHtml(aiSettings.model)}" placeholder="gpt-4.1-mini">
+            <div class="better-settings__ai-model-combobox">
+              <input class="better-settings__text-input better-settings__ai-model" list="better-xiaoheihe-ai-model-options" type="text" value="${escapeHtml(aiSettings.model)}" placeholder="gpt-4.1-mini">
+              <button class="better-settings__ai-model-dropdown" type="button" aria-label="选择已拉取模型" aria-expanded="false" disabled></button>
+              <div class="better-settings__ai-model-menu" role="listbox" hidden></div>
+            </div>
             <datalist id="better-xiaoheihe-ai-model-options" class="better-settings__ai-model-options"></datalist>
           </label>
           <label class="better-settings__field">
@@ -6304,6 +6413,9 @@
       ${activeSettingsTab === SETTINGS_TABS.AI ? renderAiSettingsPanelContent() : renderBlockedSettingsPanelContent()}
     `;
     syncSettingsAutoHeightTextareas(panel);
+    if (activeSettingsTab === SETTINGS_TABS.AI) {
+      loadCachedAiModelOptions(panel);
+    }
     repositionSettingsPanelIfOpen();
   }
 
@@ -6346,7 +6458,7 @@
     }, 0);
   }
 
-  function requestAiModelList(settings) {
+  function requestAiModelList(settings, options = {}) {
     const requestId = `models-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     return new Promise((resolve, reject) => {
       const timeoutId = window.setTimeout(() => {
@@ -6373,19 +6485,66 @@
       window.dispatchEvent(new CustomEvent(AI_MODEL_LIST_REQUEST_EVENT, {
         detail: JSON.stringify({
           id: requestId,
-          settings
+          settings,
+          cacheOnly: options.cacheOnly === true
         })
       }));
     });
   }
 
   function fillAiModelOptions(panel, models) {
+    const normalizedModels = [...new Set((Array.isArray(models) ? models : [])
+      .map((model) => String(model || "").trim())
+      .filter(Boolean))];
     const modelOptions = panel.querySelector(".better-settings__ai-model-options");
-    if (!modelOptions) {
+    if (modelOptions) {
+      modelOptions.innerHTML = normalizedModels.map((model) => `<option value="${escapeHtml(model)}"></option>`).join("");
+    }
+
+    const modelMenu = panel.querySelector(".better-settings__ai-model-menu");
+    const modelDropdown = panel.querySelector(".better-settings__ai-model-dropdown");
+    if (!modelMenu || !modelDropdown) {
       return;
     }
 
-    modelOptions.innerHTML = models.map((model) => `<option value="${escapeHtml(model)}"></option>`).join("");
+    modelDropdown.disabled = !normalizedModels.length;
+    closeAiModelMenu(panel);
+    modelMenu.innerHTML = normalizedModels.map((model) => `
+      <button class="better-settings__ai-model-option" type="button" role="option" data-model="${escapeHtml(model)}" title="${escapeHtml(model)}">${escapeHtml(model)}</button>
+    `).join("");
+    syncAiModelSelect(panel);
+  }
+
+  function closeAiModelMenu(panel) {
+    const modelMenu = panel.querySelector(".better-settings__ai-model-menu");
+    const modelDropdown = panel.querySelector(".better-settings__ai-model-dropdown");
+    if (modelMenu) {
+      modelMenu.hidden = true;
+    }
+    if (modelDropdown) {
+      modelDropdown.setAttribute("aria-expanded", "false");
+    }
+  }
+
+  function toggleAiModelMenu(panel) {
+    const modelMenu = panel.querySelector(".better-settings__ai-model-menu");
+    const modelDropdown = panel.querySelector(".better-settings__ai-model-dropdown");
+    if (!modelMenu || !modelDropdown || modelDropdown.disabled) {
+      return;
+    }
+
+    const shouldOpen = modelMenu.hidden;
+    modelMenu.hidden = !shouldOpen;
+    modelDropdown.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
+  }
+
+  function syncAiModelSelect(panel) {
+    const value = panel.querySelector(".better-settings__ai-model")?.value?.trim() || "";
+    panel.querySelectorAll(".better-settings__ai-model-option").forEach((option) => {
+      const isSelected = option.dataset.model === value;
+      option.classList.toggle("is-selected", isSelected);
+      option.setAttribute("aria-selected", isSelected ? "true" : "false");
+    });
   }
 
   function fetchAiModelsFromPanel(panel, button) {
@@ -6426,6 +6585,15 @@
     });
   }
 
+  function loadCachedAiModelOptions(panel) {
+    const settings = getAiSettingsFormValues(panel);
+    requestAiModelList(settings, { cacheOnly: true }).then((models) => {
+      fillAiModelOptions(panel, models);
+    }).catch(() => {
+      fillAiModelOptions(panel, []);
+    });
+  }
+
   function syncAiProviderDefaultBaseUrl(panel) {
     const providerInput = panel.querySelector(".better-settings__ai-provider");
     const baseUrlInput = panel.querySelector(".better-settings__ai-base-url");
@@ -6441,6 +6609,7 @@
     }
     fillAiModelOptions(panel, []);
     saveAiSettingsFromPanel(panel);
+    loadCachedAiModelOptions(panel);
   }
 
   function ensureSettingsPanel() {
@@ -6489,7 +6658,28 @@
       const fetchModelsButton = event.target.closest(".better-settings__ai-fetch-models");
       if (fetchModelsButton && panel.contains(fetchModelsButton)) {
         fetchAiModelsFromPanel(panel, fetchModelsButton);
+        return;
       }
+
+      const modelDropdown = event.target.closest(".better-settings__ai-model-dropdown");
+      if (modelDropdown && panel.contains(modelDropdown)) {
+        toggleAiModelMenu(panel);
+        return;
+      }
+
+      const modelOption = event.target.closest(".better-settings__ai-model-option");
+      if (modelOption && panel.contains(modelOption)) {
+        const modelInput = panel.querySelector(".better-settings__ai-model");
+        if (modelInput && modelOption.dataset.model) {
+          modelInput.value = modelOption.dataset.model;
+          syncAiModelSelect(panel);
+          closeAiModelMenu(panel);
+          saveAiSettingsFromPanel(panel);
+        }
+        return;
+      }
+
+      closeAiModelMenu(panel);
     });
     panel.addEventListener("input", (event) => {
       if (!(event.target instanceof Element)) {
@@ -6515,6 +6705,9 @@
           syncAutoHeightTextarea(event.target);
           repositionSettingsPanelIfOpen();
         }
+        if (event.target.matches(".better-settings__ai-model")) {
+          syncAiModelSelect(panel);
+        }
         saveAiSettingsFromPanel(panel);
       }
     });
@@ -6530,6 +6723,11 @@
 
       if (event.target.matches(".better-settings__ai-provider")) {
         syncAiProviderDefaultBaseUrl(panel);
+        return;
+      }
+
+      if (event.target.matches(".better-settings__ai-base-url")) {
+        loadCachedAiModelOptions(panel);
         return;
       }
 
