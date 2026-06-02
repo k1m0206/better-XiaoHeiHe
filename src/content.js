@@ -97,6 +97,7 @@
   const API_ORIGIN = "https://api.xiaoheihe.cn";
   const COMMENT_PAGE_LIMIT = 20;
   const SUB_COMMENT_PAGE_LIMIT = 20;
+  const COMMENT_IDENTITY_RETRY_DELAY = 1000;
   const SUMMARY_COMMENT_LIMIT = 10;
   const IDENTITY_COOKIE_NAMES = ["heybox_id", "user_heybox_id"];
   const CAPTURED_API_PARAM_KEYS = [
@@ -4420,10 +4421,12 @@
     scheduleRowHeightSync(preview.closest(`.${ROW_CLASS}`));
   }
 
-  function fetchCommentPageData(linkId, page) {
+  function fetchCommentPageData(linkId, page, options = {}) {
     return Promise.all([
       loadEmojis(),
-      fetchCommentApiJson((requestOptions) => buildCommentApiUrl(linkId, page, requestOptions))
+      (options.identityOnly ? fetchCommentApiJsonWithIdentity : fetchCommentApiJson)(
+        (requestOptions) => buildCommentApiUrl(linkId, page, requestOptions)
+      )
     ]).then(([, data]) => {
       if (data?.status === "ok") {
         cacheLinkDetailFromApiData(linkId, data);
@@ -4550,23 +4553,67 @@
     return state;
   }
 
-  function fetchCommentApiJson(buildUrl) {
-    const request = (includeIdentity) => fetch(buildUrl({ includeHeyboxId: includeIdentity }), {
+  function delay(ms) {
+    return new Promise((resolve) => window.setTimeout(resolve, ms));
+  }
+
+  function requestCommentApiJson(buildUrl, includeIdentity) {
+    return fetch(buildUrl({ includeHeyboxId: includeIdentity }), {
       credentials: "include",
       headers: {
         accept: "*/*"
       }
     }).then((response) => response.json());
+  }
 
-    return runWithSanitizedCommentCookie(() => request(false))
-      .then((data) => (data?.status === "ok" ? data : request(true)))
-      .catch(() => request(true));
+  function fetchCommentApiJson(buildUrl) {
+    return runWithSanitizedCommentCookie(() => requestCommentApiJson(buildUrl, false))
+      .then((data) => (data?.status === "ok" ? data : requestCommentApiJson(buildUrl, true)))
+      .catch(() => requestCommentApiJson(buildUrl, true));
+  }
+
+  function fetchCommentApiJsonWithIdentity(buildUrl) {
+    return requestCommentApiJson(buildUrl, true);
+  }
+
+  function retryFirstCommentPageWithIdentity(linkId) {
+    return delay(COMMENT_IDENTITY_RETRY_DELAY)
+      .then(() => fetchCommentPageData(linkId, 1, { identityOnly: true }));
+  }
+
+  function markFirstCommentPageFailed(linkId) {
+    const state = commentCache.get(linkId) || { commentGroups: [] };
+    state.failed = true;
+    state.loadingMore = false;
+    state.loadMoreFailed = false;
+    state.hasMore = false;
+    commentCache.set(linkId, state);
+    renderLinkedPreviews(linkId);
+  }
+
+  function retryFailedFirstCommentPage(linkId) {
+    return retryFirstCommentPageWithIdentity(linkId).then((retryData) => {
+      const retryState = commentCache.get(linkId) || { commentGroups: [] };
+      if (retryData?.status !== "ok") {
+        markFirstCommentPageFailed(linkId);
+        return;
+      }
+
+      const nextState = cacheCommentPageFromApiData(linkId, 1, retryData) || retryState;
+      updateFeedItemPublishTime(linkId, nextState.linkCreateAt);
+      renderLinkedPreviews(linkId);
+    }).catch(() => markFirstCommentPageFailed(linkId));
   }
 
   function fetchCommentPage(linkId, page) {
     fetchCommentPageData(linkId, page).then((data) => {
       const state = commentCache.get(linkId) || { commentGroups: [] };
       if (data?.status !== "ok") {
+        if (page === 1) {
+          retryFailedFirstCommentPage(linkId);
+          return;
+        }
+
         state.failed = page === 1;
         state.loadingMore = false;
         state.loadMoreFailed = page > 1;
@@ -4580,6 +4627,11 @@
       updateFeedItemPublishTime(linkId, nextState.linkCreateAt);
       renderLinkedPreviews(linkId);
     }).catch(() => {
+      if (page === 1) {
+        retryFailedFirstCommentPage(linkId);
+        return;
+      }
+
       const state = commentCache.get(linkId) || { commentGroups: [] };
       state.failed = page === 1;
       state.loadingMore = false;
