@@ -1516,7 +1516,7 @@
 
       .${HOME_LAYOUT_CLASS} .${ROW_CLASS} {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) clamp(300px, 30vw, 380px);
+        grid-template-columns: minmax(0, 1fr) clamp(340px, 35vw, 420px);
         gap: 0;
         align-items: start;
         margin: 0 0 14px;
