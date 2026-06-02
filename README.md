@@ -170,7 +170,7 @@ Gemini: POST {baseUrl}/models/{model}:generateContent
 
 右侧评论区的评论列表和楼中楼更多回复查询会先使用去除个人标识后的 Cookie 请求，请求头 `Cookie` 会过滤掉 `heybox_id` 和 `user_heybox_id`，同时不携带 `heybox_id` URL 参数；如果请求失败或接口未返回 `status: "ok"`，会回退到携带当前 Cookie 和 `heybox_id` URL 参数的正常请求。整个过程不会临时移除或修改浏览器中的 `heybox_id`、`user_heybox_id` Cookie，避免刷新页面时影响小黑盒网页登录态。评论列表接口会按页请求，第一页使用 `is_first=1&page=1`，继续滚动时使用 `is_first=0&page=2/3/...`，每页 `limit=20`。楼中楼更多回复接口使用 `root_comment_id` 和最后一条已展示回复的 `lastval` 继续请求。评论点赞接口使用 `comment_id` 和 `support_type=1` 提交点赞；内容点赞接口使用 `link_id` 和 `award_type=1` 提交点赞。点赞请求会携带当前网页登录态。
 
-AI 接口使用设置弹框中填写的 `provider`、`baseUrl`、`model` 和可选 `apiKey`，由扩展后台按所选服务商格式发起请求。请求会发送当前帖子标题、正文、话题和最多 30 条评论文本用于生成总结；评论超过 30 条时优先选取点赞量更高的评论。模型列表拉取会请求对应服务商的模型列表端点，仅用于辅助选择模型。
+AI 接口使用设置弹框中填写的 `provider`、`baseUrl`、`model` 和可选 `apiKey`，由扩展后台按所选服务商格式发起请求。生成总结前会复用评论详情接口返回的 `result.link.text` 补全帖子完整正文，并在评论尚未缓存时复用同次返回的 `result.comments`；请求会发送当前帖子标题、正文、话题和最多 30 条评论文本用于生成总结；评论超过 30 条时优先选取点赞量更高的评论。模型列表拉取会请求对应服务商的模型列表端点，仅用于辅助选择模型。
 
 接口签名参数 `hkey`、`_time`、`nonce` 在 `src/content.js` 中生成。后续如果修改接口参数或签名逻辑，需要同步更新代码里的接口注释和本文档。
 评论文本中的表情标记会根据表情列表接口返回的 `code` 和 `img` 映射成图片展示；表情列表只做运行时内存缓存。

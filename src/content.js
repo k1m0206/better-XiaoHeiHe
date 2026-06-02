@@ -4402,7 +4402,130 @@
     return Promise.all([
       loadEmojis(),
       fetchCommentApiJson((requestOptions) => buildCommentApiUrl(linkId, page, requestOptions))
-    ]).then(([, data]) => data);
+    ]).then(([, data]) => {
+      if (data?.status === "ok") {
+        cacheLinkDetailFromApiData(linkId, data);
+      }
+      return data;
+    });
+  }
+
+  function getPlainTextFromHtml(html) {
+    const template = document.createElement("template");
+    template.innerHTML = String(html || "");
+    const blockTexts = Array.from(template.content.querySelectorAll("p, h1, h2, h3, h4, h5, h6, li, blockquote"))
+      .map((node) => node.textContent?.replace(/\s+/g, " ").trim())
+      .filter(Boolean);
+    const text = blockTexts.length ? blockTexts.join("\n") : template.content.textContent;
+    return String(text || "").replace(/\u00a0/g, " ").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+  }
+
+  function getImageUrlsFromHtml(html) {
+    const template = document.createElement("template");
+    template.innerHTML = String(html || "");
+    return Array.from(template.content.querySelectorAll("img"))
+      .map((image) => image.getAttribute("data-original") || image.getAttribute("src") || "")
+      .filter(Boolean);
+  }
+
+  function uniqueStrings(values) {
+    return Array.from(new Set((values || []).map((value) => String(value || "").trim()).filter(Boolean)));
+  }
+
+  function parseLinkRichText(rawText) {
+    const result = { content: "", imageUrls: [] };
+    if (!rawText) {
+      return result;
+    }
+
+    try {
+      const parts = JSON.parse(rawText);
+      if (Array.isArray(parts)) {
+        const textParts = [];
+        const imageUrls = [];
+        parts.forEach((part) => {
+          if (!part || typeof part !== "object") {
+            return;
+          }
+
+          if (part.type === "html" && part.text) {
+            textParts.push(getPlainTextFromHtml(part.text));
+            imageUrls.push(...getImageUrlsFromHtml(part.text));
+          } else if (part.type === "text" && part.text) {
+            textParts.push(String(part.text).trim());
+          } else if (part.type === "img" && part.url) {
+            imageUrls.push(part.url);
+          }
+        });
+        result.content = textParts.filter(Boolean).join("\n");
+        result.imageUrls = uniqueStrings(imageUrls);
+        return result;
+      }
+    } catch {
+      // Fall back to treating the field as plain HTML/text.
+    }
+
+    result.content = getPlainTextFromHtml(rawText) || String(rawText).trim();
+    result.imageUrls = getImageUrlsFromHtml(rawText);
+    return result;
+  }
+
+  function getLinkDetailFromApiLink(link) {
+    if (!link || typeof link !== "object") {
+      return null;
+    }
+
+    const richText = parseLinkRichText(link.text);
+    return {
+      title: String(link.title || "").trim(),
+      author: String(link.user?.username || link.user?.nickname || "").trim(),
+      content: richText.content || String(link.description || "").trim(),
+      imageUrls: uniqueStrings(richText.imageUrls),
+      topic: uniqueStrings([
+        ...(Array.isArray(link.topics) ? link.topics.map((topic) => topic?.name) : []),
+        ...(Array.isArray(link.tags) ? link.tags.map((tag) => tag?.text || tag?.name) : []),
+        ...(Array.isArray(link.hashtags) ? link.hashtags.map((tag) => tag?.text || tag?.name) : [])
+      ]).join("\n")
+    };
+  }
+
+  function cacheLinkDetailFromApiData(linkId, data) {
+    const detail = getLinkDetailFromApiLink(data?.result?.link);
+    if (!detail) {
+      return null;
+    }
+
+    const state = commentCache.get(linkId) || { commentGroups: [] };
+    state.linkDetail = detail;
+    commentCache.set(linkId, state);
+    return detail;
+  }
+
+  function cacheCommentPageFromApiData(linkId, page, data, options = {}) {
+    if (data?.status !== "ok") {
+      return commentCache.get(linkId);
+    }
+
+    const state = commentCache.get(linkId) || { commentGroups: [] };
+    if (options.onlyIfEmpty && state.commentGroups?.length) {
+      return state;
+    }
+
+    const pageGroups = normalizeCommentGroups(data);
+    const originalIndexOffset = page === 1 ? 0 : (state.commentGroups?.length || 0);
+    pageGroups.forEach((group, index) => {
+      group.originalIndex = originalIndexOffset + index;
+    });
+    state.commentGroups = page === 1 ? pageGroups : (state.commentGroups || []).concat(pageGroups);
+    state.commentCount = data.result?.link?.comment_num || data.result?.total_floor_num || state.commentCount;
+    state.linkCreateAt = getLinkCreateTime(data.result?.link) || state.linkCreateAt;
+    state.page = Math.max(Number(state.page) || 0, page);
+    state.failed = false;
+    state.loadMoreFailed = false;
+    state.loadingMore = false;
+    state.hasMore = pageGroups.length >= COMMENT_PAGE_LIMIT;
+    commentCache.set(linkId, state);
+    return state;
   }
 
   function fetchCommentApiJson(buildUrl) {
@@ -4431,21 +4554,8 @@
         return;
       }
 
-      const pageGroups = normalizeCommentGroups(data);
-      const originalIndexOffset = page === 1 ? 0 : (state.commentGroups?.length || 0);
-      pageGroups.forEach((group, index) => {
-        group.originalIndex = originalIndexOffset + index;
-      });
-      state.commentGroups = page === 1 ? pageGroups : state.commentGroups.concat(pageGroups);
-      state.commentCount = data.result?.link?.comment_num || data.result?.total_floor_num || state.commentCount;
-      state.linkCreateAt = getLinkCreateTime(data.result?.link) || state.linkCreateAt;
-      state.page = page;
-      state.failed = false;
-      state.loadMoreFailed = false;
-      state.loadingMore = false;
-      state.hasMore = pageGroups.length >= COMMENT_PAGE_LIMIT;
-      commentCache.set(linkId, state);
-      updateFeedItemPublishTime(linkId, state.linkCreateAt);
+      const nextState = cacheCommentPageFromApiData(linkId, page, data) || state;
+      updateFeedItemPublishTime(linkId, nextState.linkCreateAt);
       renderLinkedPreviews(linkId);
     }).catch(() => {
       const state = commentCache.get(linkId) || { commentGroups: [] };
@@ -5781,12 +5891,41 @@
     return getSummaryCommentLines(state?.commentGroups);
   }
 
-  function getFeedItemSummaryPayload(item, linkId, commentLines) {
-    const title = item.querySelector(".bbs-content__title")?.textContent?.trim() || "";
-    const author = getFeedItemAuthorText(item);
-    const content = item.querySelector(".bbs-content__content")?.textContent?.trim() || "";
-    const topic = getFeedItemTopicText(item);
-    const imageUrls = getFeedItemImageUrls(item);
+  function getCachedLinkDetail(linkId) {
+    return commentCache.get(linkId)?.linkDetail || null;
+  }
+
+  function ensureLinkDetail(linkId) {
+    const cachedDetail = getCachedLinkDetail(linkId);
+    if (cachedDetail?.content) {
+      return Promise.resolve(cachedDetail);
+    }
+
+    return fetchCommentPageData(linkId, 1)
+      .then((data) => {
+        cacheCommentPageFromApiData(linkId, 1, data, { onlyIfEmpty: true });
+        return getCachedLinkDetail(linkId);
+      })
+      .catch(() => getCachedLinkDetail(linkId));
+  }
+
+  function ensureSummaryContext(linkId) {
+    return ensureLinkDetail(linkId).then((linkDetail) => {
+      const cachedCommentLines = getCachedSummaryCommentLines(linkId);
+      if (cachedCommentLines.length) {
+        return { commentLines: cachedCommentLines, linkDetail };
+      }
+
+      return ensureSummaryComments(linkId).then((commentLines) => ({ commentLines, linkDetail: getCachedLinkDetail(linkId) || linkDetail }));
+    });
+  }
+
+  function getFeedItemSummaryPayload(item, linkId, commentLines, linkDetail = null) {
+    const title = linkDetail?.title || item.querySelector(".bbs-content__title")?.textContent?.trim() || "";
+    const author = linkDetail?.author || getFeedItemAuthorText(item);
+    const content = linkDetail?.content || item.querySelector(".bbs-content__content")?.textContent?.trim() || "";
+    const topic = linkDetail?.topic || getFeedItemTopicText(item);
+    const imageUrls = uniqueStrings([...(linkDetail?.imageUrls || []), ...getFeedItemImageUrls(item)]);
     return [
       `帖子 ID：${linkId}`,
       title ? `标题：${title}` : "",
@@ -5826,12 +5965,12 @@
       .filter(Boolean);
   }
 
-  function getLinkPageSummaryPayload(linkId, commentLines) {
-    const title = getLinkPageTitle();
-    const author = getLinkPageAuthorText();
-    const content = getLinkPageContentText();
-    const topic = getLinkPageTopicText();
-    const imageUrls = getLinkPageImageUrls();
+  function getLinkPageSummaryPayload(linkId, commentLines, linkDetail = null) {
+    const title = linkDetail?.title || getLinkPageTitle();
+    const author = linkDetail?.author || getLinkPageAuthorText();
+    const content = linkDetail?.content || getLinkPageContentText();
+    const topic = linkDetail?.topic || getLinkPageTopicText();
+    const imageUrls = uniqueStrings([...(linkDetail?.imageUrls || []), ...getLinkPageImageUrls()]);
     return [
       `帖子 ID：${linkId}`,
       title ? `标题：${title}` : "",
@@ -5888,17 +6027,7 @@
   }
 
   function mergeSummaryCommentPageState(linkId, page, data) {
-    const groups = normalizeCommentGroups(data);
-    const state = commentCache.get(linkId) || { commentGroups: [] };
-    state.commentGroups = page === 1 ? groups : (state.commentGroups || []).concat(groups);
-    state.commentCount = data.result?.link?.comment_num || data.result?.total_floor_num || state.commentCount;
-    state.linkCreateAt = getLinkCreateTime(data.result?.link) || state.linkCreateAt;
-    state.page = page;
-    state.failed = false;
-    state.loadMoreFailed = false;
-    state.loadingMore = false;
-    state.hasMore = groups.length >= COMMENT_PAGE_LIMIT;
-    commentCache.set(linkId, state);
+    const state = cacheCommentPageFromApiData(linkId, page, data) || commentCache.get(linkId) || { commentGroups: [] };
     renderLinkedPreviews(linkId);
     return state;
   }
@@ -5958,8 +6087,8 @@
 
     setAiButtonLoading(button, true);
     const summaryStartTime = performance.now();
-    ensureSummaryComments(linkId).then((commentLines) => {
-      const payload = getFeedItemSummaryPayload(item, linkId, commentLines);
+    ensureSummaryContext(linkId).then(({ commentLines, linkDetail }) => {
+      const payload = getFeedItemSummaryPayload(item, linkId, commentLines, linkDetail);
       return requestAiChat([
         {
           role: "system",
@@ -6002,8 +6131,8 @@
 
     setAiButtonLoading(button, true);
     const summaryStartTime = performance.now();
-    ensureSummaryComments(linkId).then((commentLines) => {
-      const payload = getLinkPageSummaryPayload(linkId, commentLines);
+    ensureSummaryContext(linkId).then(({ commentLines, linkDetail }) => {
+      const payload = getLinkPageSummaryPayload(linkId, commentLines, linkDetail);
       return requestAiChat([
         {
           role: "system",
