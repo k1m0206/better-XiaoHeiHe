@@ -2646,7 +2646,8 @@
 
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment {
         box-sizing: border-box;
-        display: block;
+        display: flex;
+        flex-direction: column;
         grid-column: 2;
         position: fixed !important;
         top: 76px !important;
@@ -2655,14 +2656,16 @@
         height: calc(100vh - 168px);
         max-height: calc(100vh - 168px);
         min-height: 0;
-        overflow: hidden;
+        overflow-x: hidden;
+        overflow-y: auto;
         width: max(360px, calc((100vw - 48px) * 0.4)) !important;
         max-width: calc(100vw - 32px) !important;
-        padding: 0;
+        padding: 0 0 12px 16px;
         border-left: 1px solid #eef0f2;
         background: #fff;
       }
 
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .comment__comment-header,
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .hb-cpt__pagination,
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .hb-cpt__pagination-outer,
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .hb-cpt__pagination-inner {
@@ -2677,17 +2680,10 @@
 
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .comment__comment-header {
         box-sizing: border-box;
-        position: absolute !important;
-        top: 0 !important;
-        right: 0 !important;
-        bottom: auto !important;
-        left: 16px !important;
-        z-index: 3 !important;
+        flex: 0 0 auto;
         display: block !important;
-        width: auto !important;
+        width: 100% !important;
         max-width: none !important;
-        height: 36px !important;
-        min-height: 36px !important;
         margin: 0 !important;
         padding: 0 0 10px !important;
         border-bottom: 1px solid #eef0f2;
@@ -2745,15 +2741,12 @@
       }
 
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .link-comment__list {
-        position: absolute !important;
-        top: 42px !important;
-        right: 0 !important;
-        bottom: 12px !important;
-        left: 16px !important;
+        display: flex !important;
+        flex-direction: column;
+        flex: 1 1 auto;
         min-height: 0;
-        overflow-x: hidden;
-        overflow-y: auto;
-        width: auto !important;
+        overflow: visible;
+        width: 100% !important;
         margin-top: 0 !important;
         padding-top: 0 !important;
         overscroll-behavior: contain;
@@ -2786,16 +2779,16 @@
         padding: 16px 0 4px !important;
       }
 
-      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .link-comment__list::-webkit-scrollbar {
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment::-webkit-scrollbar {
         width: 6px;
       }
 
-      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .link-comment__list::-webkit-scrollbar-thumb {
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment::-webkit-scrollbar-thumb {
         border-radius: 999px;
         background: #d7dce1;
       }
 
-      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .link-comment__list::-webkit-scrollbar-track {
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment::-webkit-scrollbar-track {
         background: transparent;
       }
 
@@ -7413,14 +7406,19 @@
   }
 
   function sortLinkPageComments() {
-    const list = document.querySelector('.link-comment__list');
-    if (!list) {
+    const items = Array.from(document.querySelectorAll('.link-comment__list > .link-comment__comment-item'));
+    items.forEach(getLinkPageCommentOriginalIndex);
+
+    if (commentPreviewSort === COMMENT_PREVIEW_SORTS.DEFAULT) {
+      items.forEach((item) => {
+        item.style.order = '';
+      });
       return;
     }
 
-    const items = Array.from(list.querySelectorAll(':scope > .link-comment__comment-item'));
-    items.forEach(getLinkPageCommentOriginalIndex);
-    [...items].sort(compareLinkPageCommentItems).forEach((item) => list.appendChild(item));
+    [...items].sort(compareLinkPageCommentItems).forEach((item, index) => {
+      item.style.order = String(index + 1);
+    });
   }
 
   function updateLinkPageFilterControls() {
@@ -7710,6 +7708,10 @@
         ".better-comment-preview__text a, .better-comment-preview__reply-text a, .link-comment .comment-item__content a"
       );
       if (!link || !document.documentElement.classList.contains(HOME_LAYOUT_CLASS)) {
+        return;
+      }
+
+      if (link.closest(".comment-item__image-box, .comment-item__image-wrapper") || link.querySelector("img")) {
         return;
       }
 
