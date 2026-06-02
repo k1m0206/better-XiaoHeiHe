@@ -2806,7 +2806,7 @@
         right: 16px !important;
         bottom: 12px !important;
         left: auto !important;
-        z-index: 20;
+        z-index: 31;
         width: max(360px, calc((100vw - 48px) * 0.4)) !important;
         max-width: calc(100vw - 32px) !important;
         margin-top: -8px;
