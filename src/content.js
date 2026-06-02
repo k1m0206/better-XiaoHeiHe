@@ -1451,7 +1451,8 @@
       }
 
       .${HOME_LAYOUT_CLASS} .${ROW_CLASS} .better-ai-summary-button,
-      .${HOME_LAYOUT_CLASS} .link-comment .better-ai-summary-button {
+      .${HOME_LAYOUT_CLASS} .link-comment .better-ai-summary-button,
+      .${HOME_LAYOUT_CLASS} .hb-bbs-link__header .better-ai-summary-button {
         display: inline-flex;
         width: 26px;
         height: 26px;
@@ -1470,7 +1471,8 @@
       }
 
       .${HOME_LAYOUT_CLASS} .${ROW_CLASS} .better-ai-summary-button:hover,
-      .${HOME_LAYOUT_CLASS} .link-comment .better-ai-summary-button:hover {
+      .${HOME_LAYOUT_CLASS} .link-comment .better-ai-summary-button:hover,
+      .${HOME_LAYOUT_CLASS} .hb-bbs-link__header .better-ai-summary-button:hover {
         background: #e9f2ff;
         border-color: #9ec6f2;
       }
@@ -1481,14 +1483,16 @@
       }
 
       .${HOME_LAYOUT_CLASS} .${ROW_CLASS} .better-ai-summary-button.is-loading,
-      .${HOME_LAYOUT_CLASS} .link-comment .better-ai-summary-button.is-loading {
+      .${HOME_LAYOUT_CLASS} .link-comment .better-ai-summary-button.is-loading,
+      .${HOME_LAYOUT_CLASS} .hb-bbs-link__header .better-ai-summary-button.is-loading {
         position: relative;
         color: transparent;
         pointer-events: none;
       }
 
       .${HOME_LAYOUT_CLASS} .${ROW_CLASS} .better-ai-summary-button.is-loading::after,
-      .${HOME_LAYOUT_CLASS} .link-comment .better-ai-summary-button.is-loading::after {
+      .${HOME_LAYOUT_CLASS} .link-comment .better-ai-summary-button.is-loading::after,
+      .${HOME_LAYOUT_CLASS} .hb-bbs-link__header .better-ai-summary-button.is-loading::after {
         content: "";
         box-sizing: border-box;
         position: absolute;
@@ -2411,7 +2415,35 @@
       }
 
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-bbs-link__header {
-        grid-column: 1 / -1;
+        grid-column: 1;
+        min-width: 0;
+        width: 100% !important;
+        max-width: 100% !important;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-bbs-link__header .page-header__container {
+        box-sizing: border-box;
+        position: relative !important;
+        width: 100% !important;
+        max-width: 100% !important;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-bbs-link__header .page-header__other-trans {
+        overflow: visible;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-bbs-link__header .page-header--right {
+        overflow: visible;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-bbs-link__header .better-link-page-ai-summary {
+        position: absolute !important;
+        top: 50% !important;
+        right: 44px !important;
+        z-index: 2;
+        flex: 0 0 auto;
+        margin: 0;
+        transform: translateY(-50%);
       }
 
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-bbs-link__container {
@@ -2457,23 +2489,23 @@
 
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment {
         box-sizing: border-box;
-        display: flex;
+        display: block;
         grid-column: 2;
-        position: sticky;
-        top: 76px;
+        position: fixed !important;
+        top: 76px !important;
+        right: 16px !important;
+        z-index: 30;
         height: calc(100vh - 168px);
         max-height: calc(100vh - 168px);
         min-height: 0;
-        overflow: auto;
-        flex-direction: column;
-        width: 100% !important;
-        max-width: none !important;
-        padding: 0 0 12px 16px;
+        overflow: hidden;
+        width: max(360px, calc((100vw - 48px) * 0.4)) !important;
+        max-width: calc(100vw - 32px) !important;
+        padding: 0;
         border-left: 1px solid #eef0f2;
         background: #fff;
       }
 
-      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .comment__comment-header,
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .hb-cpt__pagination,
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .hb-cpt__pagination-outer,
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .hb-cpt__pagination-inner {
@@ -2488,10 +2520,26 @@
 
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .comment__comment-header {
         box-sizing: border-box;
-        flex: 0 0 auto;
+        position: absolute !important;
+        top: 0 !important;
+        right: 0 !important;
+        bottom: auto !important;
+        left: 16px !important;
+        z-index: 3 !important;
+        display: block !important;
+        width: auto !important;
+        max-width: none !important;
+        height: 36px !important;
+        min-height: 36px !important;
         margin: 0 !important;
         padding: 0 0 10px !important;
+        border-bottom: 1px solid #eef0f2;
         background: #fff;
+        opacity: 1 !important;
+        overflow: visible !important;
+        pointer-events: auto !important;
+        transform: none !important;
+        visibility: visible !important;
       }
 
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .hb-cpt__pagination,
@@ -2507,15 +2555,32 @@
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .hb-cpt__pagination-inner {
         display: flex !important;
         align-items: center;
+        flex-wrap: nowrap;
+        gap: 8px;
+        min-height: 32px !important;
+        overflow: visible !important;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .slide-tab__tab-item {
+        flex: 0 0 auto;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .slide-tab-tab__bar {
+        display: none !important;
       }
 
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .better-link-page-ai-summary {
-        margin-left: auto;
+        flex: 0 0 auto;
+        margin-left: 0;
         margin-right: 4px;
       }
 
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .better-comment-preview__toolbar {
+        flex: 0 1 auto;
+        justify-content: flex-end;
         margin-left: auto !important;
+        overflow: visible;
+        width: auto;
       }
 
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .better-link-page-ai-summary + .better-comment-preview__toolbar {
@@ -2523,11 +2588,18 @@
       }
 
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .link-comment__list {
-        flex: 1 1 auto;
+        position: absolute !important;
+        top: 42px !important;
+        right: 0 !important;
+        bottom: 12px !important;
+        left: 16px !important;
         min-height: 0;
-        width: 100% !important;
+        overflow-x: hidden;
+        overflow-y: auto;
+        width: auto !important;
         margin-top: 0 !important;
         padding-top: 0 !important;
+        overscroll-behavior: contain;
       }
 
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .link-comment__comment-item,
@@ -2557,29 +2629,29 @@
         padding: 16px 0 4px !important;
       }
 
-      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment::-webkit-scrollbar {
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .link-comment__list::-webkit-scrollbar {
         width: 6px;
       }
 
-      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment::-webkit-scrollbar-thumb {
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .link-comment__list::-webkit-scrollbar-thumb {
         border-radius: 999px;
         background: #d7dce1;
       }
 
-      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment::-webkit-scrollbar-track {
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .link-comment__list::-webkit-scrollbar-track {
         background: transparent;
       }
 
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-reply {
         box-sizing: border-box;
         grid-column: 2;
-        position: sticky !important;
-        right: auto !important;
+        position: fixed !important;
+        right: 16px !important;
         bottom: 12px !important;
         left: auto !important;
         z-index: 20;
-        width: 100% !important;
-        max-width: none !important;
+        width: max(360px, calc((100vw - 48px) * 0.4)) !important;
+        max-width: calc(100vw - 32px) !important;
         margin-top: -8px;
         border-left: 1px solid #eef0f2;
         background: #fff;
@@ -2625,6 +2697,28 @@
           overflow: visible;
           padding-left: 0;
           border-left: 0;
+        }
+
+        .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .comment__comment-header {
+          position: static !important;
+          top: auto !important;
+          right: auto !important;
+          bottom: auto !important;
+          left: auto !important;
+          height: auto !important;
+          min-height: 0 !important;
+          width: auto !important;
+          max-width: none !important;
+        }
+
+        .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .link-comment__list {
+          position: static !important;
+          top: auto !important;
+          right: auto !important;
+          bottom: auto !important;
+          left: auto !important;
+          overflow: visible;
+          width: 100% !important;
         }
 
         .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-reply {
@@ -5076,10 +5170,7 @@
 
   function syncAiSummaryButtons() {
     document.querySelectorAll(FEED_ITEM_SELECTOR).forEach(ensureAiSummaryButton);
-    const linkPageMountPoint = document.querySelector('.link-comment .hb-cpt__pagination-inner');
-    if (linkPageMountPoint) {
-      ensureLinkPageAiSummaryButton(linkPageMountPoint);
-    }
+    ensureLinkPageAiSummaryButton();
   }
 
   function ensureAiSummaryModal() {
@@ -5133,7 +5224,7 @@
           if (item) {
             summarizeFeedItem(item, linkId, button, { force: true });
           } else if (isLinkPage() && getCurrentLinkId() === linkId) {
-            summarizeLinkPage(document.querySelector(".link-comment .better-ai-summary-button"), { force: true });
+            summarizeLinkPage(getLinkPageAiSummaryButton(), { force: true });
           }
         }
       }
@@ -6841,10 +6932,22 @@
     }
   }
 
-  function ensureLinkPageAiSummaryButton(mountPoint) {
-    let button = mountPoint.querySelector(".better-link-page-ai-summary");
+  function getLinkPageAiSummaryButton() {
+    return document.querySelector(".hb-bbs-link__header .better-link-page-ai-summary");
+  }
+
+  function ensureLinkPageAiSummaryButton() {
+    document.querySelectorAll(".link-comment .better-link-page-ai-summary").forEach((button) => {
+      button.remove();
+    });
+
+    const mountPoint = document.querySelector(".hb-bbs-link__header .page-header__container");
+    let button = getLinkPageAiSummaryButton();
     if (!isAiFeatureEnabled()) {
       button?.remove();
+      return;
+    }
+    if (!mountPoint) {
       return;
     }
 
@@ -6862,10 +6965,7 @@
       });
     }
 
-    const toolbar = mountPoint.querySelector(".better-comment-preview__toolbar");
-    if (toolbar && button.nextElementSibling !== toolbar) {
-      toolbar.insertAdjacentElement("beforebegin", button);
-    } else if (!toolbar && button.parentElement !== mountPoint) {
+    if (button.parentElement !== mountPoint) {
       mountPoint.appendChild(button);
     }
   }
@@ -6877,6 +6977,7 @@
 
     ensureLinkPageCommentUserLevels();
     moveLinkPageEmptyStateIntoCommentPanel();
+    ensureLinkPageAiSummaryButton();
 
     const mountPoint = document.querySelector('.link-comment .hb-cpt__pagination-inner');
     if (!mountPoint) {
@@ -6925,7 +7026,6 @@
       bindLinkPageSortControls(toolbar);
     }
 
-    ensureLinkPageAiSummaryButton(mountPoint);
     updateLinkPageFilterControls();
   }
 
