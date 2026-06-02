@@ -2525,8 +2525,29 @@
         max-width: none !important;
       }
 
-      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-layout__fake-frame,
-      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-layout__fake-frame-container,
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-layout__fake-frame {
+        overflow: visible !important;
+        width: 100% !important;
+        max-width: none !important;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-layout__fake-frame-left--top,
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-layout__fake-frame-left--bottom {
+        width: 100% !important;
+        max-width: none !important;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-layout__fake-frame-left--bottom {
+        display: none !important;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-layout__fake-frame-container {
+        overflow: visible !important;
+        width: 100% !important;
+        max-width: none !important;
+        max-height: none !important;
+      }
+
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-bbs-link {
         overflow: visible !important;
         width: 100% !important;
@@ -2547,6 +2568,7 @@
         min-width: 0;
         width: 100% !important;
         max-width: 100% !important;
+        margin-bottom: 0 !important;
       }
 
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-bbs-link__header .page-header__container {
@@ -2587,6 +2609,8 @@
         height: auto !important;
         width: 100% !important;
         max-width: none !important;
+        margin-top: 0 !important;
+        padding-top: 0 !important;
         margin-bottom: 0 !important;
         padding-bottom: 0 !important;
       }
