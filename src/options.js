@@ -4,6 +4,7 @@
   const AI_BOT_SETTINGS_STORAGE_KEY = "better-xiaoheihe-ai-bot-settings";
   const AI_BOT_LOGS_STORAGE_KEY = "better-xiaoheihe-ai-bot-logs";
   const AI_BOT_MESSAGE_LOGS_STORAGE_KEY = "better-xiaoheihe-ai-bot-message-logs";
+  const AI_BOT_REPLY_QUEUE_STORAGE_KEY = "better-xiaoheihe-ai-bot-reply-queue";
   const BLOCKED_KEYWORDS_STORAGE_KEY = "better-xiaoheihe-blocked-keywords";
   const LEVEL_FILTERS_STORAGE_KEY = "better-xiaoheihe-level-filters";
   const AI_BOT_DEFAULT_PROMPT = "你是小黑盒社区自动回复助手。请根据消息类型、帖子正文、评论区上下文和触发消息的那条评论，生成一条自然、友好、简洁的中文回复。可以自然使用提供的小黑盒表情短码，但不要编造未提供的短码。不要暴露你是AI，不要使用模板化开头，不要编造事实，不要输出Markdown。";
@@ -69,6 +70,7 @@
   const aiBotStatusElement = document.getElementById("aiBotStatus");
   const aiBotLogsElement = document.getElementById("aiBotLogs");
   const aiBotMessageLogsElement = document.getElementById("aiBotMessageLogs");
+  const aiBotPendingMessagesElement = document.getElementById("aiBotPendingMessages");
   const aiBotClearLogsButton = document.getElementById("aiBotClearLogs");
   const aiBotBackSettingsButton = document.getElementById("aiBotBackSettings");
   const aiBotRefreshLogsButton = document.getElementById("aiBotRefreshLogs");
@@ -610,7 +612,7 @@
   }
 
   function setAiBotLogView(view) {
-    activeAiBotLogView = view === "message" ? "message" : "runtime";
+    activeAiBotLogView = ["message", "pending"].includes(view) ? view : "runtime";
     document.querySelectorAll("[data-ai-bot-log-view]").forEach((button) => {
       const active = button.dataset.aiBotLogView === activeAiBotLogView;
       button.classList.toggle("is-active", active);
@@ -748,7 +750,7 @@
 
         const summary = document.createElement("summary");
         summary.className = "log-detail-summary";
-        summary.textContent = "展开错误详情";
+        summary.textContent = log.level === "error" ? "展开错误详情" : "展开日志详情";
 
         const copy = document.createElement("button");
         copy.className = "log-copy";
@@ -796,7 +798,7 @@
       const type = document.createElement("span");
       type.className = "log-level " + (log.skipped ? "log-level--warn" : "log-level--success");
       type.textContent = log.skipped
-        ? (log.skipReason === "content_moderation" ? "已跳过" : log.skipReason === "queue_expired" ? "队列超时" : "跳过")
+        ? (log.skipReason === "content_moderation" ? "已跳过" : log.skipReason === "queue_expired" ? "队列超时" : log.skipReason === "send_failed" ? "发送失败" : log.skipReason === "source_disabled" ? "开关关闭" : log.skipReason === "stale" ? "已过期" : log.skipReason === "missing_target" ? "缺少目标" : "跳过")
         : (log.typeLabel || (log.messageSource === "comment" ? "评论" : "@"));
       const time = document.createElement("span");
       time.textContent = log.timeText || new Date(log.timestamp || Date.now()).toLocaleString("zh-CN", { hour12: false });
@@ -831,11 +833,71 @@
     aiBotMessageLogsElement.scrollTop = wasNearTop ? 0 : Math.min(previousScrollTop, aiBotMessageLogsElement.scrollHeight);
   }
 
+  function renderAiBotPendingMessages(queue) {
+    const normalizedQueue = (Array.isArray(queue) ? queue : [])
+      .map((item) => ({
+        ...item,
+        queuedAt: Number(item?.queuedAt || 0),
+        messageTimestamp: Number(item?.messageTimestamp || 0)
+      }))
+      .filter((item) => item.messageId && item.queuedAt)
+      .sort((left, right) => Number(right.messageTimestamp || right.queuedAt) - Number(left.messageTimestamp || left.queuedAt));
+    const previousScrollTop = aiBotPendingMessagesElement.scrollTop;
+    const wasNearTop = previousScrollTop <= 4;
+    aiBotPendingMessagesElement.innerHTML = "";
+    if (!normalizedQueue.length) {
+      const empty = document.createElement("div");
+      empty.className = "log-empty";
+      empty.textContent = "暂无待处理消息";
+      aiBotPendingMessagesElement.appendChild(empty);
+      return;
+    }
+
+    normalizedQueue.forEach((pending) => {
+      const item = document.createElement("div");
+      item.className = "message-log-item";
+
+      const meta = document.createElement("div");
+      meta.className = "log-meta";
+      const type = document.createElement("span");
+      type.className = "log-level log-level--warn";
+      type.textContent = "待处理";
+      const time = document.createElement("span");
+      time.textContent = pending.queuedAt ? new Date(pending.queuedAt).toLocaleString("zh-CN", { hour12: false }) : "未知时间";
+      meta.append(type, time);
+
+      const title = document.createElement("div");
+      title.className = "message-log-title";
+      title.textContent = pending.context?.detail?.title || `帖子 ${pending.linkId || ""}`;
+
+      const target = document.createElement("div");
+      target.className = "message-log-target";
+      target.textContent = [
+        `类型：${pending.messageSource === "comment" ? "评论/回复我的消息" : "@我的消息"}`,
+        pending.senderName ? `消息发送人：${pending.senderName}${pending.senderId ? `（${pending.senderId}）` : ""}` : "",
+        `等待：${Math.max(0, Math.floor((Date.now() - pending.queuedAt) / 1000))} 秒`,
+        pending.messageTimestamp ? `消息时间：${new Date(pending.messageTimestamp).toLocaleString("zh-CN", { hour12: false })}` : "",
+        pending.linkId ? `帖子ID：${pending.linkId}` : "",
+        pending.replyCommentId ? `回复评论ID：${pending.replyCommentId}` : "",
+        pending.rootCommentId ? `根评论ID：${pending.rootCommentId}` : ""
+      ].filter(Boolean).join(" · ");
+
+      const messageText = document.createElement("div");
+      messageText.className = "message-log-source";
+      messageText.textContent = `消息内容：${pending.messageText || ""}`;
+
+      item.append(meta, title, target, messageText);
+      aiBotPendingMessagesElement.appendChild(item);
+    });
+    aiBotPendingMessagesElement.scrollTop = wasNearTop ? 0 : Math.min(previousScrollTop, aiBotPendingMessagesElement.scrollHeight);
+  }
+
   function renderAiBotLogsFromStorage() {
     setAiBotLogStatus("正在加载日志...", false);
-    chrome.storage.local.get([AI_BOT_LOGS_STORAGE_KEY, AI_BOT_MESSAGE_LOGS_STORAGE_KEY], (result) => {
+    chrome.storage.local.get([AI_BOT_LOGS_STORAGE_KEY, AI_BOT_MESSAGE_LOGS_STORAGE_KEY, AI_BOT_REPLY_QUEUE_STORAGE_KEY], (result) => {
       renderAiBotLogs(result?.[AI_BOT_LOGS_STORAGE_KEY]);
       renderAiBotMessageLogs(result?.[AI_BOT_MESSAGE_LOGS_STORAGE_KEY]);
+      renderAiBotPendingMessages(result?.[AI_BOT_REPLY_QUEUE_STORAGE_KEY]);
       setAiBotLogStatus(`日志已更新：${new Date().toLocaleTimeString("zh-CN", { hour12: false })}`, false);
     });
   }
@@ -862,6 +924,7 @@
       await sendMessage({ type: "better-xiaoheihe-ai-bot-clear-logs" });
       renderAiBotLogs([]);
       renderAiBotMessageLogs([]);
+      renderAiBotLogsFromStorage();
       setAiBotLogStatus("日志已清空", false);
     } catch (error) {
       setAiBotLogStatus(error?.message || "清空日志失败", true);
@@ -1016,10 +1079,11 @@
   chrome.storage.local.get(AI_SETTINGS_STORAGE_KEY, (result) => {
     fillForm(result?.[AI_SETTINGS_STORAGE_KEY]);
   });
-  chrome.storage.local.get([AI_BOT_SETTINGS_STORAGE_KEY, AI_BOT_LOGS_STORAGE_KEY, AI_BOT_MESSAGE_LOGS_STORAGE_KEY], (result) => {
+  chrome.storage.local.get([AI_BOT_SETTINGS_STORAGE_KEY, AI_BOT_LOGS_STORAGE_KEY, AI_BOT_MESSAGE_LOGS_STORAGE_KEY, AI_BOT_REPLY_QUEUE_STORAGE_KEY], (result) => {
     fillAiBotForm(result?.[AI_BOT_SETTINGS_STORAGE_KEY]);
     renderAiBotLogs(result?.[AI_BOT_LOGS_STORAGE_KEY]);
     renderAiBotMessageLogs(result?.[AI_BOT_MESSAGE_LOGS_STORAGE_KEY]);
+    renderAiBotPendingMessages(result?.[AI_BOT_REPLY_QUEUE_STORAGE_KEY]);
     refreshAiBotStatus();
   });
   loadLocalSettings();
@@ -1164,6 +1228,9 @@
     }
     if (changes[AI_BOT_MESSAGE_LOGS_STORAGE_KEY]) {
       renderAiBotMessageLogs(changes[AI_BOT_MESSAGE_LOGS_STORAGE_KEY].newValue);
+    }
+    if (changes[AI_BOT_REPLY_QUEUE_STORAGE_KEY]) {
+      renderAiBotPendingMessages(changes[AI_BOT_REPLY_QUEUE_STORAGE_KEY].newValue);
     }
   });
 })();

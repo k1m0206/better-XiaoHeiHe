@@ -25,6 +25,7 @@
   const AI_BOT_SETTINGS_STORAGE_KEY = "better-xiaoheihe-ai-bot-settings";
   const AI_BOT_LOGS_STORAGE_KEY = "better-xiaoheihe-ai-bot-logs";
   const AI_BOT_MESSAGE_LOGS_STORAGE_KEY = "better-xiaoheihe-ai-bot-message-logs";
+  const AI_BOT_REPLY_QUEUE_STORAGE_KEY = "better-xiaoheihe-ai-bot-reply-queue";
   const API_PARAMS_STORAGE_KEY = "better-xiaoheihe-api-params";
   const AI_BOT_LOG_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
   const LOCAL_SETTINGS_STORAGE_KEYS = [
@@ -35,6 +36,7 @@
     AI_BOT_SETTINGS_STORAGE_KEY,
     AI_BOT_LOGS_STORAGE_KEY,
     AI_BOT_MESSAGE_LOGS_STORAGE_KEY,
+    AI_BOT_REPLY_QUEUE_STORAGE_KEY,
     API_PARAMS_STORAGE_KEY
   ];
   const LOCAL_SETTINGS_REQUEST_EVENT = "better-xiaoheihe-local-settings-request";
@@ -144,6 +146,7 @@
   let aiBotSettings = normalizeAiBotSettings();
   let aiBotLogs = [];
   let aiBotMessageLogs = [];
+  let aiBotReplyQueue = [];
   let aiBotLogRefreshTimer = null;
   let activeAiBotLogView = "runtime";
   const expandedAiBotLogIds = new Set();
@@ -420,6 +423,17 @@
     return normalizeAiBotLogs(logs);
   }
 
+  function normalizeAiBotReplyQueue(queue) {
+    return (Array.isArray(queue) ? queue : [])
+      .map((item) => ({
+        ...item,
+        queuedAt: Number(item?.queuedAt || 0),
+        messageTimestamp: Number(item?.messageTimestamp || 0)
+      }))
+      .filter((item) => item.messageId && item.queuedAt)
+      .sort((left, right) => Number(right.messageTimestamp || right.queuedAt) - Number(left.messageTimestamp || left.queuedAt));
+  }
+
   function persistAiBotSettingsState() {
     saveLocalSettings({
       [AI_BOT_SETTINGS_STORAGE_KEY]: aiBotSettings
@@ -555,6 +569,7 @@
     aiBotSettings = normalizeAiBotSettings(values[AI_BOT_SETTINGS_STORAGE_KEY]);
     aiBotLogs = normalizeAiBotLogs(values[AI_BOT_LOGS_STORAGE_KEY]);
     aiBotMessageLogs = normalizeAiBotMessageLogs(values[AI_BOT_MESSAGE_LOGS_STORAGE_KEY]);
+    aiBotReplyQueue = normalizeAiBotReplyQueue(values[AI_BOT_REPLY_QUEUE_STORAGE_KEY]);
   }
 
   async function loadLocalSettingsState() {
@@ -613,6 +628,9 @@
       : [];
     nextValues[AI_BOT_MESSAGE_LOGS_STORAGE_KEY] = keysPresent[AI_BOT_MESSAGE_LOGS_STORAGE_KEY]
       ? normalizeAiBotMessageLogs(values[AI_BOT_MESSAGE_LOGS_STORAGE_KEY])
+      : [];
+    nextValues[AI_BOT_REPLY_QUEUE_STORAGE_KEY] = keysPresent[AI_BOT_REPLY_QUEUE_STORAGE_KEY]
+      ? normalizeAiBotReplyQueue(values[AI_BOT_REPLY_QUEUE_STORAGE_KEY])
       : [];
 
     applyLocalSettingsValues(nextValues);
@@ -7308,9 +7326,10 @@
                   log.message || "",
                   detailText
                 ].filter(Boolean).join("\n");
-                return `
+              const detailSummary = log.level === "error" ? "展开错误详情" : "展开日志详情";
+              return `
                   <details class="better-settings__ai-bot-log-detail-wrap" data-log-id="${escapeHtml(logId)}"${expandedAiBotLogIds.has(logId) ? " open" : ""}>
-                    <summary class="better-settings__ai-bot-log-detail-summary">展开错误详情</summary>
+                    <summary class="better-settings__ai-bot-log-detail-summary">${detailSummary}</summary>
                     <button class="better-settings__ai-bot-log-copy" type="button" data-copy-text="${escapeHtml(copyText)}">复制</button>
                     <pre class="better-settings__ai-bot-log-detail">${escapeHtml(detailText)}</pre>
                   </details>
@@ -7326,9 +7345,9 @@
   function renderAiBotMessageLogItemsHtml() {
     return aiBotMessageLogs.length
       ? aiBotMessageLogs.map((log) => `
-        <div class="better-settings__ai-bot-message-log">
+        <div class="better-settings__ai-bot-message-log${log.skipped ? " better-settings__ai-bot-message-log--skipped" : ""}">
           <div class="better-settings__ai-bot-log-meta">
-            <span class="better-settings__ai-bot-log-level better-settings__ai-bot-log-level--success">${escapeHtml(log.typeLabel || (log.messageSource === "comment" ? "评论" : "@"))}</span>
+            <span class="better-settings__ai-bot-log-level better-settings__ai-bot-log-level--${log.skipped ? "warn" : "success"}">${escapeHtml(log.skipped ? (log.skipReason === "content_moderation" ? "已跳过" : log.skipReason === "queue_expired" ? "队列超时" : log.skipReason === "send_failed" ? "发送失败" : log.skipReason === "source_disabled" ? "开关关闭" : log.skipReason === "stale" ? "已过期" : log.skipReason === "missing_target" ? "缺少目标" : "跳过") : (log.typeLabel || (log.messageSource === "comment" ? "评论" : "@")))}</span>
             <span>${escapeHtml(log.timeText || new Date(log.timestamp || Date.now()).toLocaleString("zh-CN", { hour12: false }))}</span>
           </div>
           <div class="better-settings__ai-bot-message-title">${escapeHtml(log.linkTitle || `帖子 ${log.linkId || ""}`)}</div>
@@ -7345,6 +7364,36 @@
         </div>
       `).join("")
       : `<div class="better-settings__empty">暂无 AI 回复记录</div>`;
+  }
+
+  function renderAiBotReplyQueueItemsHtml() {
+    return aiBotReplyQueue.length
+      ? aiBotReplyQueue.map((item) => {
+        const queuedAt = Number(item.queuedAt || 0);
+        const messageTimestamp = Number(item.messageTimestamp || 0);
+        const queueAgeText = queuedAt ? `${Math.max(0, Math.floor((Date.now() - queuedAt) / 1000))} 秒` : "未知";
+        const typeLabel = item.messageSource === "comment" ? "评论/回复我的消息" : "@我的消息";
+        return `
+        <div class="better-settings__ai-bot-message-log">
+          <div class="better-settings__ai-bot-log-meta">
+            <span class="better-settings__ai-bot-log-level better-settings__ai-bot-log-level--warn">待处理</span>
+            <span>${escapeHtml(queuedAt ? new Date(queuedAt).toLocaleString("zh-CN", { hour12: false }) : "未知时间")}</span>
+          </div>
+          <div class="better-settings__ai-bot-message-title">${escapeHtml(item.context?.detail?.title || `帖子 ${item.linkId || ""}`)}</div>
+          <div class="better-settings__ai-bot-message-target">${escapeHtml([
+            `类型：${typeLabel}`,
+            item.senderName ? `消息发送人：${item.senderName}${item.senderId ? `（${item.senderId}）` : ""}` : "",
+            `等待：${queueAgeText}`,
+            messageTimestamp ? `消息时间：${new Date(messageTimestamp).toLocaleString("zh-CN", { hour12: false })}` : "",
+            item.linkId ? `帖子ID：${item.linkId}` : "",
+            item.replyCommentId ? `回复评论ID：${item.replyCommentId}` : "",
+            item.rootCommentId ? `根评论ID：${item.rootCommentId}` : ""
+          ].filter(Boolean).join(" · "))}</div>
+          <div class="better-settings__ai-bot-message-source">${escapeHtml(`消息内容：${item.messageText || ""}`)}</div>
+        </div>
+      `;
+      }).join("")
+      : `<div class="better-settings__empty">暂无待处理消息</div>`;
   }
 
   function renderAiBotLogsPanelContent() {
@@ -7364,9 +7413,11 @@
           <div class="better-settings__log-switch" role="tablist" aria-label="AI Bot 日志类型">
             <button class="better-settings__log-switch-button${activeAiBotLogView === "runtime" ? " is-active" : ""}" type="button" data-ai-bot-log-view="runtime" role="tab" aria-selected="${activeAiBotLogView === "runtime" ? "true" : "false"}">运行日志</button>
             <button class="better-settings__log-switch-button${activeAiBotLogView === "message" ? " is-active" : ""}" type="button" data-ai-bot-log-view="message" role="tab" aria-selected="${activeAiBotLogView === "message" ? "true" : "false"}">消息日志</button>
+            <button class="better-settings__log-switch-button${activeAiBotLogView === "pending" ? " is-active" : ""}" type="button" data-ai-bot-log-view="pending" role="tab" aria-selected="${activeAiBotLogView === "pending" ? "true" : "false"}">待处理消息</button>
           </div>
           <div class="better-settings__ai-bot-logs" data-ai-bot-log-panel="runtime"${activeAiBotLogView === "runtime" ? "" : " hidden"}>${renderAiBotLogItemsHtml()}</div>
           <div class="better-settings__ai-bot-message-logs" data-ai-bot-log-panel="message"${activeAiBotLogView === "message" ? "" : " hidden"}>${renderAiBotMessageLogItemsHtml()}</div>
+          <div class="better-settings__ai-bot-message-logs" data-ai-bot-log-panel="pending"${activeAiBotLogView === "pending" ? "" : " hidden"}>${renderAiBotReplyQueueItemsHtml()}</div>
           <div class="better-settings__actions">
             <button class="better-settings__primary better-settings__ai-bot-refresh-logs" type="button">刷新日志</button>
             <span class="better-settings__message" role="status">日志已加载</span>
@@ -7377,7 +7428,7 @@
   }
 
   function setAiBotLogView(panel, view) {
-    activeAiBotLogView = view === "message" ? "message" : "runtime";
+    activeAiBotLogView = ["message", "pending"].includes(view) ? view : "runtime";
     panel.querySelectorAll("[data-ai-bot-log-view]").forEach((button) => {
       const active = button.dataset.aiBotLogView === activeAiBotLogView;
       button.classList.toggle("is-active", active);
@@ -7936,10 +7987,13 @@
   function refreshAiBotLogsPanel() {
     const currentLogList = document.querySelector(`.${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-logs`);
     const currentMessageLogList = document.querySelector(`.${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-message-logs`);
+    const currentPendingLogList = document.querySelector(`.${SETTINGS_PANEL_CLASS} [data-ai-bot-log-panel="pending"]`);
     const previousScrollTop = currentLogList?.scrollTop || 0;
     const previousMessageScrollTop = currentMessageLogList?.scrollTop || 0;
+    const previousPendingScrollTop = currentPendingLogList?.scrollTop || 0;
     const wasNearTop = previousScrollTop <= 4;
     const messageWasNearTop = previousMessageScrollTop <= 4;
+    const pendingWasNearTop = previousPendingScrollTop <= 4;
     currentLogList?.querySelectorAll(".better-settings__ai-bot-log-detail-wrap").forEach((detail) => {
       const logId = detail.dataset.logId || "";
       if (!logId) {
@@ -7955,11 +8009,13 @@
       if (response?.ok) {
         aiBotLogs = normalizeAiBotLogs(response.values?.[AI_BOT_LOGS_STORAGE_KEY]);
         aiBotMessageLogs = normalizeAiBotMessageLogs(response.values?.[AI_BOT_MESSAGE_LOGS_STORAGE_KEY]);
+        aiBotReplyQueue = normalizeAiBotReplyQueue(response.values?.[AI_BOT_REPLY_QUEUE_STORAGE_KEY]);
       }
     }).finally(() => {
       if (activeSettingsTab === SETTINGS_TABS.AIBOT_LOGS) {
         const nextLogList = document.querySelector(`.${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-logs`);
         const nextMessageLogList = document.querySelector(`.${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-message-logs`);
+        const nextPendingLogList = document.querySelector(`.${SETTINGS_PANEL_CLASS} [data-ai-bot-log-panel="pending"]`);
         if (nextLogList) {
           nextLogList.innerHTML = renderAiBotLogItemsHtml();
           nextLogList.scrollTop = wasNearTop ? 0 : Math.min(previousScrollTop, nextLogList.scrollHeight);
@@ -7967,6 +8023,10 @@
         if (nextMessageLogList) {
           nextMessageLogList.innerHTML = renderAiBotMessageLogItemsHtml();
           nextMessageLogList.scrollTop = messageWasNearTop ? 0 : Math.min(previousMessageScrollTop, nextMessageLogList.scrollHeight);
+        }
+        if (nextPendingLogList) {
+          nextPendingLogList.innerHTML = renderAiBotReplyQueueItemsHtml();
+          nextPendingLogList.scrollTop = pendingWasNearTop ? 0 : Math.min(previousPendingScrollTop, nextPendingLogList.scrollHeight);
         }
       }
     });
@@ -8785,6 +8845,18 @@
             const wasNearTop = previousScrollTop <= 4;
             messageLogList.innerHTML = renderAiBotMessageLogItemsHtml();
             messageLogList.scrollTop = wasNearTop ? 0 : Math.min(previousScrollTop, messageLogList.scrollHeight);
+          }
+        }
+      }
+      if (Object.prototype.hasOwnProperty.call(values, AI_BOT_REPLY_QUEUE_STORAGE_KEY)) {
+        aiBotReplyQueue = normalizeAiBotReplyQueue(values[AI_BOT_REPLY_QUEUE_STORAGE_KEY]);
+        if (activeSettingsTab === SETTINGS_TABS.AIBOT_LOGS) {
+          const pendingLogList = document.querySelector(`.${SETTINGS_PANEL_CLASS} [data-ai-bot-log-panel="pending"]`);
+          if (pendingLogList) {
+            const previousScrollTop = pendingLogList.scrollTop;
+            const wasNearTop = previousScrollTop <= 4;
+            pendingLogList.innerHTML = renderAiBotReplyQueueItemsHtml();
+            pendingLogList.scrollTop = wasNearTop ? 0 : Math.min(previousScrollTop, pendingLogList.scrollHeight);
           }
         }
       }

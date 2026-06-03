@@ -252,9 +252,11 @@
             <div class="log-switch" role="tablist" aria-label="AI Bot 日志类型">
               <button class="log-switch-button is-active" type="button" data-ai-bot-log-view="runtime" role="tab" aria-selected="true">运行日志</button>
               <button class="log-switch-button" type="button" data-ai-bot-log-view="message" role="tab" aria-selected="false">消息日志</button>
+              <button class="log-switch-button" type="button" data-ai-bot-log-view="pending" role="tab" aria-selected="false">待处理消息</button>
             </div>
             <div id="aiBotLogs" class="log-list" data-ai-bot-log-panel="runtime"></div>
             <div id="aiBotMessageLogs" class="message-log-list" data-ai-bot-log-panel="message" hidden></div>
+            <div id="aiBotPendingMessages" class="message-log-list" data-ai-bot-log-panel="pending" hidden></div>
             <div class="actions actions--log">
               <button id="aiBotRefreshLogs" type="button">刷新日志</button>
               <span id="aiBotLogStatus" role="status"></span>

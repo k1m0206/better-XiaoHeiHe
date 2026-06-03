@@ -14,7 +14,6 @@
   const AI_BOT_LOG_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
   const AI_BOT_EMOJI_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
   const AI_BOT_COMMENT_COOLDOWN_MS = 30 * 1000;
-  const AI_BOT_QUEUE_ITEM_MAX_AGE_MS = 5 * 60 * 1000;
   const AI_BOT_QUEUE_MAX_SIZE = 50;
   const AI_BOT_MESSAGE_LIMIT = 20;
   const AI_BOT_COMMENT_LIMIT = 30;
@@ -1276,6 +1275,12 @@
     return messageSource === AI_BOT_MESSAGE_TYPES.COMMENT ? "评论/回复我的消息" : "@我的消息";
   }
 
+  function isAiBotMessageSourceEnabled(settings, messageSource) {
+    return messageSource === AI_BOT_MESSAGE_TYPES.COMMENT
+      ? settings.replyComments === true
+      : settings.replyMentions !== false;
+  }
+
   function buildAiBotPromptPayload(message, context, replyCommentId, messageSource, emojiCodes = []) {
     const triggerComment = findCommentById(context.groups, replyCommentId);
     const user = message?.user_a || {};
@@ -1437,17 +1442,39 @@
   }
 
   async function cleanupReplyQueue() {
+    const settings = await readAiBotSettings();
     const queue = await readReplyQueue();
     const now = Date.now();
+    const freshMs = Math.max(1, Number(settings.messageFreshMinutes || 5)) * 60 * 1000;
+    const droppedItems = [];
     const validItems = queue.filter((item) => {
-      const age = now - Number(item?.queuedAt || 0);
-      return age < AI_BOT_QUEUE_ITEM_MAX_AGE_MS;
+      const queuedAt = Number(item?.queuedAt || 0);
+      const messageTimestamp = Number(item?.messageTimestamp || getMessageTimestampMs(item?.message) || 0);
+      const queueAge = now - queuedAt;
+      const messageAge = messageTimestamp ? now - messageTimestamp : 0;
+      const expired = queueAge >= freshMs || (messageTimestamp && messageAge > freshMs);
+      if (expired) {
+        droppedItems.push({
+          messageId: item?.messageId || "",
+          messageSource: item?.messageSource || "",
+          linkId: item?.linkId || "",
+          senderId: item?.senderId || "",
+          queuedSeconds: Math.max(0, Math.floor(queueAge / 1000)),
+          messageAgeMinutes: messageTimestamp ? Math.max(0, Math.floor(messageAge / 60000)) : "",
+          freshMinutes: settings.messageFreshMinutes
+        });
+      }
+      return !expired;
     });
     if (validItems.length !== queue.length) {
       await writeReplyQueue(validItems);
       const droppedCount = queue.length - validItems.length;
       if (droppedCount > 0) {
-        await appendAiBotLog("info", `清理过期队列消息：${droppedCount} 条`);
+        await appendAiBotLog("info", `清理超过当前时间窗口的队列消息：${droppedCount} 条`, {
+          freshMinutes: settings.messageFreshMinutes,
+          remainingCount: validItems.length,
+          droppedMessages: droppedItems.slice(0, 20)
+        });
       }
     }
     return validItems;
@@ -1483,6 +1510,20 @@
     newQueue.sort((a, b) => Number(b.messageTimestamp || b.queuedAt) - Number(a.messageTimestamp || a.queuedAt));
     const trimmedQueue = newQueue.slice(0, AI_BOT_QUEUE_MAX_SIZE);
     await writeReplyQueue(trimmedQueue);
+    await appendAiBotLog("info", "新增待处理队列消息", {
+      messageId,
+      messageSource,
+      linkId: queueItem.linkId,
+      replyCommentId,
+      rootCommentId: queueItem.rootCommentId,
+      senderId: queueItem.senderId,
+      senderName: queueItem.senderName,
+      messageTime: queueItem.messageTimestamp ? formatLogTime(queueItem.messageTimestamp) : "",
+      messageText: queueItem.messageText,
+      queuedAt: formatLogTime(queueItem.queuedAt),
+      queueCount: trimmedQueue.length,
+      trimmed: trimmedQueue.length < newQueue.length
+    });
     return true;
   }
 
@@ -1498,7 +1539,7 @@
   }
 
   async function getQueueStatus() {
-    const queue = await readReplyQueue();
+    const queue = await cleanupReplyQueue();
     return {
       count: queue.length,
       oldestAge: queue.length ? Date.now() - Number(queue[0]?.queuedAt || 0) : 0
@@ -1526,19 +1567,37 @@
     await storageSet({ [AI_BOT_REPLIED_RECORDS_STORAGE_KEY]: nextRecords });
   }
 
-  function shouldReplyToMessage(settings, message, records) {
+  function getAiBotMessagePrecheckSkipReason(settings, message, records) {
     const messageId = String(message?.message_id || "");
-    if (!messageId || records[messageId]) {
-      return false;
+    if (!messageId) {
+      return {
+        reason: "missing_message_id",
+        label: "缺少消息ID"
+      };
+    }
+    if (records[messageId]) {
+      return {
+        reason: "already_processed",
+        label: "消息已处理",
+        record: records[messageId]
+      };
     }
 
     const whitelist = new Set(settings.whitelistUserIds.map((id) => String(id)));
     if (!whitelist.size) {
-      return true;
+      return null;
     }
 
     const senderId = getUserId(message?.user_a || {});
-    return Boolean(senderId && whitelist.has(senderId));
+    if (senderId && whitelist.has(senderId)) {
+      return null;
+    }
+    return {
+      reason: "whitelist_miss",
+      label: "白名单不匹配",
+      senderId,
+      whitelistUserIds: settings.whitelistUserIds
+    };
   }
 
   function getAiBotMessageDebugInfo(message) {
@@ -1563,6 +1622,65 @@
       return 0;
     }
     return value > 100000000000 ? value : Math.floor(value * 1000);
+  }
+
+  function getAiBotSkipReasonLabel(skipReason) {
+    return {
+      already_processed: "已处理",
+      content_moderation: "内容审查未通过",
+      missing_message_id: "缺少消息ID",
+      missing_target: "缺少帖子ID或评论ID",
+      queue_expired: "队列超时",
+      send_failed: "发送失败",
+      source_disabled: "开关关闭",
+      stale: "超过时间窗口",
+      whitelist_miss: "白名单不匹配"
+    }[skipReason] || "跳过";
+  }
+
+  function getAiBotMessageLogBase(message, messageSource, overrides = {}) {
+    const messageTimestamp = getMessageTimestampMs(message);
+    const sender = message?.user_a || {};
+    const linkId = getLinkIdFromMessage(message);
+    const replyCommentId = getReplyCommentIdFromMessage(message);
+    const rootCommentId = getRootCommentIdFromMessage(message);
+    return {
+      messageId: String(message?.message_id || ""),
+      messageSource,
+      typeLabel: getAiBotMessageTypeLabel(messageSource),
+      linkId,
+      linkTitle: String(message?.link?.title || "").slice(0, 120),
+      replyCommentId: replyCommentId || rootCommentId,
+      rootCommentId,
+      commentId: "",
+      senderId: getUserId(sender),
+      senderName: String(sender.username || sender.nickname || ""),
+      messageText: stripHtml(String(message?.comment_a_text || message?.text || "")).slice(0, 500),
+      messageTimestamp,
+      messageTimeText: messageTimestamp ? formatLogTime(messageTimestamp) : "",
+      sentTimestamp: Date.now(),
+      sentTimeText: formatLogTime(Date.now()),
+      triggerText: stripHtml(String(message?.comment_a_text || message?.text || "")).slice(0, 500),
+      ...overrides
+    };
+  }
+
+  async function appendAiBotSkippedMessageLog(message, messageSource, skipReason, replyText, overrides = {}) {
+    await appendAiBotMessageLog(getAiBotMessageLogBase(message, messageSource, {
+      replyText: replyText || `[${getAiBotSkipReasonLabel(skipReason)}，已跳过]`,
+      skipped: true,
+      skipReason,
+      ...overrides
+    }));
+  }
+
+  async function appendAiBotPollDecisionLog(level, action, message, messageSource, detail = {}) {
+    await appendAiBotLog(level, `轮询消息处理：${action}`, {
+      ...getAiBotMessageDebugInfo(message),
+      messageSource,
+      action,
+      ...detail
+    });
   }
 
   async function skipStaleAiBotMessage(settings, message, records, messageSource, messageDebug) {
@@ -1594,6 +1712,16 @@
       ageMinutes: Math.floor(ageMs / 60000),
       freshMinutes: settings.messageFreshMinutes
     });
+    await appendAiBotSkippedMessageLog(
+      message,
+      messageSource,
+      "stale",
+      `[消息时间超过 ${settings.messageFreshMinutes} 分钟窗口，已跳过]`,
+      {
+        messageTimestamp: timestampMs,
+        messageTimeText: formatLogTime(timestampMs)
+      }
+    );
     return true;
   }
 
@@ -1612,11 +1740,27 @@
 
   async function processAiBotMessage(settings, heyboxId, message, records, messageSource = AI_BOT_MESSAGE_TYPES.MENTION) {
     const messageId = String(message?.message_id || "");
-    if (!shouldReplyToMessage(settings, message, records)) {
-      return;
+    const typeLabel = getAiBotMessageTypeLabel(messageSource);
+    if (!isAiBotMessageSourceEnabled(settings, messageSource)) {
+      await appendAiBotPollDecisionLog("info", `${typeLabel}开关关闭，跳过`, message, messageSource, {
+        skipReason: "source_disabled",
+        replyMentions: settings.replyMentions,
+        replyComments: settings.replyComments
+      });
+      await appendAiBotSkippedMessageLog(message, messageSource, "source_disabled", `[${typeLabel}回复开关已关闭，已跳过]`);
+      return false;
+    }
+    const precheckSkip = getAiBotMessagePrecheckSkipReason(settings, message, records);
+    if (precheckSkip) {
+      await appendAiBotPollDecisionLog("info", `${precheckSkip.label}，跳过`, message, messageSource, {
+        skipReason: precheckSkip.reason,
+        senderId: precheckSkip.senderId || "",
+        record: precheckSkip.record || "",
+        whitelistUserIds: precheckSkip.whitelistUserIds || ""
+      });
+      return false;
     }
 
-    const typeLabel = getAiBotMessageTypeLabel(messageSource);
     const linkId = getLinkIdFromMessage(message);
     const directReplyCommentId = getReplyCommentIdFromMessage(message);
     const rootCommentId = getRootCommentIdFromMessage(message);
@@ -1628,11 +1772,19 @@
       replyTargetSource: directReplyCommentId ? "reply_comment_id" : (rootCommentId ? "root_comment_id" : "")
     };
     if (!linkId || !replyCommentId) {
-      await appendAiBotLog("warn", `跳过${typeLabel}：缺少帖子ID或评论ID`, messageDebug);
-      return;
+      await appendAiBotLog("warn", `跳过${typeLabel}：缺少帖子ID或评论ID`, {
+        ...messageDebug,
+        skipReason: "missing_target"
+      });
+      await appendAiBotSkippedMessageLog(message, messageSource, "missing_target", "[缺少帖子ID或评论ID，已跳过]", {
+        linkId,
+        replyCommentId,
+        rootCommentId
+      });
+      return false;
     }
     if (await skipStaleAiBotMessage(settings, message, records, messageSource, messageDebug)) {
-      return;
+      return false;
     }
 
     await appendAiBotLog("info", `开始处理${typeLabel}，获取帖子详情`, messageDebug);
@@ -1643,7 +1795,7 @@
       throw createAiBotStageError("查询帖子详情和评论区", error, messageDebug);
     }
     if (!context) {
-      return;
+      return false;
     }
     const emojiCodes = await loadAiBotEmojiCodes(heyboxId);
 
@@ -1654,8 +1806,16 @@
         messageSource
       });
       records[messageId] = { queuedAt: Date.now() };
-      await appendAiBotLog("info", `${typeLabel}已入队等待回复`, messageDebug);
+      await appendAiBotPollDecisionLog("info", `${typeLabel}已入队等待回复`, message, messageSource, {
+        ...messageDebug,
+        actionResult: "enqueued"
+      });
+      return true;
     }
+    await appendAiBotPollDecisionLog("info", `${typeLabel}已在等待队列中，跳过重复入队`, message, messageSource, {
+      actionResult: "already_queued"
+    });
+    return false;
   }
 
   async function processQueueItem(item) {
@@ -1666,6 +1826,43 @@
     }
 
     const typeLabel = getAiBotMessageTypeLabel(item.messageSource);
+    if (!isAiBotMessageSourceEnabled(settings, item.messageSource)) {
+      await markMessageReplied(item.messageId, {
+        skippedAt: Date.now(),
+        skipReason: "source_disabled",
+        messageSource: item.messageSource
+      });
+      const messageTimestamp = getMessageTimestampMs(item.message);
+      await appendAiBotMessageLog({
+        messageId: item.messageId,
+        messageSource: item.messageSource,
+        typeLabel,
+        linkId: item.linkId,
+        linkTitle: item.context?.detail?.title || "",
+        replyCommentId: item.replyCommentId,
+        rootCommentId: item.rootCommentId || item.replyCommentId,
+        commentId: "",
+        senderId: item.senderId,
+        senderName: item.senderName,
+        messageText: item.messageText || "",
+        messageTimestamp,
+        messageTimeText: messageTimestamp ? formatLogTime(messageTimestamp) : "",
+        sentTimestamp: Date.now(),
+        sentTimeText: formatLogTime(Date.now()),
+        triggerText: item.messageText || "",
+        replyText: `[${typeLabel}回复开关已关闭，已移出等待队列]`,
+        skipped: true,
+        skipReason: "source_disabled"
+      });
+      await appendAiBotLog("info", `队列消息跳过：${typeLabel}回复开关已关闭`, {
+        messageId: item.messageId,
+        messageSource: item.messageSource,
+        linkId: item.linkId,
+        replyMentions: settings.replyMentions,
+        replyComments: settings.replyComments
+      });
+      return;
+    }
     const message = item.message;
     const context = item.context;
     const replyCommentId = item.replyCommentId;
@@ -1678,9 +1875,14 @@
       senderId: item.senderId,
       senderName: item.senderName,
       queuedAt: item.queuedAt,
-      queueAge: Math.floor((Date.now() - item.queuedAt) / 1000)
+      queuedAtText: item.queuedAt ? formatLogTime(item.queuedAt) : "",
+      queueAge: Math.floor((Date.now() - item.queuedAt) / 1000),
+      replyCommentId,
+      rootCommentId: rootCommentId || replyCommentId,
+      messageText: item.messageText || ""
     };
 
+    await appendAiBotLog("info", `队列消息开始处理：${typeLabel}`, messageDebug);
     let reply;
     try {
       reply = await createAiBotReply(settings, message, context, replyCommentId, item.messageSource, emojiCodes);
@@ -1718,6 +1920,11 @@
       await appendAiBotLog("info", `队列消息跳过：内容审查未通过`, messageDebug);
       return;
     }
+    await appendAiBotLog("info", "队列消息生成回复完成，准备发送", {
+      ...messageDebug,
+      replyPreview: String(reply || "").slice(0, 200),
+      replyLength: String(reply || "").length
+    });
 
     let result;
     try {
@@ -1757,7 +1964,8 @@
     });
     await appendAiBotLog("success", `队列消息已回复${typeLabel}`, {
       ...messageDebug,
-      commentId: result?.commentid || result?.result?.commentid || ""
+      commentId: result?.commentid || result?.result?.commentid || "",
+      replyPreview: String(reply || "").slice(0, 200)
     });
   }
 
@@ -1794,9 +2002,20 @@
         if (!item) {
           break;
         }
+        await appendAiBotLog("info", "队列消息已取出", {
+          messageId: item.messageId,
+          messageSource: item.messageSource,
+          linkId: item.linkId,
+          senderId: item.senderId,
+          senderName: item.senderName,
+          queuedAt: item.queuedAt ? formatLogTime(item.queuedAt) : "",
+          queueAgeSeconds: Math.floor((Date.now() - Number(item.queuedAt || 0)) / 1000)
+        });
 
         const itemAge = Date.now() - item.queuedAt;
-        if (itemAge >= AI_BOT_QUEUE_ITEM_MAX_AGE_MS) {
+        const itemMessageAge = item.messageTimestamp ? Date.now() - item.messageTimestamp : 0;
+        const freshMs = Math.max(1, Number(settings.messageFreshMinutes || 5)) * 60 * 1000;
+        if (itemAge >= freshMs || (itemMessageAge && itemMessageAge > freshMs)) {
           await markMessageReplied(item.messageId, {
             skippedAt: Date.now(),
             skipReason: "queue_expired",
@@ -1827,7 +2046,9 @@
           });
           await appendAiBotLog("info", "跳过过期队列消息", {
             messageId: item.messageId,
-            ageMinutes: Math.floor(itemAge / 60000)
+            queueAgeMinutes: Math.floor(itemAge / 60000),
+            messageAgeMinutes: itemMessageAge ? Math.floor(itemMessageAge / 60000) : "",
+            freshMinutes: settings.messageFreshMinutes
           });
           continue;
         }
@@ -1840,6 +2061,28 @@
             stage: error?.aiBotStage || "处理队列消息",
             error: error?.message || "未知错误",
             ...(error?.aiBotDetail || {})
+          });
+          const messageTimestamp = getMessageTimestampMs(item.message);
+          await appendAiBotMessageLog({
+            messageId: item.messageId,
+            messageSource: item.messageSource,
+            typeLabel: getAiBotMessageTypeLabel(item.messageSource),
+            linkId: item.linkId,
+            linkTitle: item.context?.detail?.title || "",
+            replyCommentId: item.replyCommentId,
+            rootCommentId: item.rootCommentId || item.replyCommentId,
+            commentId: "",
+            senderId: item.senderId,
+            senderName: item.senderName,
+            messageText: item.messageText || "",
+            messageTimestamp,
+            messageTimeText: messageTimestamp ? formatLogTime(messageTimestamp) : "",
+            sentTimestamp: Date.now(),
+            sentTimeText: formatLogTime(Date.now()),
+            triggerText: item.messageText || "",
+            replyText: `[${error?.aiBotStage || "处理队列消息"}失败，已移出等待队列] ${error?.message || "未知错误"}`,
+            skipped: true,
+            skipReason: "send_failed"
           });
         }
 
@@ -1898,15 +2141,49 @@
         ...commentMessages.map((message) => ({ message, source: AI_BOT_MESSAGE_TYPES.COMMENT }))
       ];
       const records = await readRepliedRecords();
+      const enqueuedMessages = [];
       await appendAiBotLog("info", "完成 AI Bot 消息查询", {
         reason,
         mentionCount: mentionMessages.length,
         commentCount: commentMessages.length,
-        count: messages.length
+        count: messages.length,
+        replyMentions: settings.replyMentions,
+        replyComments: settings.replyComments
       });
+      if (messages.length) {
+        await appendAiBotLog("info", `本次轮询到消息：${messages.length} 条`, {
+          messages: messages.map((item) => ({
+            ...getAiBotMessageDebugInfo(item.message),
+            messageSource: item.source,
+            typeLabel: getAiBotMessageTypeLabel(item.source),
+            messageTime: getMessageTimestampMs(item.message) ? formatLogTime(getMessageTimestampMs(item.message)) : ""
+          })).slice(0, 20)
+        });
+      }
       for (const item of messages) {
         try {
-          await processAiBotMessage(settings, heyboxId, item.message, records, item.source);
+          await appendAiBotPollDecisionLog("info", `轮询到${getAiBotMessageTypeLabel(item.source)}`, item.message, item.source, {
+            actionResult: "found",
+            messageTime: getMessageTimestampMs(item.message) ? formatLogTime(getMessageTimestampMs(item.message)) : ""
+          });
+          const latestSettings = await readAiBotSettings();
+          if (!latestSettings.enabled) {
+            await appendAiBotLog("info", "AI Bot 开关已关闭，停止处理本次轮询消息");
+            break;
+          }
+          if (!isAiBotMessageSourceEnabled(latestSettings, item.source)) {
+            await appendAiBotLog("info", `轮询消息跳过：${getAiBotMessageTypeLabel(item.source)}回复开关已关闭`, {
+              ...getAiBotMessageDebugInfo(item.message),
+              messageSource: item.source,
+              replyMentions: latestSettings.replyMentions,
+              replyComments: latestSettings.replyComments
+            });
+            continue;
+          }
+          const enqueued = await processAiBotMessage(latestSettings, heyboxId, item.message, records, item.source);
+          if (enqueued) {
+            enqueuedMessages.push(getAiBotMessageDebugInfo(item.message));
+          }
         } catch (error) {
           await appendAiBotLog("error", "处理 AI Bot 消息失败", {
             ...getAiBotMessageDebugInfo(item.message),
@@ -1916,6 +2193,11 @@
             ...(error?.aiBotDetail || {})
           });
         }
+      }
+      if (enqueuedMessages.length) {
+        await appendAiBotLog("info", `本次查询新增入队消息：${enqueuedMessages.length} 条`, {
+          messages: enqueuedMessages.slice(0, 20)
+        });
       }
 
       const queueStatus = await getQueueStatus();
