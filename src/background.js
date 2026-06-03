@@ -1710,6 +1710,9 @@
 
   async function skipStaleAiBotMessage(settings, message, records, messageSource, messageDebug) {
     const messageId = String(message?.message_id || "");
+    if (!messageId) {
+      return false;
+    }
     const timestampMs = getMessageTimestampMs(message);
     if (!timestampMs) {
       return false;
@@ -1779,6 +1782,17 @@
         skipReason: "source_disabled"
       };
     }
+    const staleMessageDebug = {
+      ...getAiBotMessageDebugInfo(message),
+      messageSource
+    };
+    if (await skipStaleAiBotMessage(settings, message, records, messageSource, staleMessageDebug)) {
+      return {
+        actionResult: "skipped",
+        actionLabel: "超过时间窗口，已跳过",
+        skipReason: "stale"
+      };
+    }
     const precheckSkip = getAiBotMessagePrecheckSkipReason(settings, message, records);
     if (precheckSkip) {
       await appendAiBotPollDecisionLog("info", `${precheckSkip.label}，跳过`, message, messageSource, {
@@ -1818,13 +1832,6 @@
         actionResult: "skipped",
         actionLabel: "缺少帖子ID或评论ID，已跳过",
         skipReason: "missing_target"
-      };
-    }
-    if (await skipStaleAiBotMessage(settings, message, records, messageSource, messageDebug)) {
-      return {
-        actionResult: "skipped",
-        actionLabel: "超过时间窗口，已跳过",
-        skipReason: "stale"
       };
     }
 
@@ -2209,6 +2216,17 @@
               skipReason: "bot_disabled"
             }));
             break;
+          }
+          if (await skipStaleAiBotMessage(latestSettings, item.message, records, item.source, {
+            ...getAiBotMessageDebugInfo(item.message),
+            messageSource: item.source
+          })) {
+            sourceResults.push(createAiBotPollResultItem(item.message, item.source, {
+              actionResult: "skipped",
+              actionLabel: "超过时间窗口，已跳过",
+              skipReason: "stale"
+            }));
+            continue;
           }
           if (!isAiBotMessageSourceEnabled(latestSettings, item.source)) {
             await appendAiBotLog("info", `轮询消息跳过：${getAiBotMessageTypeLabel(item.source)}回复开关已关闭`, {
