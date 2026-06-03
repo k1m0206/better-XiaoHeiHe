@@ -148,7 +148,7 @@
         message: String(message || ""),
         detail: detail && typeof detail === "object" ? detail : {}
       },
-      ...currentLogs.filter((item) => Number(item?.timestamp || 0) >= now - AI_BOT_LOG_RETENTION_MS)
+      ...currentLogs.filter((item) => !item?.skipped && Number(item?.timestamp || 0) >= now - AI_BOT_LOG_RETENTION_MS)
     ].slice(0, 500);
     await storageSet({ [AI_BOT_LOGS_STORAGE_KEY]: logs });
   }
@@ -1624,56 +1624,6 @@
     return value > 100000000000 ? value : Math.floor(value * 1000);
   }
 
-  function getAiBotSkipReasonLabel(skipReason) {
-    return {
-      already_processed: "已处理",
-      content_moderation: "内容审查未通过",
-      missing_message_id: "缺少消息ID",
-      missing_target: "缺少帖子ID或评论ID",
-      queue_expired: "队列超时",
-      send_failed: "发送失败",
-      source_disabled: "开关关闭",
-      stale: "超过时间窗口",
-      whitelist_miss: "白名单不匹配"
-    }[skipReason] || "跳过";
-  }
-
-  function getAiBotMessageLogBase(message, messageSource, overrides = {}) {
-    const messageTimestamp = getMessageTimestampMs(message);
-    const sender = message?.user_a || {};
-    const linkId = getLinkIdFromMessage(message);
-    const replyCommentId = getReplyCommentIdFromMessage(message);
-    const rootCommentId = getRootCommentIdFromMessage(message);
-    return {
-      messageId: String(message?.message_id || ""),
-      messageSource,
-      typeLabel: getAiBotMessageTypeLabel(messageSource),
-      linkId,
-      linkTitle: String(message?.link?.title || "").slice(0, 120),
-      replyCommentId: replyCommentId || rootCommentId,
-      rootCommentId,
-      commentId: "",
-      senderId: getUserId(sender),
-      senderName: String(sender.username || sender.nickname || ""),
-      messageText: stripHtml(String(message?.comment_a_text || message?.text || "")).slice(0, 500),
-      messageTimestamp,
-      messageTimeText: messageTimestamp ? formatLogTime(messageTimestamp) : "",
-      sentTimestamp: Date.now(),
-      sentTimeText: formatLogTime(Date.now()),
-      triggerText: stripHtml(String(message?.comment_a_text || message?.text || "")).slice(0, 500),
-      ...overrides
-    };
-  }
-
-  async function appendAiBotSkippedMessageLog(message, messageSource, skipReason, replyText, overrides = {}) {
-    await appendAiBotMessageLog(getAiBotMessageLogBase(message, messageSource, {
-      replyText: replyText || `[${getAiBotSkipReasonLabel(skipReason)}，已跳过]`,
-      skipped: true,
-      skipReason,
-      ...overrides
-    }));
-  }
-
   async function appendAiBotPollDecisionLog(level, action, message, messageSource, detail = {}) {
     await appendAiBotLog(level, `轮询消息处理：${action}`, {
       ...getAiBotMessageDebugInfo(message),
@@ -1740,16 +1690,6 @@
       ageMinutes: Math.floor(ageMs / 60000),
       freshMinutes: settings.messageFreshMinutes
     });
-    await appendAiBotSkippedMessageLog(
-      message,
-      messageSource,
-      "stale",
-      `[消息时间超过 ${settings.messageFreshMinutes} 分钟窗口，已跳过]`,
-      {
-        messageTimestamp: timestampMs,
-        messageTimeText: formatLogTime(timestampMs)
-      }
-    );
     return true;
   }
 
@@ -1775,7 +1715,6 @@
         replyMentions: settings.replyMentions,
         replyComments: settings.replyComments
       });
-      await appendAiBotSkippedMessageLog(message, messageSource, "source_disabled", `[${typeLabel}回复开关已关闭，已跳过]`);
       return {
         actionResult: "skipped",
         actionLabel: "开关关闭，已跳过",
@@ -1822,11 +1761,6 @@
       await appendAiBotLog("warn", `跳过${typeLabel}：缺少帖子ID或评论ID`, {
         ...messageDebug,
         skipReason: "missing_target"
-      });
-      await appendAiBotSkippedMessageLog(message, messageSource, "missing_target", "[缺少帖子ID或评论ID，已跳过]", {
-        linkId,
-        replyCommentId,
-        rootCommentId
       });
       return {
         actionResult: "skipped",
@@ -1892,28 +1826,6 @@
         skipReason: "source_disabled",
         messageSource: item.messageSource
       });
-      const messageTimestamp = getMessageTimestampMs(item.message);
-      await appendAiBotMessageLog({
-        messageId: item.messageId,
-        messageSource: item.messageSource,
-        typeLabel,
-        linkId: item.linkId,
-        linkTitle: item.context?.detail?.title || "",
-        replyCommentId: item.replyCommentId,
-        rootCommentId: item.rootCommentId || item.replyCommentId,
-        commentId: "",
-        senderId: item.senderId,
-        senderName: item.senderName,
-        messageText: item.messageText || "",
-        messageTimestamp,
-        messageTimeText: messageTimestamp ? formatLogTime(messageTimestamp) : "",
-        sentTimestamp: Date.now(),
-        sentTimeText: formatLogTime(Date.now()),
-        triggerText: item.messageText || "",
-        replyText: `[${typeLabel}回复开关已关闭，已移出等待队列]`,
-        skipped: true,
-        skipReason: "source_disabled"
-      });
       await appendAiBotLog("info", `队列消息跳过：${typeLabel}回复开关已关闭`, {
         messageId: item.messageId,
         messageSource: item.messageSource,
@@ -1954,28 +1866,6 @@
         skippedAt: Date.now(),
         skipReason: "content_moderation",
         messageSource: item.messageSource
-      });
-      const messageTimestamp = getMessageTimestampMs(message);
-      await appendAiBotMessageLog({
-        messageId: item.messageId,
-        messageSource: item.messageSource,
-        typeLabel,
-        linkId: item.linkId,
-        linkTitle: context.detail?.title || "",
-        replyCommentId,
-        rootCommentId: rootCommentId || replyCommentId,
-        commentId: "",
-        senderId: item.senderId,
-        senderName: item.senderName,
-        messageText: item.messageText || "",
-        messageTimestamp,
-        messageTimeText: messageTimestamp ? formatLogTime(messageTimestamp) : "",
-        sentTimestamp: Date.now(),
-        sentTimeText: formatLogTime(Date.now()),
-        triggerText: item.messageText || "",
-        replyText: "[内容审查未通过，已跳过]",
-        skipped: true,
-        skipReason: "content_moderation"
       });
       await appendAiBotLog("info", `队列消息跳过：内容审查未通过`, messageDebug);
       return;
@@ -2082,28 +1972,6 @@
             messageSource: item.messageSource,
             queueAge: Math.floor(itemAge / 1000)
           });
-          const messageTimestamp = getMessageTimestampMs(item.message);
-          await appendAiBotMessageLog({
-            messageId: item.messageId,
-            messageSource: item.messageSource,
-            typeLabel: getAiBotMessageTypeLabel(item.messageSource),
-            linkId: item.linkId,
-            linkTitle: item.context?.detail?.title || "",
-            replyCommentId: item.replyCommentId,
-            rootCommentId: item.rootCommentId || item.replyCommentId,
-            commentId: "",
-            senderId: item.senderId,
-            senderName: item.senderName,
-            messageText: item.messageText || "",
-            messageTimestamp,
-            messageTimeText: messageTimestamp ? formatLogTime(messageTimestamp) : "",
-            sentTimestamp: Date.now(),
-            sentTimeText: formatLogTime(Date.now()),
-            triggerText: item.messageText || "",
-            replyText: `[队列超时 ${Math.floor(itemAge / 60000)} 分钟，已跳过]`,
-            skipped: true,
-            skipReason: "queue_expired"
-          });
           await appendAiBotLog("info", "跳过过期队列消息", {
             messageId: item.messageId,
             queueAgeMinutes: Math.floor(itemAge / 60000),
@@ -2121,28 +1989,6 @@
             stage: error?.aiBotStage || "处理队列消息",
             error: error?.message || "未知错误",
             ...(error?.aiBotDetail || {})
-          });
-          const messageTimestamp = getMessageTimestampMs(item.message);
-          await appendAiBotMessageLog({
-            messageId: item.messageId,
-            messageSource: item.messageSource,
-            typeLabel: getAiBotMessageTypeLabel(item.messageSource),
-            linkId: item.linkId,
-            linkTitle: item.context?.detail?.title || "",
-            replyCommentId: item.replyCommentId,
-            rootCommentId: item.rootCommentId || item.replyCommentId,
-            commentId: "",
-            senderId: item.senderId,
-            senderName: item.senderName,
-            messageText: item.messageText || "",
-            messageTimestamp,
-            messageTimeText: messageTimestamp ? formatLogTime(messageTimestamp) : "",
-            sentTimestamp: Date.now(),
-            sentTimeText: formatLogTime(Date.now()),
-            triggerText: item.messageText || "",
-            replyText: `[${error?.aiBotStage || "处理队列消息"}失败，已移出等待队列] ${error?.message || "未知错误"}`,
-            skipped: true,
-            skipReason: "send_failed"
           });
         }
 

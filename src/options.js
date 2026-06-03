@@ -777,7 +777,8 @@
   function renderAiBotMessageLogs(logs) {
     const now = Date.now();
     const normalizedLogs = (Array.isArray(logs) ? logs : [])
-      .filter((log) => Number(log?.timestamp || 0) >= now - AI_BOT_LOG_RETENTION_MS);
+      .filter((log) => !log?.skipped && Number(log?.timestamp || 0) >= now - AI_BOT_LOG_RETENTION_MS)
+      .sort((left, right) => Number(right?.sentTimestamp || right?.timestamp || 0) - Number(left?.sentTimestamp || left?.timestamp || 0));
     const previousScrollTop = aiBotMessageLogsElement.scrollTop;
     const wasNearTop = previousScrollTop <= 4;
     aiBotMessageLogsElement.innerHTML = "";
