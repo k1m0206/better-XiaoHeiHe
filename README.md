@@ -29,8 +29,8 @@
 
 ### 0.1.4.7
 
-- AI 设置支持选择 OpenAI Compatible、OpenAI Responses、Anthropic 和 Gemini 接入方式。
-- AI 设置支持按当前服务商、Base URL 和 API Key 拉取模型列表，同时保留手动填写模型能力。
+- AI 总结设置支持选择 OpenAI Compatible、OpenAI Responses、Anthropic 和 Gemini 接入方式。
+- AI 总结设置支持按当前服务商、Base URL 和 API Key 拉取模型列表，同时保留手动填写模型能力。
 - AI 总结请求会根据不同服务商自动适配 Chat Completions、Responses、Messages 和 Gemini Generate Content 端点。
 
 ### 0.1.4.5
@@ -47,9 +47,9 @@
 ### 0.1.4.1
 
 - 新增 AI 总结能力，支持在帖子列表和帖子详情页总结帖子正文与评论区内容。
-- AI 设置支持配置 OpenAI 兼容接口、模型、密钥和总结提示词，并提供连通性测试。
+- AI 总结设置支持配置 OpenAI 兼容接口、模型、密钥和总结提示词，并提供连通性测试。
 - AI 总结弹窗支持继续追问、重新总结，并展示总结和追问耗时。
-- 优化帖子样式、图片文字间距、AI 设置界面和按钮图标表现。
+- 优化帖子样式、图片文字间距、AI 总结设置界面和按钮图标表现。
 
 ### 0.1.4
 
