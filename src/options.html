@@ -12,7 +12,7 @@
         <div class="header">
           <div>
             <h1>Better XiaoHeiHe</h1>
-            <p>帖子、评论和 AI 总结设置</p>
+            <p>帖子、评论、AI 总结和 AI Bot 设置</p>
           </div>
         </div>
 
@@ -20,6 +20,7 @@
           <button class="tab is-active" type="button" role="tab" data-tab="feed" aria-selected="true">帖子</button>
           <button class="tab" type="button" role="tab" data-tab="comment" aria-selected="false">评论</button>
           <button class="tab" type="button" role="tab" data-tab="ai" aria-selected="false">AI 总结设置</button>
+          <button class="tab" type="button" role="tab" data-tab="aibot" aria-selected="false">AI Bot</button>
         </div>
 
         <div id="panel-feed" class="tab-panel is-active" data-panel="feed">
@@ -138,6 +139,126 @@
           <div class="actions">
             <button id="test" type="button">测试连通</button>
             <span id="status" role="status"></span>
+          </div>
+        </div>
+
+        <div id="panel-aibot" class="tab-panel" data-panel="aibot" hidden>
+          <div class="section ai-header">
+            <div>
+              <div class="section-title">AI Bot</div>
+              <div class="section-desc">自动回复 @、评论和回复消息</div>
+            </div>
+            <div class="header-actions">
+              <span id="aiBotEnabledLabel" class="status-pill">未开启</span>
+              <label class="switch" aria-label="开启 AI Bot">
+                <input id="aiBotEnabled" type="checkbox">
+                <span></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">接入配置</div>
+            <label class="field">
+              <span>服务商类型</span>
+              <select id="aiBotProvider">
+                <option value="openai-compatible">OpenAI Compatible · Chat Completions</option>
+                <option value="openai-responses">OpenAI · Responses</option>
+                <option value="anthropic">Anthropic · Messages</option>
+                <option value="gemini">Gemini · Generate Content</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>Base URL</span>
+              <input id="aiBotBaseUrl" type="url" placeholder="https://api.openai.com/v1">
+            </label>
+
+            <label class="field">
+              <span class="field-title">
+                模型
+                <button id="aiBotFetchModels" class="text-button" type="button">拉取模型</button>
+              </span>
+              <div class="model-combobox">
+                <input id="aiBotModel" list="aiBotModelOptions" type="text" placeholder="gpt-4.1-mini">
+                <button id="aiBotModelDropdown" class="model-dropdown" type="button" aria-label="选择已拉取模型" aria-expanded="false" disabled></button>
+                <div id="aiBotModelMenu" class="model-menu" role="listbox" hidden></div>
+              </div>
+              <datalist id="aiBotModelOptions"></datalist>
+            </label>
+
+            <label class="field">
+              <span>API Key</span>
+              <input id="aiBotApiKey" type="password" autocomplete="off" placeholder="sk-...">
+            </label>
+          </div>
+
+          <div class="section">
+            <div class="section-title">运行规则</div>
+            <div class="compact-number-grid">
+              <label class="field field--compact-number">
+                <span>轮询评论和@周期（分钟）</span>
+                <input id="aiBotPollMinutes" type="number" min="1" step="1" value="1">
+              </label>
+
+              <label class="field field--compact-number">
+                <span>只处理最近消息（分钟）</span>
+                <input id="aiBotMessageFreshMinutes" type="number" min="1" step="1" value="5">
+              </label>
+            </div>
+
+            <label class="check-row">
+              <input id="aiBotReplyMentions" type="checkbox" checked>
+              <span>回复 @ 我的消息</span>
+            </label>
+
+            <label class="check-row">
+              <input id="aiBotReplyComments" type="checkbox">
+              <span>回复评论 / 回复我的消息</span>
+            </label>
+
+            <label class="field field--prompt">
+              <span>白名单用户 ID</span>
+              <textarea id="aiBotWhitelist" rows="4" placeholder="空白表示允许回复所有触发用户；多个 ID 可用逗号、空格或换行分隔"></textarea>
+            </label>
+
+            <label class="field field--prompt">
+              <span class="field-title">
+                AI 评论提示词
+                <button id="aiBotResetPrompt" class="text-button" type="button">恢复默认</button>
+              </span>
+              <textarea id="aiBotCommentPrompt" rows="6"></textarea>
+            </label>
+          </div>
+
+          <div class="actions">
+            <button id="aiBotTest" type="button">测试连通</button>
+            <button id="aiBotRunNow" type="button">立即轮询</button>
+            <button id="aiBotViewLogs" type="button">查看运行日志</button>
+            <span id="aiBotStatus" role="status"></span>
+          </div>
+        </div>
+
+        <div id="panel-aibot-logs" class="tab-panel" data-panel="aibot-logs" hidden>
+          <div class="section">
+            <div class="field-title log-title">
+              <span class="section-title">AI Bot 运行日志</span>
+              <span>
+                <button id="aiBotBackSettings" class="text-button" type="button">返回设置</button>
+                <button id="aiBotClearLogs" class="text-button" type="button">清空日志</button>
+              </span>
+            </div>
+            <div class="section-desc">进入本界面时会读取最新日志；日志仅保存在当前浏览器本地。</div>
+            <div class="log-switch" role="tablist" aria-label="AI Bot 日志类型">
+              <button class="log-switch-button is-active" type="button" data-ai-bot-log-view="runtime" role="tab" aria-selected="true">运行日志</button>
+              <button class="log-switch-button" type="button" data-ai-bot-log-view="message" role="tab" aria-selected="false">消息日志</button>
+            </div>
+            <div id="aiBotLogs" class="log-list" data-ai-bot-log-panel="runtime"></div>
+            <div id="aiBotMessageLogs" class="message-log-list" data-ai-bot-log-panel="message" hidden></div>
+            <div class="actions actions--log">
+              <button id="aiBotRefreshLogs" type="button">刷新日志</button>
+              <span id="aiBotLogStatus" role="status"></span>
+            </div>
           </div>
         </div>
       </section>

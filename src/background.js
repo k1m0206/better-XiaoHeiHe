@@ -1,6 +1,24 @@
 (function () {
   const AI_SETTINGS_STORAGE_KEY = "better-xiaoheihe-ai-settings";
   const AI_MODEL_CACHE_STORAGE_KEY = "better-xiaoheihe-ai-model-cache";
+  const AI_BOT_SETTINGS_STORAGE_KEY = "better-xiaoheihe-ai-bot-settings";
+  const AI_BOT_LOGS_STORAGE_KEY = "better-xiaoheihe-ai-bot-logs";
+  const AI_BOT_MESSAGE_LOGS_STORAGE_KEY = "better-xiaoheihe-ai-bot-message-logs";
+  const AI_BOT_EMOJI_CODES_STORAGE_KEY = "better-xiaoheihe-ai-bot-emoji-codes";
+  const AI_BOT_REPLIED_RECORDS_STORAGE_KEY = "better-xiaoheihe-ai-bot-replied-records";
+  const AI_BOT_RUNTIME_STORAGE_KEY = "better-xiaoheihe-ai-bot-runtime";
+  const API_PARAMS_STORAGE_KEY = "better-xiaoheihe-api-params";
+  const AI_BOT_ALARM_NAME = "better-xiaoheihe-ai-bot-poll";
+  const AI_BOT_LOG_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+  const AI_BOT_EMOJI_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+  const AI_BOT_COMMENT_COOLDOWN_MS = 30 * 1000;
+  const AI_BOT_MESSAGE_LIMIT = 20;
+  const AI_BOT_COMMENT_LIMIT = 30;
+  const AI_BOT_DEFAULT_PROMPT = "你是小黑盒社区自动回复助手。请根据消息类型、帖子正文、评论区上下文和触发消息的那条评论，生成一条自然、友好、简洁的中文回复。可以自然使用提供的小黑盒表情短码，但不要编造未提供的短码。不要暴露你是AI，不要使用模板化开头，不要编造事实，不要输出Markdown。";
+  const AI_BOT_MESSAGE_TYPES = {
+    MENTION: "mention",
+    COMMENT: "comment"
+  };
   const DEFAULT_SUMMARY_PROMPT = "你是社区帖子总结助手，请用中文简洁输出：\n帖子总结\n一句话概括帖子核心内容。\n评论区信息\n提取评论区里有价值的观点、经验、补充或避坑信息，没有则跳过。\nAI简评\n像真实网友一样补充观点，避免AI味。\n返回md格式。";
   const AI_PROVIDERS = {
     OPENAI_COMPATIBLE: "openai-compatible",
@@ -15,9 +33,21 @@
     [AI_PROVIDERS.ANTHROPIC]: "https://api.anthropic.com/v1",
     [AI_PROVIDERS.GEMINI]: "https://generativelanguage.googleapis.com/v1beta"
   };
+  const API_ORIGIN = "https://api.xiaoheihe.cn";
+  const WEB_ORIGIN = "https://www.xiaoheihe.cn";
+  const MESSAGE_API_PATH = "/bbs/app/user/message";
+  const LINK_TREE_API_PATH = "/bbs/app/link/tree";
+  const COMMENT_CREATE_API_PATH = "/bbs/app/comment/create";
+  const EMOJI_API_PATH = "/bbs/app/api/emojis/list";
   const SANITIZED_COMMENT_COOKIE_RULE_ID = 101;
+  const AI_BOT_COMMENT_HEADER_RULE_ID = 102;
   const sanitizedCommentCookieRules = new Map();
   let sanitizedCommentCookieRuleQueue = Promise.resolve();
+  let aiBotRunning = false;
+  let aiBotCommentQueue = Promise.resolve();
+  let cachedApiParams = {};
+  let aiBotEmojiCodes = [];
+  let aiBotEmojiPromise = null;
 
   function normalizeProvider(provider) {
     return Object.values(AI_PROVIDERS).includes(provider) ? provider : DEFAULT_PROVIDER;
@@ -38,6 +68,124 @@
       apiKey: String(settings?.apiKey || ""),
       summaryPrompt: String(settings?.summaryPrompt || "").trim() || DEFAULT_SUMMARY_PROMPT
     };
+  }
+
+  function normalizeIdList(value) {
+    return [...new Set((Array.isArray(value) ? value : String(value || "").split(/[\s,，;；]+/))
+      .map((item) => String(item || "").trim())
+      .filter(Boolean))];
+  }
+
+  function normalizeAiBotSettings(settings) {
+    const provider = normalizeProvider(settings?.provider || settings?.endpointMode);
+    return {
+      enabled: settings?.enabled === true,
+      provider,
+      endpointMode: provider,
+      baseUrl: normalizeBaseUrl(settings?.baseUrl, provider),
+      model: String(settings?.model || "").trim(),
+      apiKey: String(settings?.apiKey || ""),
+      pollMinutes: Math.max(1, Number.parseInt(settings?.pollMinutes, 10) || 1),
+      messageFreshMinutes: Math.max(1, Number.parseInt(settings?.messageFreshMinutes, 10) || 5),
+      replyMentions: settings?.replyMentions !== false,
+      replyComments: settings?.replyComments === true,
+      whitelistUserIds: normalizeIdList(settings?.whitelistUserIds || settings?.whitelistText),
+      commentPrompt: String(settings?.commentPrompt || "").trim() || AI_BOT_DEFAULT_PROMPT
+    };
+  }
+
+  function storageGet(keys) {
+    return new Promise((resolve) => {
+      chrome.storage.local.get(keys, (result) => resolve(result || {}));
+    });
+  }
+
+  function storageSet(values) {
+    return new Promise((resolve) => {
+      chrome.storage.local.set(values, resolve);
+    });
+  }
+
+  function storageRemove(keys) {
+    return new Promise((resolve) => {
+      chrome.storage.local.remove(keys, resolve);
+    });
+  }
+
+  async function readAiBotSettings() {
+    const result = await storageGet(AI_BOT_SETTINGS_STORAGE_KEY);
+    return normalizeAiBotSettings(result[AI_BOT_SETTINGS_STORAGE_KEY]);
+  }
+
+  async function writeAiBotSettings(settings) {
+    const normalized = normalizeAiBotSettings(settings);
+    await storageSet({ [AI_BOT_SETTINGS_STORAGE_KEY]: normalized });
+    return normalized;
+  }
+
+  function formatLogTime(timestamp) {
+    try {
+      return new Date(timestamp).toLocaleString("zh-CN", { hour12: false });
+    } catch {
+      return "";
+    }
+  }
+
+  async function appendAiBotLog(level, message, detail = {}) {
+    const now = Date.now();
+    const result = await storageGet(AI_BOT_LOGS_STORAGE_KEY);
+    const currentLogs = Array.isArray(result[AI_BOT_LOGS_STORAGE_KEY]) ? result[AI_BOT_LOGS_STORAGE_KEY] : [];
+    const logs = [
+      {
+        id: `${now}-${Math.random().toString(16).slice(2)}`,
+        timestamp: now,
+        timeText: formatLogTime(now),
+        level: ["error", "warn", "success"].includes(level) ? level : "info",
+        message: String(message || ""),
+        detail: detail && typeof detail === "object" ? detail : {}
+      },
+      ...currentLogs.filter((item) => Number(item?.timestamp || 0) >= now - AI_BOT_LOG_RETENTION_MS)
+    ].slice(0, 500);
+    await storageSet({ [AI_BOT_LOGS_STORAGE_KEY]: logs });
+  }
+
+  async function appendAiBotMessageLog(entry = {}) {
+    const now = Date.now();
+    const result = await storageGet(AI_BOT_MESSAGE_LOGS_STORAGE_KEY);
+    const currentLogs = Array.isArray(result[AI_BOT_MESSAGE_LOGS_STORAGE_KEY])
+      ? result[AI_BOT_MESSAGE_LOGS_STORAGE_KEY]
+      : [];
+    const logs = [
+      {
+        id: `${now}-${Math.random().toString(16).slice(2)}`,
+        timestamp: now,
+        timeText: formatLogTime(now),
+        ...entry
+      },
+      ...currentLogs.filter((item) => Number(item?.timestamp || 0) >= now - AI_BOT_LOG_RETENTION_MS)
+    ].slice(0, 500);
+    await storageSet({ [AI_BOT_MESSAGE_LOGS_STORAGE_KEY]: logs });
+  }
+
+  function notifyAiBotLoginExpired() {
+    if (!chrome.notifications?.create) {
+      return;
+    }
+
+    chrome.notifications.create("better-xiaoheihe-ai-bot-login-expired", {
+      type: "basic",
+      iconUrl: "assets/icons/icon128.png",
+      title: "AI Bot 已停止",
+      message: "小黑盒登录状态已过期，请重新登录后再开启 AI Bot。"
+    });
+  }
+
+  async function stopAiBotForLoginExpired(reason) {
+    const settings = await readAiBotSettings();
+    await writeAiBotSettings({ ...settings, enabled: false });
+    await clearAiBotAlarm();
+    await appendAiBotLog("error", "登录状态过期，AI Bot 已停止", { reason });
+    notifyAiBotLoginExpired();
   }
 
   function normalizeModelList(models) {
@@ -118,6 +266,301 @@
     }
 
     chrome.tabs.create({ url });
+  }
+
+  function md5(input) {
+    function safeAdd(x, y) {
+      const lsw = (x & 0xffff) + (y & 0xffff);
+      const msw = (x >> 16) + (y >> 16) + (lsw >> 16);
+      return (msw << 16) | (lsw & 0xffff);
+    }
+
+    function rotateLeft(num, cnt) {
+      return (num << cnt) | (num >>> (32 - cnt));
+    }
+
+    function md5cmn(q, a, b, x, s, t) {
+      return safeAdd(rotateLeft(safeAdd(safeAdd(a, q), safeAdd(x, t)), s), b);
+    }
+
+    function md5ff(a, b, c, d, x, s, t) {
+      return md5cmn((b & c) | (~b & d), a, b, x, s, t);
+    }
+
+    function md5gg(a, b, c, d, x, s, t) {
+      return md5cmn((b & d) | (c & ~d), a, b, x, s, t);
+    }
+
+    function md5hh(a, b, c, d, x, s, t) {
+      return md5cmn(b ^ c ^ d, a, b, x, s, t);
+    }
+
+    function md5ii(a, b, c, d, x, s, t) {
+      return md5cmn(c ^ (b | ~d), a, b, x, s, t);
+    }
+
+    function binlMD5(x, len) {
+      x[len >> 5] |= 0x80 << (len % 32);
+      x[(((len + 64) >>> 9) << 4) + 14] = len;
+
+      let a = 1732584193;
+      let b = -271733879;
+      let c = -1732584194;
+      let d = 271733878;
+
+      for (let i = 0; i < x.length; i += 16) {
+        const olda = a;
+        const oldb = b;
+        const oldc = c;
+        const oldd = d;
+
+        a = md5ff(a, b, c, d, x[i], 7, -680876936);
+        d = md5ff(d, a, b, c, x[i + 1], 12, -389564586);
+        c = md5ff(c, d, a, b, x[i + 2], 17, 606105819);
+        b = md5ff(b, c, d, a, x[i + 3], 22, -1044525330);
+        a = md5ff(a, b, c, d, x[i + 4], 7, -176418897);
+        d = md5ff(d, a, b, c, x[i + 5], 12, 1200080426);
+        c = md5ff(c, d, a, b, x[i + 6], 17, -1473231341);
+        b = md5ff(b, c, d, a, x[i + 7], 22, -45705983);
+        a = md5ff(a, b, c, d, x[i + 8], 7, 1770035416);
+        d = md5ff(d, a, b, c, x[i + 9], 12, -1958414417);
+        c = md5ff(c, d, a, b, x[i + 10], 17, -42063);
+        b = md5ff(b, c, d, a, x[i + 11], 22, -1990404162);
+        a = md5ff(a, b, c, d, x[i + 12], 7, 1804603682);
+        d = md5ff(d, a, b, c, x[i + 13], 12, -40341101);
+        c = md5ff(c, d, a, b, x[i + 14], 17, -1502002290);
+        b = md5ff(b, c, d, a, x[i + 15], 22, 1236535329);
+
+        a = md5gg(a, b, c, d, x[i + 1], 5, -165796510);
+        d = md5gg(d, a, b, c, x[i + 6], 9, -1069501632);
+        c = md5gg(c, d, a, b, x[i + 11], 14, 643717713);
+        b = md5gg(b, c, d, a, x[i], 20, -373897302);
+        a = md5gg(a, b, c, d, x[i + 5], 5, -701558691);
+        d = md5gg(d, a, b, c, x[i + 10], 9, 38016083);
+        c = md5gg(c, d, a, b, x[i + 15], 14, -660478335);
+        b = md5gg(b, c, d, a, x[i + 4], 20, -405537848);
+        a = md5gg(a, b, c, d, x[i + 9], 5, 568446438);
+        d = md5gg(d, a, b, c, x[i + 14], 9, -1019803690);
+        c = md5gg(c, d, a, b, x[i + 3], 14, -187363961);
+        b = md5gg(b, c, d, a, x[i + 8], 20, 1163531501);
+        a = md5gg(a, b, c, d, x[i + 13], 5, -1444681467);
+        d = md5gg(d, a, b, c, x[i + 2], 9, -51403784);
+        c = md5gg(c, d, a, b, x[i + 7], 14, 1735328473);
+        b = md5gg(b, c, d, a, x[i + 12], 20, -1926607734);
+
+        a = md5hh(a, b, c, d, x[i + 5], 4, -378558);
+        d = md5hh(d, a, b, c, x[i + 8], 11, -2022574463);
+        c = md5hh(c, d, a, b, x[i + 11], 16, 1839030562);
+        b = md5hh(b, c, d, a, x[i + 14], 23, -35309556);
+        a = md5hh(a, b, c, d, x[i + 1], 4, -1530992060);
+        d = md5hh(d, a, b, c, x[i + 4], 11, 1272893353);
+        c = md5hh(c, d, a, b, x[i + 7], 16, -155497632);
+        b = md5hh(b, c, d, a, x[i + 10], 23, -1094730640);
+        a = md5hh(a, b, c, d, x[i + 13], 4, 681279174);
+        d = md5hh(d, a, b, c, x[i], 11, -358537222);
+        c = md5hh(c, d, a, b, x[i + 3], 16, -722521979);
+        b = md5hh(b, c, d, a, x[i + 6], 23, 76029189);
+        a = md5hh(a, b, c, d, x[i + 9], 4, -640364487);
+        d = md5hh(d, a, b, c, x[i + 12], 11, -421815835);
+        c = md5hh(c, d, a, b, x[i + 15], 16, 530742520);
+        b = md5hh(b, c, d, a, x[i + 2], 23, -995338651);
+
+        a = md5ii(a, b, c, d, x[i], 6, -198630844);
+        d = md5ii(d, a, b, c, x[i + 7], 10, 1126891415);
+        c = md5ii(c, d, a, b, x[i + 14], 15, -1416354905);
+        b = md5ii(b, c, d, a, x[i + 5], 21, -57434055);
+        a = md5ii(a, b, c, d, x[i + 12], 6, 1700485571);
+        d = md5ii(d, a, b, c, x[i + 3], 10, -1894986606);
+        c = md5ii(c, d, a, b, x[i + 10], 15, -1051523);
+        b = md5ii(b, c, d, a, x[i + 1], 21, -2054922799);
+        a = md5ii(a, b, c, d, x[i + 8], 6, 1873313359);
+        d = md5ii(d, a, b, c, x[i + 15], 10, -30611744);
+        c = md5ii(c, d, a, b, x[i + 6], 15, -1560198380);
+        b = md5ii(b, c, d, a, x[i + 13], 21, 1309151649);
+        a = md5ii(a, b, c, d, x[i + 4], 6, -145523070);
+        d = md5ii(d, a, b, c, x[i + 11], 10, -1120210379);
+        c = md5ii(c, d, a, b, x[i + 2], 15, 718787259);
+        b = md5ii(b, c, d, a, x[i + 9], 21, -343485551);
+
+        a = safeAdd(a, olda);
+        b = safeAdd(b, oldb);
+        c = safeAdd(c, oldc);
+        d = safeAdd(d, oldd);
+      }
+
+      return [a, b, c, d];
+    }
+
+    function rawStringToWords(inputString) {
+      const output = [];
+      output[(inputString.length >> 2) - 1] = undefined;
+      for (let i = 0; i < output.length; i++) {
+        output[i] = 0;
+      }
+      for (let i = 0; i < inputString.length * 8; i += 8) {
+        output[i >> 5] |= (inputString.charCodeAt(i / 8) & 0xff) << (i % 32);
+      }
+      return output;
+    }
+
+    function wordsToRawString(inputWords) {
+      let output = "";
+      for (let i = 0; i < inputWords.length * 32; i += 8) {
+        output += String.fromCharCode((inputWords[i >> 5] >>> (i % 32)) & 0xff);
+      }
+      return output;
+    }
+
+    function rawStringToHex(inputString) {
+      const hexTab = "0123456789abcdef";
+      let output = "";
+      for (let i = 0; i < inputString.length; i++) {
+        const x = inputString.charCodeAt(i);
+        output += hexTab.charAt((x >>> 4) & 0x0f) + hexTab.charAt(x & 0x0f);
+      }
+      return output;
+    }
+
+    const raw = unescape(encodeURIComponent(String(input)));
+    return rawStringToHex(wordsToRawString(binlMD5(rawStringToWords(raw), raw.length * 8)));
+  }
+
+  function mixColumns(values) {
+    function xtime(value) {
+      return value & 128 ? ((value << 1) ^ 27) & 255 : value << 1;
+    }
+
+    function q(value) {
+      return xtime(value) ^ value;
+    }
+
+    function r(value) {
+      return q(xtime(value));
+    }
+
+    function y(value) {
+      return r(q(xtime(value)));
+    }
+
+    function g(value) {
+      return y(value) ^ r(value) ^ q(value);
+    }
+
+    const result = [0, 0, 0, 0];
+    result[0] = g(values[0]) ^ y(values[1]) ^ r(values[2]) ^ q(values[3]);
+    result[1] = q(values[0]) ^ g(values[1]) ^ y(values[2]) ^ r(values[3]);
+    result[2] = r(values[0]) ^ q(values[1]) ^ g(values[2]) ^ y(values[3]);
+    result[3] = y(values[0]) ^ r(values[1]) ^ q(values[2]) ^ g(values[3]);
+    values[0] = result[0];
+    values[1] = result[1];
+    values[2] = result[2];
+    values[3] = result[3];
+    return values;
+  }
+
+  function mapByAlphabet(value, alphabet, end) {
+    let result = "";
+    const source = alphabet.slice(0, end);
+    for (let i = 0; i < value.length; i++) {
+      result += source[value.charCodeAt(i) % source.length];
+    }
+    return result;
+  }
+
+  function pathToAlphabet(value, alphabet) {
+    let result = "";
+    for (let i = 0; i < value.length; i++) {
+      result += alphabet[value.charCodeAt(i) % alphabet.length];
+    }
+    return result;
+  }
+
+  function interleave(values) {
+    let result = "";
+    const maxLength = Math.max(...values.map((value) => value.length));
+    for (let i = 0; i < maxLength; i++) {
+      values.forEach((value) => {
+        if (i < value.length) {
+          result += value[i];
+        }
+      });
+    }
+    return result;
+  }
+
+  function createSignedParams(path) {
+    const time = Math.floor(Date.now() / 1000);
+    const nonce = md5(`${time}${Math.random(Date.now())}`).toUpperCase();
+    const normalizedPath = `/${path.split("/").filter(Boolean).join("/")}/`;
+    const alphabet = "AB45STUVWZEFGJ6CH01D237IXYPQRKLMN89";
+    const seed = interleave([
+      mapByAlphabet(String(time + 1), alphabet, -2),
+      pathToAlphabet(normalizedPath, alphabet),
+      pathToAlphabet(nonce, alphabet)
+    ]).slice(0, 20);
+    const hash = md5(seed);
+    const checksum = String(
+      mixColumns(hash.slice(-6).split("").map((char) => char.charCodeAt(0)))
+        .reduce((sum, value) => sum + value, 0) % 100
+    ).padStart(2, "0");
+
+    return {
+      hkey: `${mapByAlphabet(hash.substring(0, 5), alphabet, -4)}${checksum}`,
+      _time: time,
+      nonce
+    };
+  }
+
+  function normalizeCachedApiParams(value) {
+    const source = value?.params && typeof value.params === "object" ? value.params : value;
+    if (!source || typeof source !== "object") {
+      return {};
+    }
+    const allowedKeys = [
+      "os_type",
+      "app",
+      "client_type",
+      "version",
+      "web_version",
+      "x_client_type",
+      "x_app",
+      "heybox_id",
+      "x_os_type",
+      "device_info",
+      "device_id"
+    ];
+    return allowedKeys.reduce((result, key) => {
+      const text = String(source[key] || "").trim();
+      if (text) {
+        result[key] = text;
+      }
+      return result;
+    }, {});
+  }
+
+  async function refreshCachedApiParams() {
+    const result = await storageGet(API_PARAMS_STORAGE_KEY);
+    cachedApiParams = normalizeCachedApiParams(result[API_PARAMS_STORAGE_KEY]);
+    return cachedApiParams;
+  }
+
+  function buildApiUrl(path, params = {}) {
+    const reusedParams = normalizeCachedApiParams(cachedApiParams);
+    const query = new URLSearchParams({
+      os_type: "web",
+      app: "heybox",
+      client_type: "web",
+      version: "999.0.4",
+      web_version: "2.5",
+      x_client_type: "web",
+      x_app: "heybox_website",
+      x_os_type: "Windows",
+      device_info: "Chrome",
+      ...reusedParams,
+      ...params,
+      ...createSignedParams(path)
+    });
+    return `${API_ORIGIN}${path}?${query.toString()}`;
   }
 
   function buildProviderUrl(baseUrl, path) {
@@ -444,6 +887,833 @@
     }
   }
 
+  function getCookie(name) {
+    return new Promise((resolve) => {
+      if (!chrome.cookies?.get) {
+        resolve("");
+        return;
+      }
+
+      chrome.cookies.get({ url: "https://www.xiaoheihe.cn/", name }, (cookie) => {
+        resolve(cookie?.value || "");
+      });
+    });
+  }
+
+  async function getCurrentHeyboxId() {
+    return await getCookie("heybox_id") || await getCookie("user_heybox_id");
+  }
+
+  function getUserId(user) {
+    return String(user?.heybox_id || user?.user_heybox_id || user?.userid || user?.user_id || user?.uid || user?.id || "").trim();
+  }
+
+  function stripHtml(value) {
+    return String(value || "")
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<[^>]+>/g, "")
+      .replace(/&nbsp;/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, "\"")
+      .replace(/&#039;/g, "'")
+      .replace(/\[cube_([^\]]+)\]/g, "[$1]")
+      .trim();
+  }
+
+  function getCommentId(comment) {
+    return comment?.comment_id || comment?.commentid || comment?.commentId || comment?.id || comment?.cid || "";
+  }
+
+  function getCommentUpCount(comment) {
+    const values = [
+      comment?.up,
+      comment?.up_num,
+      comment?.up_count,
+      comment?.support_num,
+      comment?.support_count,
+      comment?.like_num,
+      comment?.like_count
+    ];
+    const value = values.find((item) => Number.isFinite(Number(item)));
+    return Number(value) || 0;
+  }
+
+  function getLinkIdFromMessage(message) {
+    return String(
+      message?.link?.linkid
+      || message?.link?.link_id
+      || message?.linkid
+      || message?.link_id
+      || message?.target?.linkid
+      || ""
+    ).trim();
+  }
+
+  function findFirstFieldDeep(source, names, seen = new Set()) {
+    if (!source || typeof source !== "object" || seen.has(source)) {
+      return "";
+    }
+    seen.add(source);
+
+    for (const name of names) {
+      if (source[name] !== undefined && source[name] !== null && source[name] !== "") {
+        return source[name];
+      }
+    }
+
+    for (const value of Object.values(source)) {
+      if (value && typeof value === "object") {
+        const found = findFirstFieldDeep(value, names, seen);
+        if (found !== "") {
+          return found;
+        }
+      }
+    }
+    return "";
+  }
+
+  function getReplyCommentIdFromMessage(message) {
+    return String(findFirstFieldDeep(message, [
+      "comment_id",
+      "commentid",
+      "commentId",
+      "comment_a_id",
+      "replyid",
+      "reply_id",
+      "cid"
+    ]) || "").trim();
+  }
+
+  function getRootCommentIdFromMessage(message) {
+    return String(findFirstFieldDeep(message, [
+      "root_id",
+      "root_comment_id",
+      "rootCommentId",
+      "root_commentid"
+    ]) || "").trim();
+  }
+
+  function normalizeCommentGroups(data) {
+    const rawComments = data?.result?.comments || data?.result?.comment || data?.comments || [];
+    return (Array.isArray(rawComments) ? rawComments : [])
+      .map((item) => {
+        if (item?.root || item?.comment) {
+          const rootSource = item.root || item.comment;
+          const root = Array.isArray(rootSource) ? rootSource[0] : rootSource;
+          const replies = item.replies || item.children || item.sub_comments || item.subComments || [];
+          return {
+            root,
+            replies: Array.isArray(replies) ? replies : []
+          };
+        }
+
+        return {
+          root: item,
+          replies: Array.isArray(item?.replies || item?.children) ? (item.replies || item.children) : []
+        };
+      })
+      .filter((group) => group.root);
+  }
+
+  function getLinkDetail(data) {
+    const link = data?.result?.link || {};
+    return {
+      title: String(link.title || "").trim(),
+      author: String(link.user?.username || link.user?.nickname || "").trim(),
+      content: stripHtml(link.text || link.description || ""),
+      topic: [
+        ...(Array.isArray(link.topics) ? link.topics.map((topic) => topic?.name) : []),
+        ...(Array.isArray(link.tags) ? link.tags.map((tag) => tag?.text || tag?.name) : []),
+        ...(Array.isArray(link.hashtags) ? link.hashtags.map((tag) => tag?.text || tag?.name) : [])
+      ].filter(Boolean).join("\n")
+    };
+  }
+
+  function getCommentLine(comment) {
+    const userName = comment?.user?.username || comment?.user?.nickname || "匿名用户";
+    const text = stripHtml(comment?.text || comment?.content || "");
+    return text ? `${userName}：${text}` : "";
+  }
+
+  function getAiBotCommentLines(groups) {
+    let order = 0;
+    const entries = (groups || []).flatMap((group) => {
+      return [group.root, ...(group.replies || [])].filter(Boolean).map((comment) => {
+        order += 1;
+        return {
+          line: getCommentLine(comment),
+          up: getCommentUpCount(comment),
+          order
+        };
+      });
+    }).filter((entry) => entry.line);
+
+    const selected = entries.length > AI_BOT_COMMENT_LIMIT
+      ? entries.slice().sort((left, right) => (right.up - left.up) || (left.order - right.order)).slice(0, AI_BOT_COMMENT_LIMIT)
+      : entries;
+    return selected.slice().sort((left, right) => left.order - right.order).map((entry) => entry.line);
+  }
+
+  function findCommentById(groups, commentId) {
+    const normalizedId = String(commentId || "");
+    for (const group of groups || []) {
+      const comments = [group.root, ...(group.replies || [])].filter(Boolean);
+      const comment = comments.find((item) => String(getCommentId(item)) === normalizedId);
+      if (comment) {
+        return comment;
+      }
+    }
+    return null;
+  }
+
+  async function fetchAiBotJson(url, options = {}) {
+    const response = await fetch(url, {
+      ...options,
+      credentials: "include",
+      referrer: WEB_ORIGIN + "/",
+      headers: {
+        "accept": "application/json",
+        "accept-language": "zh,zh-CN;q=0.9",
+        ...(options.headers || {})
+      }
+    });
+    const data = await readJsonResponse(response);
+    if (!response.ok) {
+      throw new Error(`请求失败：${response.status}`);
+    }
+    return data;
+  }
+
+  function getAiBotApiErrorMessage(data, fallback) {
+    return [
+      data?.message,
+      data?.msg,
+      data?.error,
+      data?.status && data.status !== "ok" ? `status=${data.status}` : "",
+      fallback
+    ].filter(Boolean).map((item) => String(item)).join("；") || fallback;
+  }
+
+  function sanitizeAiBotLogUrl(url) {
+    try {
+      const parsed = new URL(url);
+      ["hkey", "nonce", "_time"].forEach((key) => {
+        if (parsed.searchParams.has(key)) {
+          parsed.searchParams.set(key, "***");
+        }
+      });
+      return parsed.toString();
+    } catch (_) {
+      return String(url || "");
+    }
+  }
+
+  function maskAiBotCommentBody(body) {
+    const params = new URLSearchParams(body);
+    const text = params.get("text") || "";
+    if (text) {
+      params.set("text", `${text.slice(0, 80)}${text.length > 80 ? "..." : ""}`);
+    }
+    return params.toString();
+  }
+
+  function buildMessageListUrl(heyboxId, options = {}) {
+    const params = {
+      list_type: "0",
+      offset: "0",
+      limit: String(AI_BOT_MESSAGE_LIMIT),
+      heybox_id: heyboxId
+    };
+    if (options.messageType) {
+      params.message_type = String(options.messageType);
+    } else {
+      params.no_more = "false";
+    }
+    return buildApiUrl(MESSAGE_API_PATH, params);
+  }
+
+  function buildLinkTreeUrl(linkId, heyboxId) {
+    return buildApiUrl(LINK_TREE_API_PATH, {
+      h_src: "",
+      link_id: linkId,
+      is_first: "1",
+      page: "1",
+      index: "1",
+      limit: "20",
+      owner_only: "0",
+      heybox_id: heyboxId
+    });
+  }
+
+  function buildCommentCreateUrl(heyboxId) {
+    return buildApiUrl(COMMENT_CREATE_API_PATH, {
+      heybox_id: heyboxId
+    });
+  }
+
+  function buildEmojiListUrl(heyboxId) {
+    return buildApiUrl(EMOJI_API_PATH, {
+      heybox_id: heyboxId
+    });
+  }
+
+  function isLoginExpiredResponse(data) {
+    const text = `${data?.status || ""} ${data?.msg || ""} ${data?.message || ""} ${data?.error || ""}`;
+    return data?.status === "unauthorized"
+      || data?.status === "login_required"
+      || /登录|login|unauthorized|401/i.test(text);
+  }
+
+  async function fetchMentionMessages(heyboxId) {
+    const data = await fetchAiBotJson(buildMessageListUrl(heyboxId, { messageType: "16" }));
+    if (data?.status !== "ok") {
+      if (isLoginExpiredResponse(data)) {
+        await stopAiBotForLoginExpired(data?.message || data?.msg || data?.status);
+        return [];
+      }
+      throw new Error(getAiBotApiErrorMessage(data, "消息查询失败"));
+    }
+    return Array.isArray(data?.result?.messages) ? data.result.messages : [];
+  }
+
+  async function fetchCommentMessages(heyboxId) {
+    const data = await fetchAiBotJson(buildMessageListUrl(heyboxId));
+    if (data?.status !== "ok") {
+      if (isLoginExpiredResponse(data)) {
+        await stopAiBotForLoginExpired(data?.message || data?.msg || data?.status);
+        return [];
+      }
+      throw new Error(getAiBotApiErrorMessage(data, "评论消息查询失败"));
+    }
+    return (Array.isArray(data?.result?.messages) ? data.result.messages : [])
+      .filter((message) => ["1", "2"].includes(String(message?.message_type || "")))
+      .filter((message) => getLinkIdFromMessage(message) && getReplyCommentIdFromMessage(message));
+  }
+
+  async function fetchLinkContext(linkId, heyboxId) {
+    const data = await fetchAiBotJson(buildLinkTreeUrl(linkId, heyboxId));
+    if (data?.status !== "ok") {
+      if (isLoginExpiredResponse(data)) {
+        await stopAiBotForLoginExpired(data?.message || data?.msg || data?.status);
+        return null;
+      }
+      throw new Error(getAiBotApiErrorMessage(data, "帖子详情查询失败"));
+    }
+    const groups = normalizeCommentGroups(data);
+    return {
+      detail: getLinkDetail(data),
+      groups
+    };
+  }
+
+  function normalizeAiBotEmojiCodes(data) {
+    const groups = Array.isArray(data?.result?.emoji_groups) ? data.result.emoji_groups : [];
+    const codes = [];
+    groups.forEach((group) => {
+      const groupCode = String(group.group_code || group.group_name || "").trim();
+      const emojis = Array.isArray(group.emojis) ? group.emojis : [];
+      emojis.forEach((emoji) => {
+        const code = String(emoji?.code || emoji?.name || "").trim();
+        if (!code) {
+          return;
+        }
+        codes.push(groupCode ? `[${groupCode}_${code.replace(/^cube_/, "")}]` : `[${code}]`);
+      });
+    });
+    return [...new Set(codes)].filter((code) => /^\[[^\]\r\n]{1,40}\]$/.test(code));
+  }
+
+  async function loadAiBotEmojiCodes(heyboxId) {
+    if (aiBotEmojiCodes.length) {
+      return aiBotEmojiCodes;
+    }
+    if (aiBotEmojiPromise) {
+      return aiBotEmojiPromise;
+    }
+    aiBotEmojiPromise = storageGet(AI_BOT_EMOJI_CODES_STORAGE_KEY)
+      .then((result) => {
+        const cache = result[AI_BOT_EMOJI_CODES_STORAGE_KEY];
+        const codes = Array.isArray(cache?.codes) ? cache.codes.filter((code) => /^\[[^\]\r\n]{1,40}\]$/.test(String(code || ""))) : [];
+        const updatedAt = Number(cache?.updatedAt || 0);
+        if (codes.length) {
+          aiBotEmojiCodes = codes;
+        }
+        if (codes.length && updatedAt >= Date.now() - AI_BOT_EMOJI_CACHE_TTL_MS) {
+          return codes;
+        }
+        return fetchAiBotJson(buildEmojiListUrl(heyboxId)).then((data) => {
+          if (data?.status === "ok") {
+            aiBotEmojiCodes = normalizeAiBotEmojiCodes(data);
+            storageSet({
+              [AI_BOT_EMOJI_CODES_STORAGE_KEY]: {
+                codes: aiBotEmojiCodes,
+                updatedAt: Date.now()
+              }
+            });
+          }
+          return aiBotEmojiCodes;
+        });
+      })
+      .then((data) => {
+        aiBotEmojiCodes = Array.isArray(data) ? data : aiBotEmojiCodes;
+        return aiBotEmojiCodes;
+      })
+      .catch(() => aiBotEmojiCodes)
+      .finally(() => {
+        aiBotEmojiPromise = null;
+      });
+    return aiBotEmojiPromise;
+  }
+
+  function getAiBotMessageTypeLabel(messageSource) {
+    return messageSource === AI_BOT_MESSAGE_TYPES.COMMENT ? "评论/回复我的消息" : "@我的消息";
+  }
+
+  function buildAiBotPromptPayload(message, context, replyCommentId, messageSource, emojiCodes = []) {
+    const triggerComment = findCommentById(context.groups, replyCommentId);
+    const user = message?.user_a || {};
+    const detail = context.detail || {};
+    const typeLabel = getAiBotMessageTypeLabel(messageSource);
+    return [
+      `当前登录账号收到了一条${typeLabel}，消息ID：${message?.message_id || ""}`,
+      `消息发起用户：${user.username || user.nickname || "未知用户"}（ID：${getUserId(user) || "未知"}）`,
+      `帖子标题：${detail.title || "无标题"}`,
+      detail.author ? `帖子作者：${detail.author}` : "",
+      detail.content ? `帖子正文：${detail.content}` : "",
+      detail.topic ? `话题：${detail.topic}` : "",
+      message?.comment_b_text ? `被回复的上一条评论：${stripHtml(String(message.comment_b_text || ""))}` : "",
+      message?.comment_a_text ? `触发消息的评论文本：${stripHtml(String(message.comment_a_text || ""))}` : "",
+      triggerComment ? `触发消息的评论：${getCommentLine(triggerComment)}` : `触发消息的评论ID：${replyCommentId}`,
+      `评论区上下文（最多${AI_BOT_COMMENT_LIMIT}条）：\n${getAiBotCommentLines(context.groups).join("\n") || "暂无评论上下文"}`,
+      emojiCodes.length ? `完整可用小黑盒表情短码列表：${emojiCodes.join(" ")}\n可以自然使用 0-2 个短码，不要编造列表外的短码。` : ""
+    ].filter(Boolean).join("\n\n");
+  }
+
+  function cleanAiBotReply(content, emojiCodes = []) {
+    const allowedEmojiCodes = new Set(emojiCodes);
+    return String(content || "")
+      .replace(/^```(?:\w+)?\s*/i, "")
+      .replace(/```$/i, "")
+      .replace(/^["“”]+|["“”]+$/g, "")
+      .replace(/\[cube_([^\]\r\n]{1,40})\]/g, (matched) => allowedEmojiCodes.has(matched) ? matched : "")
+      .trim()
+      .slice(0, 1000);
+  }
+
+  async function createAiBotReply(settings, message, context, replyCommentId, messageSource, emojiCodes = []) {
+    const payload = buildAiBotPromptPayload(message, context, replyCommentId, messageSource, emojiCodes);
+    const response = await requestChat({
+      messages: [
+        { role: "system", content: settings.commentPrompt },
+        { role: "user", content: payload }
+      ],
+      temperature: 0.6
+    }, {
+      enabled: true,
+      provider: settings.provider,
+      baseUrl: settings.baseUrl,
+      model: settings.model,
+      apiKey: settings.apiKey
+    });
+    if (!response.ok) {
+      throw new Error(response.error || "AI 回复生成失败");
+    }
+    const reply = cleanAiBotReply(response.content, emojiCodes);
+    if (!reply) {
+      throw new Error("AI 没有生成可发送内容");
+    }
+    return reply;
+  }
+
+  async function waitForAiBotCommentCooldown() {
+    const result = await storageGet(AI_BOT_RUNTIME_STORAGE_KEY);
+    const runtime = result[AI_BOT_RUNTIME_STORAGE_KEY] || {};
+    const lastCommentAt = Math.max(
+      Number(runtime.lastCommentAt || 0),
+      Number(runtime.lastCommentAttemptAt || 0)
+    );
+    const waitMs = Math.max(0, AI_BOT_COMMENT_COOLDOWN_MS - (Date.now() - lastCommentAt));
+    if (waitMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+    }
+  }
+
+  async function markAiBotCommentAttempt() {
+    const result = await storageGet(AI_BOT_RUNTIME_STORAGE_KEY);
+    await storageSet({
+      [AI_BOT_RUNTIME_STORAGE_KEY]: {
+        ...(result[AI_BOT_RUNTIME_STORAGE_KEY] || {}),
+        lastCommentAttemptAt: Date.now()
+      }
+    });
+  }
+
+  async function markAiBotCommentSent() {
+    const result = await storageGet(AI_BOT_RUNTIME_STORAGE_KEY);
+    await storageSet({
+      [AI_BOT_RUNTIME_STORAGE_KEY]: {
+        ...(result[AI_BOT_RUNTIME_STORAGE_KEY] || {}),
+        lastCommentAt: Date.now()
+      }
+    });
+  }
+
+  function queueAiBotCommentSubmission(task) {
+    const next = aiBotCommentQueue.then(task, task);
+    aiBotCommentQueue = next.catch(() => {});
+    return next;
+  }
+
+  async function submitAiBotCommentNow(heyboxId, linkId, replyCommentId, rootCommentId, text) {
+    await waitForAiBotCommentCooldown();
+    await markAiBotCommentAttempt();
+    const commentUrl = buildCommentCreateUrl(heyboxId);
+    const body = new URLSearchParams({
+      is_cy: "0",
+      link_id: String(linkId),
+      reply_id: String(replyCommentId),
+      root_id: String(rootCommentId || replyCommentId),
+      text,
+    });
+    const headerRuleResult = await activateAiBotCommentRequestHeaderRule();
+    let data;
+    try {
+      data = await fetchAiBotJson(commentUrl, {
+        method: "POST",
+        headers: {
+          "accept": "application/json",
+          "content-type": "application/x-www-form-urlencoded;charset=UTF-8"
+        },
+        body: body.toString()
+      });
+    } finally {
+      await clearAiBotCommentRequestHeaderRule();
+    }
+    if (data?.status !== "ok") {
+      if (isLoginExpiredResponse(data)) {
+        await stopAiBotForLoginExpired(data?.message || data?.msg || data?.status);
+      }
+      const error = new Error(getAiBotApiErrorMessage(data, "评论发送失败"));
+      error.aiBotDetail = {
+        responseStatus: data?.status || "",
+        responseMessage: data?.message || data?.msg || data?.error || "",
+        responseCode: data?.code || data?.errno || "",
+        requestUrl: sanitizeAiBotLogUrl(commentUrl),
+        requestBody: maskAiBotCommentBody(body),
+        requestHeaderRule: headerRuleResult
+      };
+      throw error;
+    }
+    await markAiBotCommentSent();
+    return data;
+  }
+
+  async function submitAiBotComment(heyboxId, linkId, replyCommentId, rootCommentId, text) {
+    return queueAiBotCommentSubmission(() => submitAiBotCommentNow(heyboxId, linkId, replyCommentId, rootCommentId, text));
+  }
+
+  async function readRepliedRecords() {
+    const result = await storageGet(AI_BOT_REPLIED_RECORDS_STORAGE_KEY);
+    return result[AI_BOT_REPLIED_RECORDS_STORAGE_KEY] && typeof result[AI_BOT_REPLIED_RECORDS_STORAGE_KEY] === "object"
+      ? result[AI_BOT_REPLIED_RECORDS_STORAGE_KEY]
+      : {};
+  }
+
+  async function markMessageReplied(messageId, data = {}) {
+    const records = await readRepliedRecords();
+    const now = Date.now();
+    const nextRecords = Object.fromEntries(Object.entries(records)
+      .filter(([, item]) => Number(item?.repliedAt || 0) >= now - 30 * AI_BOT_LOG_RETENTION_MS));
+    nextRecords[String(messageId)] = {
+      repliedAt: now,
+      ...data
+    };
+    await storageSet({ [AI_BOT_REPLIED_RECORDS_STORAGE_KEY]: nextRecords });
+  }
+
+  function shouldReplyToMessage(settings, message, records) {
+    const messageId = String(message?.message_id || "");
+    if (!messageId || records[messageId]) {
+      return false;
+    }
+
+    const whitelist = new Set(settings.whitelistUserIds.map((id) => String(id)));
+    if (!whitelist.size) {
+      return true;
+    }
+
+    const senderId = getUserId(message?.user_a || {});
+    return Boolean(senderId && whitelist.has(senderId));
+  }
+
+  function getAiBotMessageDebugInfo(message) {
+    const sender = message?.user_a || {};
+    return {
+      messageId: String(message?.message_id || ""),
+      messageType: String(message?.message_type || ""),
+      messageText: String(message?.text || "").slice(0, 200),
+      linkId: getLinkIdFromMessage(message),
+      replyCommentId: getReplyCommentIdFromMessage(message),
+      rootCommentId: getRootCommentIdFromMessage(message),
+      senderId: getUserId(sender),
+      senderName: String(sender.username || sender.nickname || ""),
+      linkTitle: String(message?.link?.title || "").slice(0, 120),
+      linkTag: String(message?.link_tag || message?.link?.link_tag || "")
+    };
+  }
+
+  function getMessageTimestampMs(message) {
+    const value = Number(message?.timestamp || message?.time || 0);
+    if (!Number.isFinite(value) || value <= 0) {
+      return 0;
+    }
+    return value > 100000000000 ? value : Math.floor(value * 1000);
+  }
+
+  async function skipStaleAiBotMessage(settings, message, records, messageSource, messageDebug) {
+    const messageId = String(message?.message_id || "");
+    const timestampMs = getMessageTimestampMs(message);
+    if (!timestampMs) {
+      return false;
+    }
+    const freshMs = Math.max(1, Number(settings.messageFreshMinutes || 5)) * 60 * 1000;
+    const ageMs = Date.now() - timestampMs;
+    if (ageMs <= freshMs) {
+      return false;
+    }
+
+    await markMessageReplied(messageId, {
+      skippedAt: Date.now(),
+      skipReason: "stale",
+      messageSource,
+      messageTimestamp: timestampMs
+    });
+    records[messageId] = {
+      skippedAt: Date.now(),
+      skipReason: "stale"
+    };
+    await appendAiBotLog("info", "跳过过期 AI Bot 消息", {
+      ...messageDebug,
+      messageSource,
+      messageTime: formatLogTime(timestampMs),
+      ageMinutes: Math.floor(ageMs / 60000),
+      freshMinutes: settings.messageFreshMinutes
+    });
+    return true;
+  }
+
+  function createAiBotStageError(stage, error, detail = {}) {
+    const nextError = error instanceof Error ? error : new Error(String(error || "未知错误"));
+    nextError.aiBotStage = stage;
+    nextError.aiBotDetail = {
+      ...(nextError.aiBotDetail || {}),
+      ...detail,
+      errorName: nextError.name || "",
+      errorMessage: nextError.message || "未知错误",
+      errorStack: String(nextError.stack || "").split("\n").slice(0, 4).join("\n")
+    };
+    return nextError;
+  }
+
+  async function processAiBotMessage(settings, heyboxId, message, records, messageSource = AI_BOT_MESSAGE_TYPES.MENTION) {
+    const messageId = String(message?.message_id || "");
+    if (!shouldReplyToMessage(settings, message, records)) {
+      return;
+    }
+
+    const typeLabel = getAiBotMessageTypeLabel(messageSource);
+    const linkId = getLinkIdFromMessage(message);
+    const directReplyCommentId = getReplyCommentIdFromMessage(message);
+    const rootCommentId = getRootCommentIdFromMessage(message);
+    const replyCommentId = directReplyCommentId || rootCommentId;
+    const messageDebug = {
+      ...getAiBotMessageDebugInfo(message),
+      messageSource,
+      effectiveReplyCommentId: replyCommentId,
+      replyTargetSource: directReplyCommentId ? "reply_comment_id" : (rootCommentId ? "root_comment_id" : "")
+    };
+    if (!linkId || !replyCommentId) {
+      await appendAiBotLog("warn", `跳过${typeLabel}：缺少帖子ID或评论ID`, messageDebug);
+      return;
+    }
+    if (await skipStaleAiBotMessage(settings, message, records, messageSource, messageDebug)) {
+      return;
+    }
+
+    await appendAiBotLog("info", `开始处理${typeLabel}`, messageDebug);
+    let context;
+    try {
+      context = await fetchLinkContext(linkId, heyboxId);
+    } catch (error) {
+      throw createAiBotStageError("查询帖子详情和评论区", error, messageDebug);
+    }
+    if (!context) {
+      return;
+    }
+    const emojiCodes = await loadAiBotEmojiCodes(heyboxId);
+    let reply;
+    try {
+      reply = await createAiBotReply(settings, message, context, replyCommentId, messageSource, emojiCodes);
+    } catch (error) {
+      throw createAiBotStageError("生成AI回复", error, {
+        ...messageDebug,
+        emojiCodeCount: emojiCodes.length,
+        commentCount: (context.groups || []).length,
+        title: context.detail?.title || ""
+      });
+    }
+    let result;
+    try {
+      result = await submitAiBotComment(heyboxId, linkId, replyCommentId, rootCommentId || replyCommentId, reply);
+    } catch (error) {
+      throw createAiBotStageError("发送评论回复", error, {
+        ...messageDebug,
+        rootCommentId,
+        replyPreview: String(reply || "").slice(0, 200)
+      });
+    }
+    await markMessageReplied(messageId, {
+      linkId,
+      replyCommentId,
+      commentId: result?.commentid || result?.result?.commentid || ""
+    });
+    records[messageId] = { repliedAt: Date.now() };
+    const messageTimestamp = getMessageTimestampMs(message);
+    const sentTimestamp = Date.now();
+    await appendAiBotMessageLog({
+      messageId,
+      messageSource,
+      messageType: String(message?.message_type || ""),
+      typeLabel,
+      linkId,
+      linkTitle: context.detail?.title || message?.link_title || message?.link?.title || "",
+      replyCommentId,
+      rootCommentId: rootCommentId || replyCommentId,
+      commentId: result?.commentid || result?.result?.commentid || "",
+      senderId: getUserId(message?.user_a || {}),
+      senderName: String(message?.user_a?.username || message?.user_a?.nickname || ""),
+      messageText: stripHtml(String(message?.comment_a_text || message?.text || "")).slice(0, 1000),
+      messageTimestamp,
+      messageTimeText: messageTimestamp ? formatLogTime(messageTimestamp) : "",
+      sentTimestamp,
+      sentTimeText: formatLogTime(sentTimestamp),
+      triggerText: stripHtml(String(message?.comment_a_text || message?.text || "")).slice(0, 500),
+      replyText: reply
+    });
+    await appendAiBotLog("success", `已自动回复${typeLabel}`, {
+      ...messageDebug,
+      commentId: result?.commentid || result?.result?.commentid || ""
+    });
+  }
+
+  async function runAiBotPoll(reason = "alarm") {
+    if (aiBotRunning) {
+      return { ok: true, skipped: true };
+    }
+
+    aiBotRunning = true;
+    try {
+      const settings = await readAiBotSettings();
+      if (!settings.enabled) {
+        return { ok: true, disabled: true };
+      }
+      if (!settings.baseUrl || !settings.model) {
+        await appendAiBotLog("warn", "AI Bot 已开启，但 AI 参数未配置完整");
+        return { ok: false, error: "AI 参数未配置完整" };
+      }
+      if (!settings.replyMentions && !settings.replyComments) {
+        await appendAiBotLog("warn", "AI Bot 已开启，但回复 @ 和回复评论两个开关均未开启");
+        return { ok: true, disabledSources: true };
+      }
+
+      const apiParams = await refreshCachedApiParams();
+      if (!apiParams.device_id) {
+        await appendAiBotLog("warn", "未捕获到小黑盒真实 device_id，将使用默认网页参数请求；打开一次小黑盒页面后会自动缓存真实参数");
+      }
+
+      const heyboxId = await getCurrentHeyboxId();
+      if (!heyboxId) {
+        await stopAiBotForLoginExpired("无法读取 heybox_id Cookie");
+        return { ok: false, error: "未登录" };
+      }
+
+      const mentionMessages = settings.replyMentions ? await fetchMentionMessages(heyboxId) : [];
+      const commentMessages = settings.replyComments ? await fetchCommentMessages(heyboxId) : [];
+      const messages = [
+        ...mentionMessages.map((message) => ({ message, source: AI_BOT_MESSAGE_TYPES.MENTION })),
+        ...commentMessages.map((message) => ({ message, source: AI_BOT_MESSAGE_TYPES.COMMENT }))
+      ];
+      const records = await readRepliedRecords();
+      await appendAiBotLog("info", "完成 AI Bot 消息查询", {
+        reason,
+        mentionCount: mentionMessages.length,
+        commentCount: commentMessages.length,
+        count: messages.length
+      });
+      for (const item of messages) {
+        try {
+          await processAiBotMessage(settings, heyboxId, item.message, records, item.source);
+        } catch (error) {
+          await appendAiBotLog("error", "处理 AI Bot 消息失败", {
+            ...getAiBotMessageDebugInfo(item.message),
+            messageSource: item.source,
+            stage: error?.aiBotStage || "处理 AI Bot 消息",
+            error: error?.message || "未知错误",
+            ...(error?.aiBotDetail || {})
+          });
+        }
+      }
+      return { ok: true, count: messages.length };
+    } catch (error) {
+      await appendAiBotLog("error", "AI Bot 轮询失败", {
+        stage: "轮询入口",
+        error: error?.message || "未知错误",
+        errorStack: String(error?.stack || "").split("\n").slice(0, 4).join("\n")
+      });
+      return { ok: false, error: error?.message || "AI Bot 轮询失败" };
+    } finally {
+      aiBotRunning = false;
+    }
+  }
+
+  function clearAiBotAlarm() {
+    return new Promise((resolve) => {
+      if (!chrome.alarms?.clear) {
+        resolve(false);
+        return;
+      }
+      chrome.alarms.clear(AI_BOT_ALARM_NAME, resolve);
+    });
+  }
+
+  async function syncAiBotAlarm() {
+    const settings = await readAiBotSettings();
+    await clearAiBotAlarm();
+    if (!settings.enabled || !chrome.alarms?.create) {
+      return;
+    }
+    chrome.alarms.create(AI_BOT_ALARM_NAME, {
+      delayInMinutes: 0.1,
+      periodInMinutes: Math.max(1, settings.pollMinutes)
+    });
+  }
+
+  async function getAiBotStatus() {
+    const settings = await readAiBotSettings();
+    const apiParams = await refreshCachedApiParams();
+    return {
+      ok: true,
+      enabled: settings.enabled,
+      running: aiBotRunning,
+      alarmName: AI_BOT_ALARM_NAME,
+      hasCapturedApiParams: Object.keys(apiParams).length > 0,
+      hasCapturedDeviceId: Boolean(apiParams.device_id),
+      capturedApiParamKeys: Object.keys(apiParams)
+    };
+  }
+
   function updateSanitizedCommentCookieRule(cookieHeader) {
     return new Promise((resolve) => {
       if (!chrome.declarativeNetRequest?.updateSessionRules) {
@@ -480,6 +1750,63 @@
         resolve(error ? {
           ok: false,
           error: error.message || "请求头规则更新失败"
+        } : { ok: true });
+      });
+    });
+  }
+
+  function activateAiBotCommentRequestHeaderRule() {
+    return new Promise((resolve) => {
+      if (!chrome.declarativeNetRequest?.updateSessionRules) {
+        resolve({
+          ok: false,
+          error: "当前浏览器不支持请求头规则"
+        });
+        return;
+      }
+
+      chrome.declarativeNetRequest.updateSessionRules({
+        removeRuleIds: [AI_BOT_COMMENT_HEADER_RULE_ID],
+        addRules: [{
+          id: AI_BOT_COMMENT_HEADER_RULE_ID,
+          priority: 2,
+          action: {
+            type: "modifyHeaders",
+            requestHeaders: [
+              { header: "origin", operation: "set", value: WEB_ORIGIN },
+              { header: "referer", operation: "set", value: `${WEB_ORIGIN}/` }
+            ]
+          },
+          condition: {
+            regexFilter: "^https://api\\.xiaoheihe\\.cn/bbs/app/comment/create(\\?|$)",
+            requestMethods: ["post"],
+            resourceTypes: ["xmlhttprequest"]
+          }
+        }]
+      }, () => {
+        const error = chrome.runtime.lastError;
+        resolve(error ? {
+          ok: false,
+          error: error.message || "AI Bot 评论请求头规则更新失败"
+        } : { ok: true });
+      });
+    });
+  }
+
+  function clearAiBotCommentRequestHeaderRule() {
+    return new Promise((resolve) => {
+      if (!chrome.declarativeNetRequest?.updateSessionRules) {
+        resolve({ ok: true });
+        return;
+      }
+
+      chrome.declarativeNetRequest.updateSessionRules({
+        removeRuleIds: [AI_BOT_COMMENT_HEADER_RULE_ID]
+      }, () => {
+        const error = chrome.runtime.lastError;
+        resolve(error ? {
+          ok: false,
+          error: error.message || "AI Bot 评论请求头规则清理失败"
         } : { ok: true });
       });
     });
@@ -553,6 +1880,29 @@
     openAiSettings();
   });
 
+  chrome.runtime.onInstalled?.addListener(() => {
+    syncAiBotAlarm();
+  });
+
+  chrome.runtime.onStartup?.addListener(() => {
+    syncAiBotAlarm();
+  });
+
+  chrome.alarms?.onAlarm?.addListener((alarm) => {
+    if (alarm?.name === AI_BOT_ALARM_NAME) {
+      runAiBotPoll("alarm");
+    }
+  });
+
+  chrome.storage.onChanged?.addListener((changes, areaName) => {
+    if (areaName === "local" && changes[AI_BOT_SETTINGS_STORAGE_KEY]) {
+      syncAiBotAlarm();
+    }
+    if (areaName === "local" && changes[API_PARAMS_STORAGE_KEY]) {
+      cachedApiParams = normalizeCachedApiParams(changes[API_PARAMS_STORAGE_KEY].newValue);
+    }
+  });
+
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message?.type === "better-xiaoheihe-open-ai-settings") {
       openAiSettings();
@@ -577,6 +1927,35 @@
       return true;
     }
 
+    if (message?.type === "better-xiaoheihe-ai-bot-test") {
+      requestChat({
+        messages: [{ role: "user", content: "请回复 OK" }],
+        temperature: 0
+      }, {
+        ...message.detail?.settings,
+        enabled: true
+      }).then(sendResponse);
+      return true;
+    }
+
+    if (message?.type === "better-xiaoheihe-ai-bot-status") {
+      getAiBotStatus().then(sendResponse);
+      return true;
+    }
+
+    if (message?.type === "better-xiaoheihe-ai-bot-run-now") {
+      runAiBotPoll("manual").then(sendResponse);
+      return true;
+    }
+
+    if (message?.type === "better-xiaoheihe-ai-bot-clear-logs") {
+      storageSet({
+        [AI_BOT_LOGS_STORAGE_KEY]: [],
+        [AI_BOT_MESSAGE_LOGS_STORAGE_KEY]: []
+      }).then(() => sendResponse({ ok: true }));
+      return true;
+    }
+
     if (message?.type === "better-xiaoheihe-activate-sanitized-comment-cookie") {
       activateSanitizedCommentCookieRule(message.detail).then(sendResponse);
       return true;
@@ -594,4 +1973,6 @@
     requestChat(message.detail).then(sendResponse);
     return true;
   });
+
+  syncAiBotAlarm();
 })();

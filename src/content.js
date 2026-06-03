@@ -22,16 +22,27 @@
   const BLOCKED_KEYWORDS_STORAGE_KEY = "better-xiaoheihe-blocked-keywords";
   const LEVEL_FILTERS_STORAGE_KEY = "better-xiaoheihe-level-filters";
   const COMMENT_PREVIEW_SORT_STORAGE_KEY = "better-xiaoheihe-comment-preview-sort";
+  const AI_BOT_SETTINGS_STORAGE_KEY = "better-xiaoheihe-ai-bot-settings";
+  const AI_BOT_LOGS_STORAGE_KEY = "better-xiaoheihe-ai-bot-logs";
+  const AI_BOT_MESSAGE_LOGS_STORAGE_KEY = "better-xiaoheihe-ai-bot-message-logs";
+  const API_PARAMS_STORAGE_KEY = "better-xiaoheihe-api-params";
+  const AI_BOT_LOG_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
   const LOCAL_SETTINGS_STORAGE_KEYS = [
     HIDE_CY_COMMENTS_STORAGE_KEY,
     BLOCKED_KEYWORDS_STORAGE_KEY,
     LEVEL_FILTERS_STORAGE_KEY,
-    COMMENT_PREVIEW_SORT_STORAGE_KEY
+    COMMENT_PREVIEW_SORT_STORAGE_KEY,
+    AI_BOT_SETTINGS_STORAGE_KEY,
+    AI_BOT_LOGS_STORAGE_KEY,
+    AI_BOT_MESSAGE_LOGS_STORAGE_KEY,
+    API_PARAMS_STORAGE_KEY
   ];
   const LOCAL_SETTINGS_REQUEST_EVENT = "better-xiaoheihe-local-settings-request";
   const LOCAL_SETTINGS_RESPONSE_EVENT = "better-xiaoheihe-local-settings-response";
   const LOCAL_SETTINGS_SAVE_EVENT = "better-xiaoheihe-local-settings-save";
   const LOCAL_SETTINGS_CHANGED_EVENT = "better-xiaoheihe-local-settings-changed";
+  const AI_BOT_RUNTIME_REQUEST_EVENT = "better-xiaoheihe-ai-bot-runtime-request";
+  const AI_BOT_RUNTIME_RESPONSE_EVENT = "better-xiaoheihe-ai-bot-runtime-response";
   const AI_SETTINGS_EVENT = "better-xiaoheihe-ai-settings";
   const AI_SETTINGS_REQUEST_EVENT = "better-xiaoheihe-ai-settings-request";
   const AI_SETTINGS_SAVE_EVENT = "better-xiaoheihe-ai-settings-save";
@@ -43,6 +54,7 @@
   const SANITIZED_COOKIE_RULE_REQUEST_EVENT = "better-xiaoheihe-sanitized-cookie-rule-request";
   const SANITIZED_COOKIE_RULE_RESPONSE_EVENT = "better-xiaoheihe-sanitized-cookie-rule-response";
   const DEFAULT_SUMMARY_PROMPT = "你是社区帖子总结助手，请用中文简洁输出：\n帖子总结\n一句话概括帖子核心内容。\n评论区信息\n提取评论区里有价值的观点、经验、补充或避坑信息，没有则跳过。\nAI简评\n像真实网友一样补充观点，避免AI味。\n返回md格式。";
+  const AI_BOT_DEFAULT_PROMPT = "你是小黑盒社区自动回复助手。请根据消息类型、帖子正文、评论区上下文和触发消息的那条评论，生成一条自然、友好、简洁的中文回复。可以自然使用提供的小黑盒表情短码，但不要编造未提供的短码。不要暴露你是AI，不要使用模板化开头，不要编造事实，不要输出Markdown。";
   const AI_PROVIDERS = {
     OPENAI_COMPATIBLE: "openai-compatible",
     OPENAI_RESPONSES: "openai-responses",
@@ -66,7 +78,9 @@
   const SETTINGS_TABS = {
     FEED: "feed",
     COMMENT: "comment",
-    AI: "ai"
+    AI: "ai",
+    AIBOT: "aibot",
+    AIBOT_LOGS: "aibot-logs"
   };
   const COMMENT_PREVIEW_SORTS = {
     DEFAULT: "default",
@@ -121,11 +135,18 @@
   const aiSummaryChatSending = new Set();
   const blockedKeywordHitKeys = new Set();
   const capturedApiParams = {};
+  let lastSavedApiParamsText = "";
   let hideCyComments = false;
   let commentPreviewSort = COMMENT_PREVIEW_SORTS.DEFAULT;
   let blockedKeywords = [];
   let levelFilters = normalizeLevelFilters({});
   let aiSettings = normalizeAiSettings();
+  let aiBotSettings = normalizeAiBotSettings();
+  let aiBotLogs = [];
+  let aiBotMessageLogs = [];
+  let aiBotLogRefreshTimer = null;
+  let activeAiBotLogView = "runtime";
+  const expandedAiBotLogIds = new Set();
   let useLegacyLocalSettingsSync = true;
   const aiPendingRequests = new Map();
   let activeBlockedKeywordScope = BLOCKED_KEYWORD_SCOPES.FEED;
@@ -362,6 +383,54 @@
     };
   }
 
+  function normalizeIdList(value) {
+    return [...new Set((Array.isArray(value) ? value : String(value || "").split(/[\s,，;；]+/))
+      .map((item) => String(item || "").trim())
+      .filter(Boolean))];
+  }
+
+  function normalizeAiBotSettings(settings = {}) {
+    const provider = Object.values(AI_PROVIDERS).includes(settings?.provider || settings?.endpointMode)
+      ? (settings?.provider || settings?.endpointMode)
+      : DEFAULT_AI_PROVIDER;
+    return {
+      enabled: settings?.enabled === true,
+      provider,
+      endpointMode: provider,
+      baseUrl: String(settings?.baseUrl || AI_PROVIDER_DEFAULT_BASE_URLS[provider] || "").trim().replace(/\/+$/, ""),
+      model: String(settings?.model || "").trim(),
+      apiKey: String(settings?.apiKey || ""),
+      pollMinutes: Math.max(1, Number.parseInt(settings?.pollMinutes, 10) || 1),
+      messageFreshMinutes: Math.max(1, Number.parseInt(settings?.messageFreshMinutes, 10) || 5),
+      replyMentions: settings?.replyMentions !== false,
+      replyComments: settings?.replyComments === true,
+      whitelistUserIds: normalizeIdList(settings?.whitelistUserIds || settings?.whitelistText),
+      commentPrompt: String(settings?.commentPrompt || "").trim() || AI_BOT_DEFAULT_PROMPT
+    };
+  }
+
+  function normalizeAiBotLogs(logs) {
+    const now = Date.now();
+    return (Array.isArray(logs) ? logs : [])
+      .filter((log) => Number(log?.timestamp || 0) >= now - AI_BOT_LOG_RETENTION_MS)
+      .sort((left, right) => Number(right?.timestamp || 0) - Number(left?.timestamp || 0));
+  }
+
+  function normalizeAiBotMessageLogs(logs) {
+    return normalizeAiBotLogs(logs);
+  }
+
+  function persistAiBotSettingsState() {
+    saveLocalSettings({
+      [AI_BOT_SETTINGS_STORAGE_KEY]: aiBotSettings
+    });
+  }
+
+  function writeAiBotSettingsState(settings) {
+    aiBotSettings = normalizeAiBotSettings(settings);
+    persistAiBotSettingsState();
+  }
+
   function isAiFeatureEnabled() {
     return aiSettings.enabled;
   }
@@ -483,6 +552,9 @@
     blockedKeywords = normalizeBlockedKeywords(values[BLOCKED_KEYWORDS_STORAGE_KEY]);
     levelFilters = normalizeLevelFilters(values[LEVEL_FILTERS_STORAGE_KEY]);
     commentPreviewSort = normalizeCommentPreviewSort(values[COMMENT_PREVIEW_SORT_STORAGE_KEY]);
+    aiBotSettings = normalizeAiBotSettings(values[AI_BOT_SETTINGS_STORAGE_KEY]);
+    aiBotLogs = normalizeAiBotLogs(values[AI_BOT_LOGS_STORAGE_KEY]);
+    aiBotMessageLogs = normalizeAiBotMessageLogs(values[AI_BOT_MESSAGE_LOGS_STORAGE_KEY]);
   }
 
   async function loadLocalSettingsState() {
@@ -532,6 +604,16 @@
     } else {
       nextValues[COMMENT_PREVIEW_SORT_STORAGE_KEY] = COMMENT_PREVIEW_SORTS.DEFAULT;
     }
+
+    nextValues[AI_BOT_SETTINGS_STORAGE_KEY] = keysPresent[AI_BOT_SETTINGS_STORAGE_KEY]
+      ? normalizeAiBotSettings(values[AI_BOT_SETTINGS_STORAGE_KEY])
+      : normalizeAiBotSettings();
+    nextValues[AI_BOT_LOGS_STORAGE_KEY] = keysPresent[AI_BOT_LOGS_STORAGE_KEY]
+      ? normalizeAiBotLogs(values[AI_BOT_LOGS_STORAGE_KEY])
+      : [];
+    nextValues[AI_BOT_MESSAGE_LOGS_STORAGE_KEY] = keysPresent[AI_BOT_MESSAGE_LOGS_STORAGE_KEY]
+      ? normalizeAiBotMessageLogs(values[AI_BOT_MESSAGE_LOGS_STORAGE_KEY])
+      : [];
 
     applyLocalSettingsValues(nextValues);
 
@@ -665,7 +747,10 @@
         box-sizing: border-box;
         position: fixed;
         z-index: 10000;
-        width: 360px;
+        width: min(520px, calc(100vw - 24px));
+        max-height: calc(100vh - 16px);
+        overflow-y: auto;
+        overscroll-behavior: contain;
         padding: 12px;
         border: 1px solid #eef0f2;
         border-radius: 8px;
@@ -673,6 +758,7 @@
         box-shadow: 0 10px 30px rgba(20, 25, 30, 0.14);
         color: #14191e;
         font-size: 13px;
+        scrollbar-gutter: stable;
       }
 
       .${SETTINGS_PANEL_CLASS}[hidden] {
@@ -859,7 +945,7 @@
 
       .${SETTINGS_PANEL_CLASS} .better-settings__tabs {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(4, minmax(0, 1fr));
         gap: 4px;
         margin-bottom: 10px;
         padding: 3px;
@@ -970,6 +1056,38 @@
         font-size: 12px;
         font-weight: 700;
         line-height: 18px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__compact-number-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        align-items: end;
+        margin-bottom: 8px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__field--compact-number {
+        margin-bottom: 0;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__field--compact-number .better-settings__text-input {
+        width: 88px;
+        max-width: 100%;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__check-row {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 8px 0;
+        color: #26323c;
+        font-size: 13px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__check-row input {
+        width: 16px;
+        height: 16px;
+        accent-color: #1f66b8;
       }
 
       .${SETTINGS_PANEL_CLASS} .better-settings__text-input,
@@ -1186,6 +1304,190 @@
         line-height: 18px;
         text-overflow: ellipsis;
         white-space: nowrap;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-log-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin: 12px 0 8px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__log-switch {
+        display: inline-flex;
+        gap: 4px;
+        padding: 3px;
+        margin: 10px 0;
+        border: 1px solid #e2e8ef;
+        border-radius: 8px;
+        background: #f4f7fa;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__log-switch-button {
+        min-width: 78px;
+        height: 28px;
+        padding: 0 10px;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        color: #68727d;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__log-switch-button.is-active {
+        background: #fff;
+        color: #1f66b8;
+        box-shadow: 0 1px 3px rgba(20, 32, 44, 0.1);
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-logs {
+        height: min(520px, calc(100vh - 250px));
+        min-height: 360px;
+        max-height: 620px;
+        overflow-y: auto;
+        border: 1px solid #eef0f2;
+        border-radius: 8px;
+        background: #fbfcfd;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-message-logs {
+        height: min(520px, calc(100vh - 250px));
+        min-height: 360px;
+        max-height: 620px;
+        overflow-y: auto;
+        border: 1px solid #eef0f2;
+        border-radius: 8px;
+        background: #fbfcfd;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-log {
+        padding: 9px 10px;
+        border-bottom: 1px solid #eef0f2;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-log:last-child,
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-message-log:last-child {
+        border-bottom: 0;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-message-log {
+        display: grid;
+        gap: 6px;
+        padding: 9px 10px;
+        border-bottom: 1px solid #eef0f2;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-message-title {
+        color: #26313b;
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 18px;
+        word-break: break-word;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-message-target {
+        color: #68727d;
+        font-size: 11px;
+        line-height: 16px;
+        word-break: break-word;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-message-source {
+        color: #3c4651;
+        font-size: 12px;
+        line-height: 18px;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-message-reply {
+        color: #18222c;
+        font-size: 12px;
+        line-height: 18px;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-log-meta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        color: #8a9299;
+        font-size: 11px;
+        line-height: 16px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-log-level {
+        font-weight: 700;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-log-level--success {
+        color: #0b806f;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-log-level--warn {
+        color: #a46300;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-log-level--error {
+        color: #d33b4a;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-log-message {
+        margin-top: 4px;
+        color: #26313b;
+        font-size: 12px;
+        line-height: 18px;
+        word-break: break-word;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-log-detail-wrap {
+        position: relative;
+        margin-top: 5px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-log-detail-summary {
+        cursor: pointer;
+        color: #2775d1;
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 18px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-log-copy {
+        position: absolute;
+        top: 0;
+        right: 0;
+        height: 24px;
+        padding: 0 8px;
+        border: 0;
+        border-radius: 6px;
+        background: #edf5ff;
+        color: #2775d1;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-log-copy:hover {
+        background: #dcecff;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-log-detail {
+        margin: 5px 0 0;
+        padding: 8px;
+        border-radius: 6px;
+        background: #f1f4f7;
+        color: #3c4651;
+        font-family: Consolas, "Microsoft YaHei UI", monospace;
+        font-size: 11px;
+        line-height: 16px;
+        white-space: pre-wrap;
+        word-break: break-word;
       }
 
       .${SETTINGS_PANEL_CLASS} .better-settings__list {
@@ -3175,12 +3477,42 @@
       return;
     }
 
+    let changed = false;
     CAPTURED_API_PARAM_KEYS.forEach((key) => {
       const value = parsed.searchParams.get(key);
-      if (value) {
+      if (value && capturedApiParams[key] !== value) {
         capturedApiParams[key] = value;
+        changed = true;
       }
     });
+    if (changed) {
+      persistCapturedApiParams();
+    }
+  }
+
+  function persistCapturedApiParams() {
+    const values = CAPTURED_API_PARAM_KEYS.reduce((result, key) => {
+      if (capturedApiParams[key]) {
+        result[key] = capturedApiParams[key];
+      }
+      return result;
+    }, {});
+    const text = JSON.stringify(values);
+    if (!Object.keys(values).length || text === lastSavedApiParamsText) {
+      return;
+    }
+    lastSavedApiParamsText = text;
+    window.dispatchEvent(new CustomEvent(LOCAL_SETTINGS_SAVE_EVENT, {
+      detail: stringifyEventDetail({
+        values: {
+          [API_PARAMS_STORAGE_KEY]: {
+            params: values,
+            capturedAt: Date.now(),
+            source: "xiaoheihe-page"
+          }
+        }
+      })
+    }));
   }
 
   function getRequestUrl(input) {
@@ -6641,11 +6973,16 @@
   }
 
   function setActiveSettingsTab(tab) {
-    activeSettingsTab = tab === SETTINGS_TABS.AI ? SETTINGS_TABS.AI : normalizeBlockedKeywordScope(tab);
-    if (activeSettingsTab !== SETTINGS_TABS.AI) {
+    activeSettingsTab = tab === SETTINGS_TABS.AI || tab === SETTINGS_TABS.AIBOT || tab === SETTINGS_TABS.AIBOT_LOGS ? tab : normalizeBlockedKeywordScope(tab);
+    if (activeSettingsTab !== SETTINGS_TABS.AI && activeSettingsTab !== SETTINGS_TABS.AIBOT && activeSettingsTab !== SETTINGS_TABS.AIBOT_LOGS) {
       activeBlockedKeywordScope = activeSettingsTab;
     }
     renderSettingsPanel();
+    if (activeSettingsTab === SETTINGS_TABS.AIBOT_LOGS) {
+      startAiBotLogAutoRefresh();
+    } else {
+      stopAiBotLogAutoRefresh();
+    }
   }
 
   function addBlockedKeyword(keyword, scope = BLOCKED_KEYWORD_SCOPES.COMMENT) {
@@ -6702,9 +7039,17 @@
   function positionSettingsPanel(panel, button) {
     const rect = button.getBoundingClientRect();
     const margin = 8;
+    const availableBelow = window.innerHeight - rect.bottom - margin * 2;
+    const availableAbove = rect.top - margin * 2;
+    const shouldOpenAbove = availableBelow < 320 && availableAbove > availableBelow;
+    const maxPanelHeight = Math.max(240, shouldOpenAbove ? availableAbove : availableBelow);
+    panel.style.maxHeight = `${maxPanelHeight}px`;
     const left = Math.min(window.innerWidth - panel.offsetWidth - margin, Math.max(margin, rect.right - panel.offsetWidth));
+    const top = shouldOpenAbove
+      ? Math.max(margin, rect.top - panel.offsetHeight - margin)
+      : Math.min(rect.bottom + margin, window.innerHeight - panel.offsetHeight - margin);
     panel.style.left = `${left}px`;
-    panel.style.top = `${rect.bottom + margin}px`;
+    panel.style.top = `${top}px`;
     const list = panel.querySelector(".better-settings__list");
     if (!list) {
       return;
@@ -6712,7 +7057,8 @@
 
     list.style.maxHeight = "";
     const listRect = list.getBoundingClientRect();
-    const availableListHeight = window.innerHeight - listRect.top - margin;
+    const panelRect = panel.getBoundingClientRect();
+    const availableListHeight = panelRect.bottom - listRect.top - margin;
     list.style.maxHeight = `${Math.max(120, availableListHeight)}px`;
   }
 
@@ -6840,6 +7186,208 @@
     `;
   }
 
+  function renderAiBotSettingsPanelContent() {
+    const providerOptions = [
+      [AI_PROVIDERS.OPENAI_COMPATIBLE, "OpenAI Compatible · Chat Completions"],
+      [AI_PROVIDERS.OPENAI_RESPONSES, "OpenAI · Responses"],
+      [AI_PROVIDERS.ANTHROPIC, "Anthropic · Messages"],
+      [AI_PROVIDERS.GEMINI, "Gemini · Generate Content"]
+    ].map(([value, label]) => `
+      <option value="${escapeHtml(value)}"${aiBotSettings.provider === value ? " selected" : ""}>${escapeHtml(label)}</option>
+    `).join("");
+    return `
+      <div class="better-settings__section better-settings__ai-section">
+        <div class="better-settings__ai-header">
+          <div>
+            <div class="better-settings__ai-title">AI Bot</div>
+            <div class="better-settings__ai-subtitle">自动回复 @、评论和回复消息</div>
+          </div>
+          <span class="better-settings__ai-status${aiBotSettings.enabled ? " is-on" : ""}">${aiBotSettings.enabled ? "已开启" : "未开启"}</span>
+          <label class="better-settings__level-toggle">
+            <input class="better-settings__level-enabled better-settings__ai-bot-enabled" type="checkbox"${aiBotSettings.enabled ? " checked" : ""}>
+            <span class="better-settings__level-switch" aria-hidden="true"></span>
+          </label>
+        </div>
+        <div class="better-settings__ai-body">
+          <label class="better-settings__field">
+            <span class="better-settings__field-title">服务商类型</span>
+            <select class="better-settings__select better-settings__ai-bot-provider">
+              ${providerOptions}
+            </select>
+          </label>
+          <label class="better-settings__field">
+            <span class="better-settings__field-title">Base URL</span>
+            <input class="better-settings__text-input better-settings__ai-bot-base-url" type="url" value="${escapeHtml(aiBotSettings.baseUrl)}" placeholder="https://api.openai.com/v1">
+          </label>
+          <label class="better-settings__field">
+            <span class="better-settings__field-title">
+              模型
+              <button class="better-settings__text-button better-settings__ai-bot-fetch-models" type="button">拉取模型</button>
+            </span>
+            <div class="better-settings__ai-model-combobox">
+              <input class="better-settings__text-input better-settings__ai-bot-model" list="better-xiaoheihe-ai-bot-model-options" type="text" value="${escapeHtml(aiBotSettings.model)}" placeholder="gpt-4.1-mini">
+              <button class="better-settings__ai-model-dropdown better-settings__ai-bot-model-dropdown" type="button" aria-label="选择已拉取模型" aria-expanded="false" disabled></button>
+              <div class="better-settings__ai-model-menu better-settings__ai-bot-model-menu" role="listbox" hidden></div>
+            </div>
+            <datalist id="better-xiaoheihe-ai-bot-model-options" class="better-settings__ai-bot-model-options"></datalist>
+          </label>
+          <label class="better-settings__field">
+            <span class="better-settings__field-title">API Key</span>
+            <input class="better-settings__text-input better-settings__ai-bot-api-key" type="password" value="${escapeHtml(aiBotSettings.apiKey)}" autocomplete="off" placeholder="sk-...">
+          </label>
+          <div class="better-settings__compact-number-grid">
+            <label class="better-settings__field better-settings__field--compact-number">
+              <span class="better-settings__field-title">轮询评论和@周期（分钟）</span>
+              <input class="better-settings__text-input better-settings__ai-bot-poll-minutes" type="number" min="1" step="1" value="${escapeHtml(aiBotSettings.pollMinutes)}">
+            </label>
+            <label class="better-settings__field better-settings__field--compact-number">
+              <span class="better-settings__field-title">只处理最近消息（分钟）</span>
+              <input class="better-settings__text-input better-settings__ai-bot-fresh-minutes" type="number" min="1" step="1" value="${escapeHtml(aiBotSettings.messageFreshMinutes)}">
+            </label>
+          </div>
+          <label class="better-settings__check-row">
+            <input class="better-settings__ai-bot-reply-mentions" type="checkbox"${aiBotSettings.replyMentions ? " checked" : ""}>
+            <span>回复 @ 我的消息</span>
+          </label>
+          <label class="better-settings__check-row">
+            <input class="better-settings__ai-bot-reply-comments" type="checkbox"${aiBotSettings.replyComments ? " checked" : ""}>
+            <span>回复评论 / 回复我的消息</span>
+          </label>
+          <label class="better-settings__field">
+            <span class="better-settings__field-title">白名单用户 ID</span>
+            <textarea class="better-settings__textarea better-settings__ai-bot-whitelist" placeholder="空白表示允许回复所有触发用户；多个 ID 可用逗号、空格或换行分隔">${escapeHtml(aiBotSettings.whitelistUserIds.join("\n"))}</textarea>
+          </label>
+          <label class="better-settings__field">
+            <span class="better-settings__field-title">
+              AI 评论提示词
+              <button class="better-settings__text-button better-settings__ai-bot-reset-prompt" type="button">恢复默认</button>
+            </span>
+            <textarea class="better-settings__textarea better-settings__ai-bot-comment-prompt">${escapeHtml(aiBotSettings.commentPrompt)}</textarea>
+          </label>
+          <div class="better-settings__actions">
+            <button class="better-settings__primary better-settings__ai-bot-test" type="button">测试连通</button>
+            <button class="better-settings__primary better-settings__ai-bot-run-now" type="button">立即轮询</button>
+            <button class="better-settings__primary better-settings__ai-bot-view-logs" type="button">查看运行日志</button>
+            <span class="better-settings__message" role="status">${aiBotSettings.baseUrl && aiBotSettings.model ? "已配置" : "请填写 Base URL 和模型"}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderAiBotLogItemsHtml() {
+    return aiBotLogs.length
+      ? aiBotLogs.map((log) => `
+            ${(() => {
+              const logId = String(log.id || log.timestamp || `${log.level || ""}:${log.message || ""}`);
+              const detailEntries = Object.entries(log.detail || {})
+                .filter(([, value]) => value !== undefined && value !== null && value !== "");
+              return `
+            <div class="better-settings__ai-bot-log">
+              <div class="better-settings__ai-bot-log-meta">
+                <span class="better-settings__ai-bot-log-level better-settings__ai-bot-log-level--${escapeHtml(log.level || "info")}">${escapeHtml({
+                  success: "成功",
+                  warn: "提醒",
+                  error: "错误",
+                  info: "信息"
+                }[log.level] || "信息")}</span>
+                <span>${escapeHtml(log.timeText || new Date(log.timestamp || Date.now()).toLocaleString("zh-CN", { hour12: false }))}</span>
+              </div>
+              <div class="better-settings__ai-bot-log-message">${escapeHtml(log.message || "")}</div>
+              ${detailEntries.length ? (() => {
+                const detailText = detailEntries
+                  .map(([key, value]) => `${key}: ${typeof value === "object" ? JSON.stringify(value) : String(value)}`)
+                  .join("\n");
+                const copyText = [
+                  `[${{
+                    success: "成功",
+                    warn: "提醒",
+                    error: "错误",
+                    info: "信息"
+                  }[log.level] || "信息"}] ${log.timeText || new Date(log.timestamp || Date.now()).toLocaleString("zh-CN", { hour12: false })}`,
+                  log.message || "",
+                  detailText
+                ].filter(Boolean).join("\n");
+                return `
+                  <details class="better-settings__ai-bot-log-detail-wrap" data-log-id="${escapeHtml(logId)}"${expandedAiBotLogIds.has(logId) ? " open" : ""}>
+                    <summary class="better-settings__ai-bot-log-detail-summary">展开错误详情</summary>
+                    <button class="better-settings__ai-bot-log-copy" type="button" data-copy-text="${escapeHtml(copyText)}">复制</button>
+                    <pre class="better-settings__ai-bot-log-detail">${escapeHtml(detailText)}</pre>
+                  </details>
+                `;
+              })() : ""}
+            </div>
+              `;
+            })()}
+          `).join("")
+      : `<div class="better-settings__empty">暂无 AI Bot 运行日志</div>`;
+  }
+
+  function renderAiBotMessageLogItemsHtml() {
+    return aiBotMessageLogs.length
+      ? aiBotMessageLogs.map((log) => `
+        <div class="better-settings__ai-bot-message-log">
+          <div class="better-settings__ai-bot-log-meta">
+            <span class="better-settings__ai-bot-log-level better-settings__ai-bot-log-level--success">${escapeHtml(log.typeLabel || (log.messageSource === "comment" ? "评论" : "@"))}</span>
+            <span>${escapeHtml(log.timeText || new Date(log.timestamp || Date.now()).toLocaleString("zh-CN", { hour12: false }))}</span>
+          </div>
+          <div class="better-settings__ai-bot-message-title">${escapeHtml(log.linkTitle || `帖子 ${log.linkId || ""}`)}</div>
+          <div class="better-settings__ai-bot-message-target">${escapeHtml([
+            log.senderName ? `消息发送人：${log.senderName}${log.senderId ? `（${log.senderId}）` : ""}` : "",
+            `消息时间：${log.messageTimeText || (log.messageTimestamp ? new Date(log.messageTimestamp).toLocaleString("zh-CN", { hour12: false }) : "未知")}`,
+            `发送时间：${log.sentTimeText || log.timeText || new Date(log.sentTimestamp || log.timestamp || Date.now()).toLocaleString("zh-CN", { hour12: false })}`,
+            log.linkId ? `帖子ID：${log.linkId}` : "",
+            log.replyCommentId ? `回复评论ID：${log.replyCommentId}` : "",
+            log.commentId ? `发送评论ID：${log.commentId}` : ""
+          ].filter(Boolean).join(" · "))}</div>
+          <div class="better-settings__ai-bot-message-source">${escapeHtml(`消息内容：${log.messageText || log.triggerText || ""}`)}</div>
+          <div class="better-settings__ai-bot-message-reply">${escapeHtml(`回复内容：${log.replyText || ""}`)}</div>
+        </div>
+      `).join("")
+      : `<div class="better-settings__empty">暂无 AI 回复记录</div>`;
+  }
+
+  function renderAiBotLogsPanelContent() {
+    return `
+      <div class="better-settings__section better-settings__ai-section">
+        <div class="better-settings__ai-header">
+          <div>
+            <div class="better-settings__ai-title">AI Bot 运行日志</div>
+            <div class="better-settings__ai-subtitle">动态读取本地运行记录</div>
+          </div>
+        </div>
+        <div class="better-settings__ai-body">
+          <div class="better-settings__field-title better-settings__ai-bot-log-title">
+            <button class="better-settings__text-button better-settings__ai-bot-back-settings" type="button">返回设置</button>
+            <button class="better-settings__text-button better-settings__ai-bot-clear-logs" type="button">清空日志</button>
+          </div>
+          <div class="better-settings__log-switch" role="tablist" aria-label="AI Bot 日志类型">
+            <button class="better-settings__log-switch-button${activeAiBotLogView === "runtime" ? " is-active" : ""}" type="button" data-ai-bot-log-view="runtime" role="tab" aria-selected="${activeAiBotLogView === "runtime" ? "true" : "false"}">运行日志</button>
+            <button class="better-settings__log-switch-button${activeAiBotLogView === "message" ? " is-active" : ""}" type="button" data-ai-bot-log-view="message" role="tab" aria-selected="${activeAiBotLogView === "message" ? "true" : "false"}">消息日志</button>
+          </div>
+          <div class="better-settings__ai-bot-logs" data-ai-bot-log-panel="runtime"${activeAiBotLogView === "runtime" ? "" : " hidden"}>${renderAiBotLogItemsHtml()}</div>
+          <div class="better-settings__ai-bot-message-logs" data-ai-bot-log-panel="message"${activeAiBotLogView === "message" ? "" : " hidden"}>${renderAiBotMessageLogItemsHtml()}</div>
+          <div class="better-settings__actions">
+            <button class="better-settings__primary better-settings__ai-bot-refresh-logs" type="button">刷新日志</button>
+            <span class="better-settings__message" role="status">日志已加载</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function setAiBotLogView(panel, view) {
+    activeAiBotLogView = view === "message" ? "message" : "runtime";
+    panel.querySelectorAll("[data-ai-bot-log-view]").forEach((button) => {
+      const active = button.dataset.aiBotLogView === activeAiBotLogView;
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-selected", active ? "true" : "false");
+    });
+    panel.querySelectorAll("[data-ai-bot-log-panel]").forEach((logPanel) => {
+      logPanel.hidden = logPanel.dataset.aiBotLogPanel !== activeAiBotLogView;
+    });
+  }
+
   function renderBlockedSettingsPanelContent() {
     const activeScope = normalizeBlockedKeywordScope(activeBlockedKeywordScope);
     const visibleBlockedKeywords = blockedKeywords.filter((item) => normalizeBlockedKeywordScope(item.scope) === activeScope);
@@ -6897,12 +7445,20 @@
         <button class="better-settings__tab" type="button" role="tab" data-settings-tab="${SETTINGS_TABS.FEED}" aria-selected="${activeSettingsTab === SETTINGS_TABS.FEED ? "true" : "false"}">帖子</button>
         <button class="better-settings__tab" type="button" role="tab" data-settings-tab="${SETTINGS_TABS.COMMENT}" aria-selected="${activeSettingsTab === SETTINGS_TABS.COMMENT ? "true" : "false"}">评论</button>
         <button class="better-settings__tab" type="button" role="tab" data-settings-tab="${SETTINGS_TABS.AI}" aria-selected="${activeSettingsTab === SETTINGS_TABS.AI ? "true" : "false"}">AI 总结设置</button>
+        <button class="better-settings__tab" type="button" role="tab" data-settings-tab="${SETTINGS_TABS.AIBOT}" aria-selected="${activeSettingsTab === SETTINGS_TABS.AIBOT ? "true" : "false"}">AI Bot</button>
       </div>
-      ${activeSettingsTab === SETTINGS_TABS.AI ? renderAiSettingsPanelContent() : renderBlockedSettingsPanelContent()}
+      ${activeSettingsTab === SETTINGS_TABS.AI
+        ? renderAiSettingsPanelContent()
+        : (activeSettingsTab === SETTINGS_TABS.AIBOT
+          ? renderAiBotSettingsPanelContent()
+          : (activeSettingsTab === SETTINGS_TABS.AIBOT_LOGS ? renderAiBotLogsPanelContent() : renderBlockedSettingsPanelContent()))}
     `;
     syncSettingsAutoHeightTextareas(panel);
     if (activeSettingsTab === SETTINGS_TABS.AI) {
       loadCachedAiModelOptions(panel);
+    }
+    if (activeSettingsTab === SETTINGS_TABS.AIBOT) {
+      loadCachedAiBotModelOptions(panel);
     }
     repositionSettingsPanelIfOpen();
   }
@@ -7003,9 +7559,43 @@
     syncAiModelSelect(panel);
   }
 
+  function fillAiBotModelOptions(panel, models) {
+    const normalizedModels = [...new Set((Array.isArray(models) ? models : [])
+      .map((model) => String(model || "").trim())
+      .filter(Boolean))];
+    const modelOptions = panel.querySelector(".better-settings__ai-bot-model-options");
+    if (modelOptions) {
+      modelOptions.innerHTML = normalizedModels.map((model) => `<option value="${escapeHtml(model)}"></option>`).join("");
+    }
+
+    const modelMenu = panel.querySelector(".better-settings__ai-bot-model-menu");
+    const modelDropdown = panel.querySelector(".better-settings__ai-bot-model-dropdown");
+    if (!modelMenu || !modelDropdown) {
+      return;
+    }
+
+    modelDropdown.disabled = !normalizedModels.length;
+    closeAiBotModelMenu(panel);
+    modelMenu.innerHTML = normalizedModels.map((model) => `
+      <button class="better-settings__ai-model-option better-settings__ai-bot-model-option" type="button" role="option" data-model="${escapeHtml(model)}" title="${escapeHtml(model)}">${escapeHtml(model)}</button>
+    `).join("");
+    syncAiBotModelSelect(panel);
+  }
+
   function closeAiModelMenu(panel) {
     const modelMenu = panel.querySelector(".better-settings__ai-model-menu");
     const modelDropdown = panel.querySelector(".better-settings__ai-model-dropdown");
+    if (modelMenu) {
+      modelMenu.hidden = true;
+    }
+    if (modelDropdown) {
+      modelDropdown.setAttribute("aria-expanded", "false");
+    }
+  }
+
+  function closeAiBotModelMenu(panel) {
+    const modelMenu = panel.querySelector(".better-settings__ai-bot-model-menu");
+    const modelDropdown = panel.querySelector(".better-settings__ai-bot-model-dropdown");
     if (modelMenu) {
       modelMenu.hidden = true;
     }
@@ -7026,9 +7616,31 @@
     modelDropdown.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
   }
 
+  function toggleAiBotModelMenu(panel) {
+    const modelMenu = panel.querySelector(".better-settings__ai-bot-model-menu");
+    const modelDropdown = panel.querySelector(".better-settings__ai-bot-model-dropdown");
+    if (!modelMenu || !modelDropdown || modelDropdown.disabled) {
+      return;
+    }
+
+    const shouldOpen = modelMenu.hidden;
+    modelMenu.hidden = !shouldOpen;
+    modelDropdown.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
+    syncAiBotModelSelect(panel);
+  }
+
   function syncAiModelSelect(panel) {
     const value = panel.querySelector(".better-settings__ai-model")?.value?.trim() || "";
     panel.querySelectorAll(".better-settings__ai-model-option").forEach((option) => {
+      const isSelected = option.dataset.model === value;
+      option.classList.toggle("is-selected", isSelected);
+      option.setAttribute("aria-selected", isSelected ? "true" : "false");
+    });
+  }
+
+  function syncAiBotModelSelect(panel) {
+    const value = panel.querySelector(".better-settings__ai-bot-model")?.value?.trim() || "";
+    panel.querySelectorAll(".better-settings__ai-bot-model-option").forEach((option) => {
       const isSelected = option.dataset.model === value;
       option.classList.toggle("is-selected", isSelected);
       option.setAttribute("aria-selected", isSelected ? "true" : "false");
@@ -7082,6 +7694,53 @@
     });
   }
 
+  function fetchAiBotModelsFromPanel(panel, button) {
+    saveAiBotSettingsFromPanel(panel, { silentStatus: true });
+    const status = panel.querySelector(".better-settings__message");
+    const settings = getAiBotSettingsFormValues(panel);
+    if (!settings.baseUrl) {
+      if (status) {
+        status.textContent = "请先填写 Base URL";
+        status.style.color = "#d33b4a";
+      }
+      return;
+    }
+
+    if (button) {
+      button.disabled = true;
+    }
+    if (status) {
+      status.textContent = "正在拉取模型...";
+      status.style.color = "#8a9299";
+    }
+
+    requestAiModelList(settings).then((models) => {
+      fillAiBotModelOptions(panel, models);
+      if (status) {
+        status.textContent = models.length ? `已拉取 ${models.length} 个模型` : "未返回可用模型，可手动填写";
+        status.style.color = "#0b806f";
+      }
+    }).catch((error) => {
+      if (status) {
+        status.textContent = error?.message || "模型列表拉取失败";
+        status.style.color = "#d33b4a";
+      }
+    }).finally(() => {
+      if (button) {
+        button.disabled = false;
+      }
+    });
+  }
+
+  function loadCachedAiBotModelOptions(panel) {
+    const settings = getAiBotSettingsFormValues(panel);
+    requestAiModelList(settings, { cacheOnly: true }).then((models) => {
+      fillAiBotModelOptions(panel, models);
+    }).catch(() => {
+      fillAiBotModelOptions(panel, []);
+    });
+  }
+
   function syncAiProviderDefaultBaseUrl(panel) {
     const providerInput = panel.querySelector(".better-settings__ai-provider");
     const baseUrlInput = panel.querySelector(".better-settings__ai-base-url");
@@ -7098,6 +7757,235 @@
     fillAiModelOptions(panel, []);
     saveAiSettingsFromPanel(panel);
     loadCachedAiModelOptions(panel);
+  }
+
+  function getAiBotSettingsFormValues(panel) {
+    return normalizeAiBotSettings({
+      enabled: panel.querySelector(".better-settings__ai-bot-enabled")?.checked === true,
+      provider: panel.querySelector(".better-settings__ai-bot-provider")?.value,
+      baseUrl: panel.querySelector(".better-settings__ai-bot-base-url")?.value,
+      model: panel.querySelector(".better-settings__ai-bot-model")?.value,
+      apiKey: panel.querySelector(".better-settings__ai-bot-api-key")?.value,
+      pollMinutes: panel.querySelector(".better-settings__ai-bot-poll-minutes")?.value,
+      messageFreshMinutes: panel.querySelector(".better-settings__ai-bot-fresh-minutes")?.value,
+      replyMentions: panel.querySelector(".better-settings__ai-bot-reply-mentions")?.checked !== false,
+      replyComments: panel.querySelector(".better-settings__ai-bot-reply-comments")?.checked === true,
+      whitelistText: panel.querySelector(".better-settings__ai-bot-whitelist")?.value,
+      commentPrompt: panel.querySelector(".better-settings__ai-bot-comment-prompt")?.value
+    });
+  }
+
+  function saveAiBotSettingsFromPanel(panel, options = {}) {
+    aiBotSettings = getAiBotSettingsFormValues(panel);
+    writeAiBotSettingsState(aiBotSettings);
+    const status = panel.querySelector(".better-settings__message");
+    if (status && !options.silentStatus) {
+      status.textContent = aiBotSettings.baseUrl && aiBotSettings.model ? "已保存" : "请填写 Base URL 和模型";
+      status.style.color = "#68727d";
+    }
+  }
+
+  function syncAiBotProviderDefaultBaseUrl(panel) {
+    const providerInput = panel.querySelector(".better-settings__ai-bot-provider");
+    const baseUrlInput = panel.querySelector(".better-settings__ai-bot-base-url");
+    if (!providerInput || !baseUrlInput) {
+      return;
+    }
+
+    const nextProvider = Object.values(AI_PROVIDERS).includes(providerInput.value) ? providerInput.value : DEFAULT_AI_PROVIDER;
+    const defaultBaseUrls = Object.values(AI_PROVIDER_DEFAULT_BASE_URLS);
+    const currentBaseUrl = baseUrlInput.value.replace(/\/+$/, "");
+    if (!currentBaseUrl || defaultBaseUrls.includes(currentBaseUrl)) {
+      baseUrlInput.value = AI_PROVIDER_DEFAULT_BASE_URLS[nextProvider] || "";
+    }
+    fillAiBotModelOptions(panel, []);
+    saveAiBotSettingsFromPanel(panel);
+    loadCachedAiBotModelOptions(panel);
+  }
+
+  function sendAiBotRuntimeMessage(type, detail = {}) {
+    return new Promise((resolve, reject) => {
+      const id = `better-ai-bot-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      const timer = window.setTimeout(() => {
+        window.removeEventListener(AI_BOT_RUNTIME_RESPONSE_EVENT, handleResponse);
+        reject(new Error("请求超时"));
+      }, 60000);
+
+      function handleResponse(event) {
+        const response = parseEventDetail(event.detail);
+        if (response.id !== id) {
+          return;
+        }
+
+        window.clearTimeout(timer);
+        window.removeEventListener(AI_BOT_RUNTIME_RESPONSE_EVENT, handleResponse);
+        resolve(response || {});
+      }
+
+      window.addEventListener(AI_BOT_RUNTIME_RESPONSE_EVENT, handleResponse);
+      window.dispatchEvent(new CustomEvent(AI_BOT_RUNTIME_REQUEST_EVENT, {
+        detail: stringifyEventDetail({
+          id,
+          type,
+          detail
+        })
+      }));
+    });
+  }
+
+  function setAiBotPanelStatus(panel, text, isError = false) {
+    const status = panel.querySelector(".better-settings__message");
+    if (status) {
+      status.textContent = text;
+      status.style.color = isError ? "#d33b4a" : "#68727d";
+    }
+  }
+
+  function testAiBotSettingsFromPanel(panel, button) {
+    saveAiBotSettingsFromPanel(panel, { silentStatus: true });
+    if (!aiBotSettings.baseUrl || !aiBotSettings.model) {
+      setAiBotPanelStatus(panel, "请先填写 Base URL 和模型", true);
+      return;
+    }
+
+    button.disabled = true;
+    setAiBotPanelStatus(panel, "测试中...");
+    sendAiBotRuntimeMessage("better-xiaoheihe-ai-bot-test", { settings: aiBotSettings }).then((response) => {
+      if (!response.ok) {
+        setAiBotPanelStatus(panel, response.error || "连接失败", true);
+        return;
+      }
+      setAiBotPanelStatus(panel, "连接成功");
+    }).catch((error) => {
+      setAiBotPanelStatus(panel, error?.message || "连接失败", true);
+    }).finally(() => {
+      button.disabled = false;
+    });
+  }
+
+  function runAiBotFromPanel(panel, button) {
+    saveAiBotSettingsFromPanel(panel, { silentStatus: true });
+    button.disabled = true;
+    setAiBotPanelStatus(panel, "正在轮询...");
+    sendAiBotRuntimeMessage("better-xiaoheihe-ai-bot-run-now").then((response) => {
+      if (!response.ok) {
+        setAiBotPanelStatus(panel, response.error || "轮询失败", true);
+        return;
+      }
+      setAiBotPanelStatus(panel, `轮询完成：${response.count || 0} 条 @ 消息`);
+    }).catch((error) => {
+      setAiBotPanelStatus(panel, error?.message || "轮询失败", true);
+    }).finally(() => {
+      button.disabled = false;
+    });
+  }
+
+  function clearAiBotLogsFromPanel(panel, button) {
+    button.disabled = true;
+    saveLocalSettings({
+      [AI_BOT_LOGS_STORAGE_KEY]: [],
+      [AI_BOT_MESSAGE_LOGS_STORAGE_KEY]: []
+    });
+    aiBotLogs = [];
+    aiBotMessageLogs = [];
+    renderSettingsPanel();
+    setAiBotPanelStatus(panel, "日志已清空");
+  }
+
+  function copyTextToClipboard(text) {
+    if (navigator.clipboard?.writeText) {
+      return navigator.clipboard.writeText(text);
+    }
+
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.style.position = "fixed";
+    textarea.style.left = "-9999px";
+    textarea.style.top = "0";
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+      document.execCommand("copy");
+      return Promise.resolve();
+    } catch (error) {
+      return Promise.reject(error);
+    } finally {
+      textarea.remove();
+    }
+  }
+
+  function copyAiBotLogFromPanel(button) {
+    const text = button?.dataset?.copyText || "";
+    if (!text) {
+      return;
+    }
+    copyTextToClipboard(text).then(() => {
+      const previousText = button.textContent;
+      button.textContent = "已复制";
+      window.setTimeout(() => {
+        button.textContent = previousText || "复制";
+      }, 1200);
+    }).catch(() => {
+      const panel = document.querySelector(`.${SETTINGS_PANEL_CLASS}`);
+      if (panel) {
+        setAiBotPanelStatus(panel, "复制失败，请手动选择文本复制", true);
+      }
+    });
+  }
+
+  function refreshAiBotLogsPanel() {
+    const currentLogList = document.querySelector(`.${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-logs`);
+    const currentMessageLogList = document.querySelector(`.${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-message-logs`);
+    const previousScrollTop = currentLogList?.scrollTop || 0;
+    const previousMessageScrollTop = currentMessageLogList?.scrollTop || 0;
+    const wasNearTop = previousScrollTop <= 4;
+    const messageWasNearTop = previousMessageScrollTop <= 4;
+    currentLogList?.querySelectorAll(".better-settings__ai-bot-log-detail-wrap").forEach((detail) => {
+      const logId = detail.dataset.logId || "";
+      if (!logId) {
+        return;
+      }
+      if (detail.open) {
+        expandedAiBotLogIds.add(logId);
+      } else {
+        expandedAiBotLogIds.delete(logId);
+      }
+    });
+    requestLocalSettingsState(1200).then((response) => {
+      if (response?.ok) {
+        aiBotLogs = normalizeAiBotLogs(response.values?.[AI_BOT_LOGS_STORAGE_KEY]);
+        aiBotMessageLogs = normalizeAiBotMessageLogs(response.values?.[AI_BOT_MESSAGE_LOGS_STORAGE_KEY]);
+      }
+    }).finally(() => {
+      if (activeSettingsTab === SETTINGS_TABS.AIBOT_LOGS) {
+        const nextLogList = document.querySelector(`.${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-logs`);
+        const nextMessageLogList = document.querySelector(`.${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-message-logs`);
+        if (nextLogList) {
+          nextLogList.innerHTML = renderAiBotLogItemsHtml();
+          nextLogList.scrollTop = wasNearTop ? 0 : Math.min(previousScrollTop, nextLogList.scrollHeight);
+        }
+        if (nextMessageLogList) {
+          nextMessageLogList.innerHTML = renderAiBotMessageLogItemsHtml();
+          nextMessageLogList.scrollTop = messageWasNearTop ? 0 : Math.min(previousMessageScrollTop, nextMessageLogList.scrollHeight);
+        }
+      }
+    });
+  }
+
+  function startAiBotLogAutoRefresh() {
+    refreshAiBotLogsPanel();
+    if (aiBotLogRefreshTimer) {
+      return;
+    }
+    aiBotLogRefreshTimer = window.setInterval(refreshAiBotLogsPanel, 1000);
+  }
+
+  function stopAiBotLogAutoRefresh() {
+    if (!aiBotLogRefreshTimer) {
+      return;
+    }
+    window.clearInterval(aiBotLogRefreshTimer);
+    aiBotLogRefreshTimer = null;
   }
 
   function ensureSettingsPanel() {
@@ -7124,7 +8012,66 @@
       const settingsTab = event.target.closest(".better-settings__tab");
       if (settingsTab && panel.contains(settingsTab)) {
         setActiveSettingsTab(settingsTab.dataset.settingsTab);
-        panel.querySelector(".better-settings__input, .better-settings__ai-base-url")?.focus();
+        panel.querySelector(".better-settings__input, .better-settings__ai-base-url, .better-settings__open-ai-bot-options")?.focus();
+        return;
+      }
+
+      const resetAiBotPromptButton = event.target.closest(".better-settings__ai-bot-reset-prompt");
+      if (resetAiBotPromptButton && panel.contains(resetAiBotPromptButton)) {
+        const promptInput = panel.querySelector(".better-settings__ai-bot-comment-prompt");
+        if (promptInput) {
+          promptInput.value = AI_BOT_DEFAULT_PROMPT;
+          syncAutoHeightTextarea(promptInput);
+        }
+        saveAiBotSettingsFromPanel(panel);
+        return;
+      }
+
+      const aiBotTestButton = event.target.closest(".better-settings__ai-bot-test");
+      if (aiBotTestButton && panel.contains(aiBotTestButton)) {
+        testAiBotSettingsFromPanel(panel, aiBotTestButton);
+        return;
+      }
+
+      const aiBotRunNowButton = event.target.closest(".better-settings__ai-bot-run-now");
+      if (aiBotRunNowButton && panel.contains(aiBotRunNowButton)) {
+        runAiBotFromPanel(panel, aiBotRunNowButton);
+        return;
+      }
+
+      const aiBotViewLogsButton = event.target.closest(".better-settings__ai-bot-view-logs");
+      if (aiBotViewLogsButton && panel.contains(aiBotViewLogsButton)) {
+        setActiveSettingsTab(SETTINGS_TABS.AIBOT_LOGS);
+        return;
+      }
+
+      const aiBotBackSettingsButton = event.target.closest(".better-settings__ai-bot-back-settings");
+      if (aiBotBackSettingsButton && panel.contains(aiBotBackSettingsButton)) {
+        setActiveSettingsTab(SETTINGS_TABS.AIBOT);
+        return;
+      }
+
+      const aiBotRefreshLogsButton = event.target.closest(".better-settings__ai-bot-refresh-logs");
+      if (aiBotRefreshLogsButton && panel.contains(aiBotRefreshLogsButton)) {
+        refreshAiBotLogsPanel();
+        return;
+      }
+
+      const aiBotLogViewButton = event.target.closest("[data-ai-bot-log-view]");
+      if (aiBotLogViewButton && panel.contains(aiBotLogViewButton)) {
+        setAiBotLogView(panel, aiBotLogViewButton.dataset.aiBotLogView);
+        return;
+      }
+
+      const aiBotLogCopyButton = event.target.closest(".better-settings__ai-bot-log-copy");
+      if (aiBotLogCopyButton && panel.contains(aiBotLogCopyButton)) {
+        copyAiBotLogFromPanel(aiBotLogCopyButton);
+        return;
+      }
+
+      const aiBotClearLogsButton = event.target.closest(".better-settings__ai-bot-clear-logs");
+      if (aiBotClearLogsButton && panel.contains(aiBotClearLogsButton)) {
+        clearAiBotLogsFromPanel(panel, aiBotClearLogsButton);
         return;
       }
 
@@ -7149,14 +8096,26 @@
         return;
       }
 
+      const fetchAiBotModelsButton = event.target.closest(".better-settings__ai-bot-fetch-models");
+      if (fetchAiBotModelsButton && panel.contains(fetchAiBotModelsButton)) {
+        fetchAiBotModelsFromPanel(panel, fetchAiBotModelsButton);
+        return;
+      }
+
       const modelDropdown = event.target.closest(".better-settings__ai-model-dropdown");
-      if (modelDropdown && panel.contains(modelDropdown)) {
+      if (modelDropdown && panel.contains(modelDropdown) && !modelDropdown.classList.contains("better-settings__ai-bot-model-dropdown")) {
         toggleAiModelMenu(panel);
         return;
       }
 
+      const aiBotModelDropdown = event.target.closest(".better-settings__ai-bot-model-dropdown");
+      if (aiBotModelDropdown && panel.contains(aiBotModelDropdown)) {
+        toggleAiBotModelMenu(panel);
+        return;
+      }
+
       const modelOption = event.target.closest(".better-settings__ai-model-option");
-      if (modelOption && panel.contains(modelOption)) {
+      if (modelOption && panel.contains(modelOption) && !modelOption.classList.contains("better-settings__ai-bot-model-option")) {
         const modelInput = panel.querySelector(".better-settings__ai-model");
         if (modelInput && modelOption.dataset.model) {
           modelInput.value = modelOption.dataset.model;
@@ -7167,8 +8126,36 @@
         return;
       }
 
+      const aiBotModelOption = event.target.closest(".better-settings__ai-bot-model-option");
+      if (aiBotModelOption && panel.contains(aiBotModelOption)) {
+        const modelInput = panel.querySelector(".better-settings__ai-bot-model");
+        if (modelInput && aiBotModelOption.dataset.model) {
+          modelInput.value = aiBotModelOption.dataset.model;
+          syncAiBotModelSelect(panel);
+          closeAiBotModelMenu(panel);
+          saveAiBotSettingsFromPanel(panel);
+        }
+        return;
+      }
+
       closeAiModelMenu(panel);
+      closeAiBotModelMenu(panel);
     });
+    panel.addEventListener("toggle", (event) => {
+      if (!(event.target instanceof Element)) {
+        return;
+      }
+      const detail = event.target.closest(".better-settings__ai-bot-log-detail-wrap");
+      const logId = detail?.dataset.logId || "";
+      if (!logId) {
+        return;
+      }
+      if (detail.open) {
+        expandedAiBotLogIds.add(logId);
+      } else {
+        expandedAiBotLogIds.delete(logId);
+      }
+    }, true);
     panel.addEventListener("input", (event) => {
       if (!(event.target instanceof Element)) {
         return;
@@ -7198,6 +8185,17 @@
         }
         saveAiSettingsFromPanel(panel);
       }
+
+      if (event.target.matches(".better-settings__ai-bot-base-url, .better-settings__ai-bot-model, .better-settings__ai-bot-api-key, .better-settings__ai-bot-poll-minutes, .better-settings__ai-bot-fresh-minutes, .better-settings__ai-bot-whitelist, .better-settings__ai-bot-comment-prompt")) {
+        if (event.target.matches(".better-settings__ai-bot-whitelist, .better-settings__ai-bot-comment-prompt")) {
+          syncAutoHeightTextarea(event.target);
+          repositionSettingsPanelIfOpen();
+        }
+        if (event.target.matches(".better-settings__ai-bot-model")) {
+          syncAiBotModelSelect(panel);
+        }
+        saveAiBotSettingsFromPanel(panel, { silentStatus: true });
+      }
     });
     panel.addEventListener("change", (event) => {
       if (!(event.target instanceof Element)) {
@@ -7211,6 +8209,40 @@
 
       if (event.target.matches(".better-settings__ai-provider")) {
         syncAiProviderDefaultBaseUrl(panel);
+        return;
+      }
+
+      if (event.target.matches(".better-settings__ai-bot-enabled")) {
+        saveAiBotSettingsFromPanel(panel);
+        return;
+      }
+
+      if (event.target.matches(".better-settings__ai-bot-provider")) {
+        syncAiBotProviderDefaultBaseUrl(panel);
+        return;
+      }
+
+      if (event.target.matches(".better-settings__ai-bot-base-url")) {
+        loadCachedAiBotModelOptions(panel);
+        return;
+      }
+
+      if (event.target.matches(".better-settings__ai-bot-poll-minutes, .better-settings__ai-bot-fresh-minutes, .better-settings__ai-bot-whitelist, .better-settings__ai-bot-reply-mentions, .better-settings__ai-bot-reply-comments")) {
+        const normalized = getAiBotSettingsFormValues(panel);
+        const pollInput = panel.querySelector(".better-settings__ai-bot-poll-minutes");
+        const freshInput = panel.querySelector(".better-settings__ai-bot-fresh-minutes");
+        const whitelistInput = panel.querySelector(".better-settings__ai-bot-whitelist");
+        if (pollInput) {
+          pollInput.value = normalized.pollMinutes;
+        }
+        if (freshInput) {
+          freshInput.value = normalized.messageFreshMinutes;
+        }
+        if (whitelistInput) {
+          whitelistInput.value = normalized.whitelistUserIds.join("\n");
+          syncAutoHeightTextarea(whitelistInput);
+        }
+        saveAiBotSettingsFromPanel(panel);
         return;
       }
 
@@ -7252,6 +8284,7 @@
     if (panel) {
       panel.hidden = true;
     }
+    stopAiBotLogAutoRefresh();
     button?.setAttribute("aria-expanded", "false");
   }
 
@@ -7274,11 +8307,13 @@
       positionSettingsPanel(panel, button);
       panel.querySelector(".better-settings__input")?.focus();
       bindSettingsPanelResizeSync();
+    } else {
+      stopAiBotLogAutoRefresh();
     }
   }
 
   function openSettingsPanelTab(tab) {
-    activeSettingsTab = tab === SETTINGS_TABS.AI ? SETTINGS_TABS.AI : normalizeBlockedKeywordScope(tab);
+    activeSettingsTab = tab === SETTINGS_TABS.AI || tab === SETTINGS_TABS.AIBOT || tab === SETTINGS_TABS.AIBOT_LOGS ? tab : normalizeBlockedKeywordScope(tab);
     const button = document.querySelector(`.${SETTINGS_ENTRY_CLASS}`);
     if (!button) {
       window.dispatchEvent(new CustomEvent(AI_SETTINGS_OPEN_EVENT));
@@ -7290,7 +8325,12 @@
     button.setAttribute("aria-expanded", "true");
     renderSettingsPanel();
     positionSettingsPanel(panel, button);
-    panel.querySelector(activeSettingsTab === SETTINGS_TABS.AI ? ".better-settings__ai-base-url" : ".better-settings__input")?.focus();
+    panel.querySelector(activeSettingsTab === SETTINGS_TABS.AI ? ".better-settings__ai-base-url" : (activeSettingsTab === SETTINGS_TABS.AIBOT ? ".better-settings__ai-bot-base-url" : (activeSettingsTab === SETTINGS_TABS.AIBOT_LOGS ? ".better-settings__ai-bot-refresh-logs" : ".better-settings__input")))?.focus();
+    if (activeSettingsTab === SETTINGS_TABS.AIBOT_LOGS) {
+      startAiBotLogAutoRefresh();
+    } else {
+      stopAiBotLogAutoRefresh();
+    }
     bindSettingsPanelResizeSync();
   }
 
@@ -7712,6 +8752,41 @@
       }
       if (Object.prototype.hasOwnProperty.call(values, COMMENT_PREVIEW_SORT_STORAGE_KEY)) {
         syncCommentPreviewSortState(values[COMMENT_PREVIEW_SORT_STORAGE_KEY]);
+      }
+      if (Object.prototype.hasOwnProperty.call(values, AI_BOT_SETTINGS_STORAGE_KEY)) {
+        aiBotSettings = normalizeAiBotSettings(values[AI_BOT_SETTINGS_STORAGE_KEY]);
+        const settingsPanel = document.querySelector(`.${SETTINGS_PANEL_CLASS}`);
+        const isEditingAiBotSettings = activeSettingsTab === SETTINGS_TABS.AIBOT
+          && settingsPanel
+          && !settingsPanel.hidden
+          && settingsPanel.contains(document.activeElement);
+        if (!isEditingAiBotSettings) {
+          renderSettingsPanel();
+        }
+      }
+      if (Object.prototype.hasOwnProperty.call(values, AI_BOT_LOGS_STORAGE_KEY)) {
+        aiBotLogs = normalizeAiBotLogs(values[AI_BOT_LOGS_STORAGE_KEY]);
+        if (activeSettingsTab === SETTINGS_TABS.AIBOT_LOGS) {
+          const logList = document.querySelector(`.${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-logs`);
+          if (logList) {
+            const previousScrollTop = logList.scrollTop;
+            const wasNearTop = previousScrollTop <= 4;
+            logList.innerHTML = renderAiBotLogItemsHtml();
+            logList.scrollTop = wasNearTop ? 0 : Math.min(previousScrollTop, logList.scrollHeight);
+          }
+        }
+      }
+      if (Object.prototype.hasOwnProperty.call(values, AI_BOT_MESSAGE_LOGS_STORAGE_KEY)) {
+        aiBotMessageLogs = normalizeAiBotMessageLogs(values[AI_BOT_MESSAGE_LOGS_STORAGE_KEY]);
+        if (activeSettingsTab === SETTINGS_TABS.AIBOT_LOGS) {
+          const messageLogList = document.querySelector(`.${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-message-logs`);
+          if (messageLogList) {
+            const previousScrollTop = messageLogList.scrollTop;
+            const wasNearTop = previousScrollTop <= 4;
+            messageLogList.innerHTML = renderAiBotMessageLogItemsHtml();
+            messageLogList.scrollTop = wasNearTop ? 0 : Math.min(previousScrollTop, messageLogList.scrollHeight);
+          }
+        }
       }
     });
   }

@@ -59,7 +59,7 @@ p {
 
 .tabs {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px;
   padding: 10px 12px;
   border-bottom: 1px solid #eef1f4;
@@ -369,6 +369,38 @@ p {
   cursor: pointer;
 }
 
+.compact-number-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 8px;
+}
+
+.field.field--compact-number {
+  margin-bottom: 0;
+}
+
+.field.field--compact-number input {
+  width: 88px;
+  max-width: 100%;
+}
+
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 0;
+  color: #26323c;
+  font-size: 13px;
+}
+
+.check-row input {
+  width: 16px;
+  height: 16px;
+  accent-color: #1f66b8;
+}
+
 .model-combobox {
   position: relative;
 }
@@ -482,7 +514,7 @@ p {
 
 .actions {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: auto auto minmax(0, 1fr);
   align-items: center;
   gap: 10px;
   padding: 14px 18px 18px;
@@ -529,6 +561,7 @@ button:disabled {
 }
 
 #status {
+  grid-column: auto / -1;
   min-width: 0;
   overflow: hidden;
   color: #68727d;
@@ -536,4 +569,202 @@ button:disabled {
   line-height: 18px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+#aiBotStatus {
+  grid-column: auto / -1;
+  min-width: 0;
+  overflow: hidden;
+  color: #68727d;
+  font-size: 12px;
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.log-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.log-switch {
+  display: inline-flex;
+  gap: 4px;
+  padding: 3px;
+  margin: 10px 0;
+  border: 1px solid #e2e8ef;
+  border-radius: 8px;
+  background: #f4f7fa;
+}
+
+.log-switch-button {
+  min-width: 78px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 6px;
+  background: transparent;
+  color: #68727d;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.log-switch-button.is-active {
+  background: #fff;
+  color: #1f66b8;
+  box-shadow: 0 1px 3px rgba(20, 32, 44, 0.1);
+}
+
+.log-list {
+  height: min(520px, calc(100vh - 250px));
+  min-height: 360px;
+  max-height: 620px;
+  overflow-y: auto;
+  border: 1px solid #edf1f5;
+  border-radius: 8px;
+  background: #fbfcfd;
+}
+
+.message-log-list {
+  height: min(520px, calc(100vh - 250px));
+  min-height: 360px;
+  max-height: 620px;
+  overflow-y: auto;
+  border: 1px solid #edf1f5;
+  border-radius: 8px;
+  background: #fbfcfd;
+}
+
+.log-empty {
+  padding: 13px 12px;
+  color: #8a9299;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.log-item {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #edf1f5;
+}
+
+.log-item:last-child,
+.message-log-item:last-child {
+  border-bottom: 0;
+}
+
+.message-log-item {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #edf1f5;
+}
+
+.message-log-title {
+  color: #26313b;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 18px;
+  word-break: break-word;
+}
+
+.message-log-target {
+  color: #68727d;
+  font-size: 11px;
+  line-height: 16px;
+  word-break: break-word;
+}
+
+.message-log-source {
+  color: #3c4651;
+  font-size: 12px;
+  line-height: 18px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.message-log-reply {
+  color: #18222c;
+  font-size: 12px;
+  line-height: 18px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.log-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #8a9299;
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.log-level {
+  font-weight: 700;
+}
+
+.log-level--success {
+  color: #0b806f;
+}
+
+.log-level--warn {
+  color: #a46300;
+}
+
+.log-level--error {
+  color: #d33b4a;
+}
+
+.log-message {
+  color: #26313b;
+  font-size: 12px;
+  line-height: 18px;
+  word-break: break-word;
+}
+
+.log-detail-wrap {
+  position: relative;
+  margin-top: 4px;
+}
+
+.log-detail-summary {
+  cursor: pointer;
+  color: #2775d1;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 18px;
+}
+
+.log-copy {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: #edf5ff;
+  color: #2775d1;
+  font-size: 12px;
+}
+
+.log-copy:hover {
+  background: #dcecff;
+}
+
+.log-detail {
+  margin: 4px 0 0;
+  padding: 8px;
+  border-radius: 6px;
+  background: #f1f4f7;
+  color: #3c4651;
+  font-family: Consolas, "Microsoft YaHei UI", monospace;
+  font-size: 11px;
+  line-height: 16px;
+  white-space: pre-wrap;
+  word-break: break-word;
 }

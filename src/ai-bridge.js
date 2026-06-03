@@ -14,11 +14,17 @@
   const LOCAL_SETTINGS_RESPONSE_EVENT = "better-xiaoheihe-local-settings-response";
   const LOCAL_SETTINGS_SAVE_EVENT = "better-xiaoheihe-local-settings-save";
   const LOCAL_SETTINGS_CHANGED_EVENT = "better-xiaoheihe-local-settings-changed";
+  const AI_BOT_RUNTIME_REQUEST_EVENT = "better-xiaoheihe-ai-bot-runtime-request";
+  const AI_BOT_RUNTIME_RESPONSE_EVENT = "better-xiaoheihe-ai-bot-runtime-response";
   const LOCAL_SETTINGS_STORAGE_KEYS = [
     "better-xiaoheihe-hide-cy-comments",
     "better-xiaoheihe-blocked-keywords",
     "better-xiaoheihe-level-filters",
-    "better-xiaoheihe-comment-preview-sort"
+    "better-xiaoheihe-comment-preview-sort",
+    "better-xiaoheihe-ai-bot-settings",
+    "better-xiaoheihe-ai-bot-logs",
+    "better-xiaoheihe-ai-bot-message-logs",
+    "better-xiaoheihe-api-params"
   ];
   const DEFAULT_SUMMARY_PROMPT = "你是社区帖子总结助手，请用中文简洁输出：\n帖子总结\n一句话概括帖子核心内容。\n评论区信息\n提取评论区里有价值的观点、经验、补充或避坑信息，没有则跳过。\nAI简评\n像真实网友一样补充观点，避免AI味。\n返回md格式。";
   const AI_PROVIDERS = {
@@ -201,6 +207,29 @@
     });
   }
 
+  function requestAiBotRuntime(detail = {}) {
+    const id = detail?.id || "";
+    const type = String(detail?.type || "");
+    if (!id || !type) {
+      return;
+    }
+
+    chrome.runtime.sendMessage({
+      type,
+      detail: detail?.detail || {}
+    }, (response) => {
+      window.dispatchEvent(new CustomEvent(AI_BOT_RUNTIME_RESPONSE_EVENT, {
+        detail: stringifyEventDetail({
+          id,
+          ...(chrome.runtime.lastError ? {
+            ok: false,
+            error: chrome.runtime.lastError.message || "请求失败"
+          } : (response || { ok: false, error: "请求失败" }))
+        })
+      }));
+    });
+  }
+
   function getRequestedLocalSettingsKeys(detail) {
     const requestedKeys = Array.isArray(detail?.keys) ? detail.keys : LOCAL_SETTINGS_STORAGE_KEYS;
     return requestedKeys.filter((key) => LOCAL_SETTINGS_STORAGE_KEYS.includes(key));
@@ -270,6 +299,7 @@
   window.addEventListener(CHAT_REQUEST_EVENT, (event) => requestChat(parseEventDetail(event.detail)));
   window.addEventListener(MODEL_LIST_REQUEST_EVENT, (event) => requestModelList(parseEventDetail(event.detail)));
   window.addEventListener(SANITIZED_COOKIE_RULE_REQUEST_EVENT, (event) => requestSanitizedCookieRuleChange(parseEventDetail(event.detail)));
+  window.addEventListener(AI_BOT_RUNTIME_REQUEST_EVENT, (event) => requestAiBotRuntime(parseEventDetail(event.detail)));
   window.addEventListener(LOCAL_SETTINGS_REQUEST_EVENT, (event) => readLocalSettings(parseEventDetail(event.detail)));
   window.addEventListener(LOCAL_SETTINGS_SAVE_EVENT, (event) => saveLocalSettings(parseEventDetail(event.detail)));
 
