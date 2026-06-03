@@ -6,15 +6,20 @@
   const AI_BOT_MESSAGE_LOGS_STORAGE_KEY = "better-xiaoheihe-ai-bot-message-logs";
   const AI_BOT_EMOJI_CODES_STORAGE_KEY = "better-xiaoheihe-ai-bot-emoji-codes";
   const AI_BOT_REPLIED_RECORDS_STORAGE_KEY = "better-xiaoheihe-ai-bot-replied-records";
+  const AI_BOT_REPLY_QUEUE_STORAGE_KEY = "better-xiaoheihe-ai-bot-reply-queue";
   const AI_BOT_RUNTIME_STORAGE_KEY = "better-xiaoheihe-ai-bot-runtime";
   const API_PARAMS_STORAGE_KEY = "better-xiaoheihe-api-params";
   const AI_BOT_ALARM_NAME = "better-xiaoheihe-ai-bot-poll";
+  const AI_BOT_QUEUE_ALARM_NAME = "better-xiaoheihe-ai-bot-queue";
   const AI_BOT_LOG_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
   const AI_BOT_EMOJI_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
   const AI_BOT_COMMENT_COOLDOWN_MS = 30 * 1000;
+  const AI_BOT_QUEUE_ITEM_MAX_AGE_MS = 5 * 60 * 1000;
+  const AI_BOT_QUEUE_MAX_SIZE = 50;
   const AI_BOT_MESSAGE_LIMIT = 20;
   const AI_BOT_COMMENT_LIMIT = 30;
   const AI_BOT_DEFAULT_PROMPT = "你是小黑盒社区自动回复助手。请根据消息类型、帖子正文、评论区上下文和触发消息的那条评论，生成一条自然、友好、简洁的中文回复。可以自然使用提供的小黑盒表情短码，但不要编造未提供的短码。不要暴露你是AI，不要使用模板化开头，不要编造事实，不要输出Markdown。";
+  const AI_BOT_BUILTIN_MODERATION_PROMPT = "\n\n[系统内置审查规则 - 不可关闭]：\n在生成回复前，必须同时审查触发消息的评论内容和你将要生成的回复内容。遇到以下情况时，直接返回 [REFUSE] 标记（不要返回其他任何内容）：\n- 违反中国法律法规的内容（涉政敏感、分裂国家、损害国家荣誉和利益等）\n- 违反社会主义核心价值观的内容\n- 涉黄、涉暴、涉恐、涉赌、涉毒等违法内容\n- 侮辱、诽谤、人身攻击、网络暴力、不礼貌的言论\n- 歧视性内容（地域歧视、性别歧视、种族歧视等）\n- 散布谣言、虚假信息、误导性内容\n- 不道德、低俗、恶俗、有悖公序良俗的内容\n- 涉及未成年人不良内容\n- 政治敏感话题、时政评论、涉及领导人或国家政策的讨论\n如果触发消息的评论本身包含上述违规内容，也直接返回 [REFUSE]。";
   const AI_BOT_MESSAGE_TYPES = {
     MENTION: "mention",
     COMMENT: "comment"
@@ -1291,9 +1296,15 @@
     ].filter(Boolean).join("\n\n");
   }
 
+  const AI_BOT_REFUSE_TAG = "[REFUSE]";
+
   function cleanAiBotReply(content, emojiCodes = []) {
+    const raw = String(content || "").trim();
+    if (raw === AI_BOT_REFUSE_TAG || raw.startsWith(AI_BOT_REFUSE_TAG)) {
+      return "";
+    }
     const allowedEmojiCodes = new Set(emojiCodes);
-    return String(content || "")
+    return raw
       .replace(/^```(?:\w+)?\s*/i, "")
       .replace(/```$/i, "")
       .replace(/^["“”]+|["“”]+$/g, "")
@@ -1304,9 +1315,10 @@
 
   async function createAiBotReply(settings, message, context, replyCommentId, messageSource, emojiCodes = []) {
     const payload = buildAiBotPromptPayload(message, context, replyCommentId, messageSource, emojiCodes);
+    const systemPrompt = settings.commentPrompt + AI_BOT_BUILTIN_MODERATION_PROMPT;
     const response = await requestChat({
       messages: [
-        { role: "system", content: settings.commentPrompt },
+        { role: "system", content: systemPrompt },
         { role: "user", content: payload }
       ],
       temperature: 0.6
@@ -1322,7 +1334,7 @@
     }
     const reply = cleanAiBotReply(response.content, emojiCodes);
     if (!reply) {
-      throw new Error("AI 没有生成可发送内容");
+      return null;
     }
     return reply;
   }
@@ -1413,6 +1425,87 @@
   async function submitAiBotComment(heyboxId, linkId, replyCommentId, rootCommentId, text) {
     return queueAiBotCommentSubmission(() => submitAiBotCommentNow(heyboxId, linkId, replyCommentId, rootCommentId, text));
   }
+
+  async function readReplyQueue() {
+    const result = await storageGet(AI_BOT_REPLY_QUEUE_STORAGE_KEY);
+    const queue = result[AI_BOT_REPLY_QUEUE_STORAGE_KEY];
+    return Array.isArray(queue) ? queue : [];
+  }
+
+  async function writeReplyQueue(queue) {
+    await storageSet({ [AI_BOT_REPLY_QUEUE_STORAGE_KEY]: queue });
+  }
+
+  async function cleanupReplyQueue() {
+    const queue = await readReplyQueue();
+    const now = Date.now();
+    const validItems = queue.filter((item) => {
+      const age = now - Number(item?.queuedAt || 0);
+      return age < AI_BOT_QUEUE_ITEM_MAX_AGE_MS;
+    });
+    if (validItems.length !== queue.length) {
+      await writeReplyQueue(validItems);
+      const droppedCount = queue.length - validItems.length;
+      if (droppedCount > 0) {
+        await appendAiBotLog("info", `清理过期队列消息：${droppedCount} 条`);
+      }
+    }
+    return validItems;
+  }
+
+  async function enqueueReplyMessage(message, context, replyCommentId, messageSource, emojiCodes) {
+    const queue = await cleanupReplyQueue();
+    const messageId = String(message?.message_id || "");
+    const exists = queue.some((item) => item.messageId === messageId);
+    if (exists) {
+      return false;
+    }
+    const now = Date.now();
+    const queueItem = {
+      messageId,
+      queuedAt: now,
+      message,
+      context: {
+        detail: context.detail,
+        groups: context.groups
+      },
+      replyCommentId,
+      messageSource,
+      emojiCodes,
+      linkId: getLinkIdFromMessage(message),
+      rootCommentId: getRootCommentIdFromMessage(message),
+      senderId: getUserId(message?.user_a || {}),
+      senderName: String(message?.user_a?.username || message?.user_a?.nickname || ""),
+      messageText: stripHtml(String(message?.comment_a_text || message?.text || "")).slice(0, 500),
+      messageTimestamp: getMessageTimestampMs(message)
+    };
+    const newQueue = [...queue, queueItem];
+    newQueue.sort((a, b) => Number(b.messageTimestamp || b.queuedAt) - Number(a.messageTimestamp || a.queuedAt));
+    const trimmedQueue = newQueue.slice(0, AI_BOT_QUEUE_MAX_SIZE);
+    await writeReplyQueue(trimmedQueue);
+    return true;
+  }
+
+  async function dequeueReplyMessage() {
+    const queue = await cleanupReplyQueue();
+    if (!queue.length) {
+      return null;
+    }
+    const item = queue[0];
+    const remainingQueue = queue.slice(1);
+    await writeReplyQueue(remainingQueue);
+    return item;
+  }
+
+  async function getQueueStatus() {
+    const queue = await readReplyQueue();
+    return {
+      count: queue.length,
+      oldestAge: queue.length ? Date.now() - Number(queue[0]?.queuedAt || 0) : 0
+    };
+  }
+
+  let aiBotQueueProcessing = false;
 
   async function readRepliedRecords() {
     const result = await storageGet(AI_BOT_REPLIED_RECORDS_STORAGE_KEY);
@@ -1542,7 +1635,7 @@
       return;
     }
 
-    await appendAiBotLog("info", `开始处理${typeLabel}`, messageDebug);
+    await appendAiBotLog("info", `开始处理${typeLabel}，获取帖子详情`, messageDebug);
     let context;
     try {
       context = await fetchLinkContext(linkId, heyboxId);
@@ -1553,20 +1646,82 @@
       return;
     }
     const emojiCodes = await loadAiBotEmojiCodes(heyboxId);
+
+    const enqueued = await enqueueReplyMessage(message, context, replyCommentId, messageSource, emojiCodes);
+    if (enqueued) {
+      await markMessageReplied(messageId, {
+        queuedAt: Date.now(),
+        messageSource
+      });
+      records[messageId] = { queuedAt: Date.now() };
+      await appendAiBotLog("info", `${typeLabel}已入队等待回复`, messageDebug);
+    }
+  }
+
+  async function processQueueItem(item) {
+    const settings = await readAiBotSettings();
+    const heyboxId = await getCurrentHeyboxId();
+    if (!heyboxId) {
+      throw new Error("未登录");
+    }
+
+    const typeLabel = getAiBotMessageTypeLabel(item.messageSource);
+    const message = item.message;
+    const context = item.context;
+    const replyCommentId = item.replyCommentId;
+    const rootCommentId = item.rootCommentId;
+    const emojiCodes = item.emojiCodes || [];
+    const messageDebug = {
+      messageId: item.messageId,
+      messageSource: item.messageSource,
+      linkId: item.linkId,
+      senderId: item.senderId,
+      senderName: item.senderName,
+      queuedAt: item.queuedAt,
+      queueAge: Math.floor((Date.now() - item.queuedAt) / 1000)
+    };
+
     let reply;
     try {
-      reply = await createAiBotReply(settings, message, context, replyCommentId, messageSource, emojiCodes);
+      reply = await createAiBotReply(settings, message, context, replyCommentId, item.messageSource, emojiCodes);
     } catch (error) {
-      throw createAiBotStageError("生成AI回复", error, {
-        ...messageDebug,
-        emojiCodeCount: emojiCodes.length,
-        commentCount: (context.groups || []).length,
-        title: context.detail?.title || ""
-      });
+      throw createAiBotStageError("生成AI回复", error, messageDebug);
     }
+    if (!reply) {
+      await markMessageReplied(item.messageId, {
+        skippedAt: Date.now(),
+        skipReason: "content_moderation",
+        messageSource: item.messageSource
+      });
+      const messageTimestamp = getMessageTimestampMs(message);
+      await appendAiBotMessageLog({
+        messageId: item.messageId,
+        messageSource: item.messageSource,
+        typeLabel,
+        linkId: item.linkId,
+        linkTitle: context.detail?.title || "",
+        replyCommentId,
+        rootCommentId: rootCommentId || replyCommentId,
+        commentId: "",
+        senderId: item.senderId,
+        senderName: item.senderName,
+        messageText: item.messageText || "",
+        messageTimestamp,
+        messageTimeText: messageTimestamp ? formatLogTime(messageTimestamp) : "",
+        sentTimestamp: Date.now(),
+        sentTimeText: formatLogTime(Date.now()),
+        triggerText: item.messageText || "",
+        replyText: "[内容审查未通过，已跳过]",
+        skipped: true,
+        skipReason: "content_moderation"
+      });
+      await appendAiBotLog("info", `队列消息跳过：内容审查未通过`, messageDebug);
+      return;
+    }
+
     let result;
     try {
-      result = await submitAiBotComment(heyboxId, linkId, replyCommentId, rootCommentId || replyCommentId, reply);
+      result = await submitAiBotComment(heyboxId, item.linkId, replyCommentId, rootCommentId || replyCommentId, reply);
     } catch (error) {
       throw createAiBotStageError("发送评论回复", error, {
         ...messageDebug,
@@ -1574,38 +1729,135 @@
         replyPreview: String(reply || "").slice(0, 200)
       });
     }
-    await markMessageReplied(messageId, {
-      linkId,
+    await markMessageReplied(item.messageId, {
+      linkId: item.linkId,
       replyCommentId,
       commentId: result?.commentid || result?.result?.commentid || ""
     });
-    records[messageId] = { repliedAt: Date.now() };
     const messageTimestamp = getMessageTimestampMs(message);
     const sentTimestamp = Date.now();
     await appendAiBotMessageLog({
-      messageId,
-      messageSource,
-      messageType: String(message?.message_type || ""),
+      messageId: item.messageId,
+      messageSource: item.messageSource,
       typeLabel,
-      linkId,
-      linkTitle: context.detail?.title || message?.link_title || message?.link?.title || "",
+      linkId: item.linkId,
+      linkTitle: context.detail?.title || "",
       replyCommentId,
       rootCommentId: rootCommentId || replyCommentId,
       commentId: result?.commentid || result?.result?.commentid || "",
-      senderId: getUserId(message?.user_a || {}),
-      senderName: String(message?.user_a?.username || message?.user_a?.nickname || ""),
-      messageText: stripHtml(String(message?.comment_a_text || message?.text || "")).slice(0, 1000),
+      senderId: item.senderId,
+      senderName: item.senderName,
+      messageText: item.messageText || "",
       messageTimestamp,
       messageTimeText: messageTimestamp ? formatLogTime(messageTimestamp) : "",
       sentTimestamp,
       sentTimeText: formatLogTime(sentTimestamp),
-      triggerText: stripHtml(String(message?.comment_a_text || message?.text || "")).slice(0, 500),
+      triggerText: item.messageText || "",
       replyText: reply
     });
-    await appendAiBotLog("success", `已自动回复${typeLabel}`, {
+    await appendAiBotLog("success", `队列消息已回复${typeLabel}`, {
       ...messageDebug,
       commentId: result?.commentid || result?.result?.commentid || ""
     });
+  }
+
+  async function runAiBotQueueConsumer() {
+    if (aiBotQueueProcessing) {
+      return;
+    }
+    aiBotQueueProcessing = true;
+    try {
+      const settings = await readAiBotSettings();
+      if (!settings.enabled) {
+        return;
+      }
+
+      const queueStatus = await getQueueStatus();
+      if (queueStatus.count === 0) {
+        return;
+      }
+
+      await appendAiBotLog("info", "开始处理队列消息", { queueCount: queueStatus.count });
+
+      while (true) {
+        const queue = await readReplyQueue();
+        if (!queue.length) {
+          break;
+        }
+
+        const settings = await readAiBotSettings();
+        if (!settings.enabled) {
+          break;
+        }
+
+        const item = await dequeueReplyMessage();
+        if (!item) {
+          break;
+        }
+
+        const itemAge = Date.now() - item.queuedAt;
+        if (itemAge >= AI_BOT_QUEUE_ITEM_MAX_AGE_MS) {
+          await markMessageReplied(item.messageId, {
+            skippedAt: Date.now(),
+            skipReason: "queue_expired",
+            messageSource: item.messageSource,
+            queueAge: Math.floor(itemAge / 1000)
+          });
+          const messageTimestamp = getMessageTimestampMs(item.message);
+          await appendAiBotMessageLog({
+            messageId: item.messageId,
+            messageSource: item.messageSource,
+            typeLabel: getAiBotMessageTypeLabel(item.messageSource),
+            linkId: item.linkId,
+            linkTitle: item.context?.detail?.title || "",
+            replyCommentId: item.replyCommentId,
+            rootCommentId: item.rootCommentId || item.replyCommentId,
+            commentId: "",
+            senderId: item.senderId,
+            senderName: item.senderName,
+            messageText: item.messageText || "",
+            messageTimestamp,
+            messageTimeText: messageTimestamp ? formatLogTime(messageTimestamp) : "",
+            sentTimestamp: Date.now(),
+            sentTimeText: formatLogTime(Date.now()),
+            triggerText: item.messageText || "",
+            replyText: `[队列超时 ${Math.floor(itemAge / 60000)} 分钟，已跳过]`,
+            skipped: true,
+            skipReason: "queue_expired"
+          });
+          await appendAiBotLog("info", "跳过过期队列消息", {
+            messageId: item.messageId,
+            ageMinutes: Math.floor(itemAge / 60000)
+          });
+          continue;
+        }
+
+        try {
+          await processQueueItem(item);
+        } catch (error) {
+          await appendAiBotLog("error", "处理队列消息失败", {
+            messageId: item.messageId,
+            stage: error?.aiBotStage || "处理队列消息",
+            error: error?.message || "未知错误",
+            ...(error?.aiBotDetail || {})
+          });
+        }
+
+        const remaining = await readReplyQueue();
+        if (remaining.length > 0) {
+          await new Promise((resolve) => setTimeout(resolve, AI_BOT_COMMENT_COOLDOWN_MS));
+        }
+      }
+
+      const finalStatus = await getQueueStatus();
+      await appendAiBotLog("info", "队列处理完成", { remainingCount: finalStatus.count });
+    } catch (error) {
+      await appendAiBotLog("error", "队列消费任务失败", {
+        error: error?.message || "未知错误"
+      });
+    } finally {
+      aiBotQueueProcessing = false;
+    }
   }
 
   async function runAiBotPoll(reason = "alarm") {
@@ -1665,7 +1917,13 @@
           });
         }
       }
-      return { ok: true, count: messages.length };
+
+      const queueStatus = await getQueueStatus();
+      if (queueStatus.count > 0) {
+        runAiBotQueueConsumer().catch(() => {});
+      }
+
+      return { ok: true, count: messages.length, queued: queueStatus.count };
     } catch (error) {
       await appendAiBotLog("error", "AI Bot 轮询失败", {
         stage: "轮询入口",
@@ -1684,7 +1942,9 @@
         resolve(false);
         return;
       }
-      chrome.alarms.clear(AI_BOT_ALARM_NAME, resolve);
+      chrome.alarms.clear(AI_BOT_ALARM_NAME, () => {
+        chrome.alarms.clear(AI_BOT_QUEUE_ALARM_NAME, resolve);
+      });
     });
   }
 
@@ -1698,16 +1958,24 @@
       delayInMinutes: 0.1,
       periodInMinutes: Math.max(1, settings.pollMinutes)
     });
+    chrome.alarms.create(AI_BOT_QUEUE_ALARM_NAME, {
+      delayInMinutes: 0.2,
+      periodInMinutes: 0.5
+    });
   }
 
   async function getAiBotStatus() {
     const settings = await readAiBotSettings();
     const apiParams = await refreshCachedApiParams();
+    const queueStatus = await getQueueStatus();
     return {
       ok: true,
       enabled: settings.enabled,
       running: aiBotRunning,
+      queueProcessing: aiBotQueueProcessing,
+      queueCount: queueStatus.count,
       alarmName: AI_BOT_ALARM_NAME,
+      queueAlarmName: AI_BOT_QUEUE_ALARM_NAME,
       hasCapturedApiParams: Object.keys(apiParams).length > 0,
       hasCapturedDeviceId: Boolean(apiParams.device_id),
       capturedApiParamKeys: Object.keys(apiParams)
@@ -1891,6 +2159,9 @@
   chrome.alarms?.onAlarm?.addListener((alarm) => {
     if (alarm?.name === AI_BOT_ALARM_NAME) {
       runAiBotPoll("alarm");
+    }
+    if (alarm?.name === AI_BOT_QUEUE_ALARM_NAME) {
+      runAiBotQueueConsumer().catch(() => {});
     }
   });
 

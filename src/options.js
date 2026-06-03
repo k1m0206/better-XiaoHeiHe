@@ -789,13 +789,15 @@
 
     normalizedLogs.forEach((log) => {
       const item = document.createElement("div");
-      item.className = "message-log-item";
+      item.className = "message-log-item" + (log.skipped ? " message-log-item--skipped" : "");
 
       const meta = document.createElement("div");
       meta.className = "log-meta";
       const type = document.createElement("span");
-      type.className = "log-level log-level--success";
-      type.textContent = log.typeLabel || (log.messageSource === "comment" ? "评论" : "@");
+      type.className = "log-level " + (log.skipped ? "log-level--warn" : "log-level--success");
+      type.textContent = log.skipped
+        ? (log.skipReason === "content_moderation" ? "已跳过" : log.skipReason === "queue_expired" ? "队列超时" : "跳过")
+        : (log.typeLabel || (log.messageSource === "comment" ? "评论" : "@"));
       const time = document.createElement("span");
       time.textContent = log.timeText || new Date(log.timestamp || Date.now()).toLocaleString("zh-CN", { hour12: false });
       meta.append(type, time);
@@ -820,7 +822,7 @@
       messageText.textContent = `消息内容：${log.messageText || log.triggerText || ""}`;
 
       const reply = document.createElement("div");
-      reply.className = "message-log-reply";
+      reply.className = "message-log-reply" + (log.skipped ? " message-log-reply--skipped" : "");
       reply.textContent = `回复内容：${log.replyText || ""}`;
 
       item.append(meta, title, target, messageText, reply);

@@ -694,6 +694,16 @@ button:disabled {
   word-break: break-word;
 }
 
+.message-log-item--skipped {
+  opacity: 0.75;
+  background: #fafafa;
+}
+
+.message-log-reply--skipped {
+  color: #a46300;
+  font-style: italic;
+}
+
 .log-meta {
   display: flex;
   align-items: center;
