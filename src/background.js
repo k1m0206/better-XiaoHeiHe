@@ -1423,7 +1423,7 @@
 
   function cleanAiBotReply(content, emojiCodes = [], allowEmoji = true) {
     const raw = String(content || "").trim();
-    if (raw === AI_BOT_REFUSE_TAG || raw.startsWith(AI_BOT_REFUSE_TAG)) {
+    if (!raw || raw === AI_BOT_REFUSE_TAG || raw.startsWith(AI_BOT_REFUSE_TAG) || raw === "模型没有返回内容") {
       return "";
     }
     if (!allowEmoji) {
