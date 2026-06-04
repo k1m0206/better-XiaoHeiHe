@@ -994,6 +994,10 @@
     return linkId ? `https://www.xiaoheihe.cn/app/bbs/link/${linkId}` : "";
   }
 
+  function getLinkUrl(linkId) {
+    return linkId ? `https://www.xiaoheihe.cn/app/bbs/link/${linkId}` : "";
+  }
+
   function selectFeedItemByStrategy(links, strategy) {
     const validLinks = links.filter((link) => getLinkIdFromFeedItem(link));
     if (validLinks.length === 0) {
@@ -2227,6 +2231,7 @@
       typeLabel,
       linkId: item.linkId,
       linkTitle: context.detail?.title || "",
+      linkUrl: getLinkUrl(item.linkId),
       replyCommentId,
       rootCommentId: rootCommentId || replyCommentId,
       commentId: result?.commentid || result?.result?.commentid || "",
