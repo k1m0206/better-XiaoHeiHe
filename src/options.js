@@ -455,7 +455,7 @@
       model: String(settings?.model || "").trim(),
       apiKey: String(settings?.apiKey || ""),
       pollMinutes: Math.max(1, Number.parseInt(settings?.pollMinutes, 10) || 1),
-      feedPollMinutes: Math.max(5, Number.parseInt(settings?.feedPollMinutes, 10) || 5),
+      feedPollMinutes: Math.max(2, Number.parseInt(settings?.feedPollMinutes, 10) || 5),
       messageFreshMinutes: Math.max(1, Number.parseInt(settings?.messageFreshMinutes, 10) || 5),
       replyMentions,
       replyComments,

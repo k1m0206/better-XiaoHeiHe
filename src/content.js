@@ -451,7 +451,7 @@
       model: String(settings?.model || "").trim(),
       apiKey: String(settings?.apiKey || ""),
       pollMinutes: Math.max(1, Number.parseInt(settings?.pollMinutes, 10) || 1),
-      feedPollMinutes: Math.max(5, Number.parseInt(settings?.feedPollMinutes, 10) || 5),
+      feedPollMinutes: Math.max(2, Number.parseInt(settings?.feedPollMinutes, 10) || 5),
       feedSelectStrategy: ["first", "latest", "hot"].includes(settings?.feedSelectStrategy) ? settings.feedSelectStrategy : "first",
       messageFreshMinutes: Math.max(1, Number.parseInt(settings?.messageFreshMinutes, 10) || 5),
       replyMentions,
@@ -7813,8 +7813,8 @@
             </label>
             <div class="better-settings__compact-number-grid">
               <label class="better-settings__field better-settings__field--compact-number">
-                <span class="better-settings__field-title">评论周期（分钟，最低5）</span>
-                <input class="better-settings__text-input better-settings__ai-bot-feed-poll-minutes" type="number" min="5" step="1" value="${escapeHtml(aiBotSettings.feedPollMinutes)}">
+                <span class="better-settings__field-title">评论周期（分钟，最低2）</span>
+                <input class="better-settings__text-input better-settings__ai-bot-feed-poll-minutes" type="number" min="2" step="1" value="${escapeHtml(aiBotSettings.feedPollMinutes)}">
               </label>
               <label class="better-settings__field better-settings__field--compact-number">
                 <span class="better-settings__field-title">帖子挑选策略</span>

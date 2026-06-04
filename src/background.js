@@ -100,7 +100,7 @@
       model: String(settings?.model || "").trim(),
       apiKey: String(settings?.apiKey || ""),
       pollMinutes: Math.max(1, Number.parseInt(settings?.pollMinutes, 10) || 1),
-      feedPollMinutes: Math.max(5, Number.parseInt(settings?.feedPollMinutes, 10) || 5),
+      feedPollMinutes: Math.max(2, Number.parseInt(settings?.feedPollMinutes, 10) || 5),
       messageFreshMinutes: Math.max(1, Number.parseInt(settings?.messageFreshMinutes, 10) || 5),
       replyMentions,
       replyComments,
@@ -2529,7 +2529,7 @@
     if (settings.commentHomeFeed) {
       chrome.alarms.create(AI_BOT_FEED_ALARM_NAME, {
         delayInMinutes: 0.15,
-        periodInMinutes: Math.max(5, settings.feedPollMinutes)
+        periodInMinutes: Math.max(2, settings.feedPollMinutes)
       });
     }
     chrome.alarms.create(AI_BOT_QUEUE_ALARM_NAME, {
