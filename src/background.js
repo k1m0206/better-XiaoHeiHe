@@ -2125,6 +2125,7 @@
       linkTitle: context.detail?.title || feedDetail.title || "",
       linkUrl,
       commentId,
+      messageTimestamp: Number(selected.post_time || selected.time || selected.created_at || 0) * 1000 || sentTimestamp,
       sentTimestamp,
       sentTimeText: formatLogTime(sentTimestamp),
       messageText: "首页推荐帖主评论",
