@@ -24,7 +24,7 @@
 - 顶部栏提供收藏入口，可直接跳转到个人收藏内容页。
 - 顶部栏设置支持添加评论和帖子屏蔽关键词；帖子关键词会同时匹配正文、分区/话题和分区入口，并在本地记录每个关键词的生效次数。
 - 支持在信息流帖子分区/话题标签上右键，确认后快速加入帖子屏蔽关键词。
-- 设置页新增 AI Bot，可独立配置 AI 参数、轮询评论和 @ 周期、只处理最近消息时间窗口、白名单用户 ID、评论提示词、是否允许表情和运行日志；开启任一回复开关后，浏览器运行期间可分别自动轮询 @ 我的消息、评论/回复我的消息并按规则回复。
+- 设置页新增 AI Bot，可独立配置 AI 参数、轮询评论和 @ 周期、只处理最近消息时间窗口、白名单用户 ID、评论提示词、是否允许表情和运行日志；开启任一回复开关后，浏览器运行期间可分别自动轮询 @ 我的消息、评论/回复我的消息并按规则回复，也可独立开启首页推荐帖主评论。
 
 ## 更新记录
 
@@ -33,7 +33,7 @@
 - AI 总结设置支持选择 OpenAI Compatible、OpenAI Responses、Anthropic 和 Gemini 接入方式。
 - AI 总结设置支持按当前服务商、Base URL 和 API Key 拉取模型列表，同时保留手动填写模型能力。
 - AI 总结请求会根据不同服务商自动适配 Chat Completions、Responses、Messages 和 Gemini Generate Content 端点。
-- 新增 AI Bot 自动回复功能，支持独立 AI 配置、模型拉取与本地模型缓存复用、回复 @ 和回复评论双开关、白名单、最小 1 分钟轮询、默认只处理最近 5 分钟消息、全局 30 秒评论提交尝试冷却、已回复记录、7 天运行日志和 AI 已发回复消息日志。
+- 新增 AI Bot 自动回复功能，支持独立 AI 配置、模型拉取与本地模型缓存复用、回复 @、回复评论和评论首页推荐帖开关、白名单、最小 1 分钟轮询、默认只处理最近 5 分钟消息、全局 30 秒评论提交尝试冷却、已回复记录、首页推荐帖本地永久去重、7 天运行日志和 AI 已发回复消息日志。
 
 ### 0.1.4.5
 
@@ -145,6 +145,7 @@ GET https://api.xiaoheihe.cn/bbs/app/api/emojis/list
 POST https://api.xiaoheihe.cn/bbs/app/comment/support
 POST https://api.xiaoheihe.cn/bbs/app/profile/award/link
 GET https://api.xiaoheihe.cn/bbs/app/user/message
+GET https://api.xiaoheihe.cn/bbs/app/feeds
 POST https://api.xiaoheihe.cn/bbs/app/comment/create
 ```
 
@@ -177,7 +178,7 @@ Gemini: POST {baseUrl}/models/{model}:generateContent
 
 AI 接口使用设置弹框中填写的 `provider`、`baseUrl`、`model` 和可选 `apiKey`，由扩展后台按所选服务商格式发起请求。生成总结前会复用评论详情接口返回的 `result.link.text` 补全帖子完整正文，并在评论尚未缓存时复用同次返回的 `result.comments`；请求会发送当前帖子标题、正文、话题和最多 30 条评论文本用于生成总结；开启“允许表情”时还会提供可用小黑盒表情短码列表，关闭时会要求并清理 AI 输出中的 emoji 和表情短码。评论超过 30 条时优先选取点赞量更高的评论。模型列表拉取会请求对应服务商的模型列表端点，仅用于辅助选择模型。
 
-AI Bot 使用独立的 AI 接口设置。开启任一回复开关后后台会通过 `chrome.alarms` 定时请求 `user/message`；回复 @ 开启时查询 `message_type=16` 分类，回复评论开启时查询 `list_type=0` 并筛选评论/回复类消息。插件读取当前 Cookie 中的 `heybox_id` 或 `user_heybox_id` 作为当前登录账号；如果登录状态失效，会发送浏览器通知并自动关闭所有 AI Bot 回复开关。用户打开小黑盒网页时，插件会从真实 API 请求 URL 中缓存网页端环境参数，例如 `device_id`、`version`、`web_version`、`x_app`、`x_os_type`，AI Bot 后台请求会优先复用这些真实参数，签名参数 `hkey`、`_time`、`nonce` 仍按当前请求实时生成。AI Bot 默认只处理最近 5 分钟内的消息，可在设置中调整；超过该时间窗口的旧消息会记录为已忽略，后续不再回复。AI Bot 会拉取小黑盒表情列表，将完整可用表情短码列表缓存到本地并提供给 AI，并在发送前移除未识别的方括号短码，避免 `[摊手]` 这类非小黑盒表情被发出。AI Bot 会把消息内容、帖子详情、触发消息的评论和最多 30 条评论上下文发送到用户配置的 AI 服务商，生成的内容会通过 `comment/create` 代表当前网页登录用户回复。已成功回复的 `message_id` 会记录在本地，避免重复回复。
+AI Bot 使用独立的 AI 接口设置。开启任一回复开关后后台会通过 `chrome.alarms` 定时请求 `user/message`；回复 @ 开启时查询 `message_type=16` 分类，回复评论开启时查询 `list_type=0` 并筛选评论/回复类消息。开启“评论首页推荐帖”后，后台会按同一轮询周期请求 `feeds` 首页推荐列表，取第一条有效帖子，读取帖子详情和评论区后生成普通主评论，并通过 `comment/create` 以 `reply_id=-1&root_id=-1` 发送；成功评论过的首页推荐帖 ID 会永久记录在本地，后续不再重复评论。插件读取当前 Cookie 中的 `heybox_id` 或 `user_heybox_id` 作为当前登录账号；如果登录状态失效，会发送浏览器通知并自动关闭所有 AI Bot 回复开关。用户打开小黑盒网页时，插件会从真实 API 请求 URL 中缓存网页端环境参数，例如 `device_id`、`version`、`web_version`、`x_app`、`x_os_type`，AI Bot 后台请求会优先复用这些真实参数，签名参数 `hkey`、`_time`、`nonce` 仍按当前请求实时生成。AI Bot 默认只处理最近 5 分钟内的消息，可在设置中调整；超过该时间窗口的旧消息会记录为已忽略，后续不再回复。AI Bot 会拉取小黑盒表情列表，将完整可用表情短码列表缓存到本地并提供给 AI，并在发送前移除未识别的方括号短码，避免 `[摊手]` 这类非小黑盒表情被发出。AI Bot 会把消息内容、帖子详情、触发消息的评论或首页推荐帖和最多 30 条评论上下文发送到用户配置的 AI 服务商，生成的内容会通过 `comment/create` 代表当前网页登录用户评论。已成功回复的 `message_id` 会记录在本地，避免重复回复。
 
 接口签名参数 `hkey`、`_time`、`nonce` 在 `src/content.js` 和 `src/background.js` 中生成。后续如果修改接口参数或签名逻辑，需要同步更新代码里的接口注释和本文档。
 评论文本和允许表情时 AI 总结输出中的表情标记会根据表情列表接口返回的 `code` 和 `img` 映射成图片展示；AI 总结会在开启“允许表情”时读取可用小黑盒表情短码并提供给模型，表情图片映射只做运行时内存缓存。
