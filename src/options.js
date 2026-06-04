@@ -1033,6 +1033,12 @@
       } else {
         title.textContent = log.linkTitle || `帖子 ${log.linkId || ""}`;
       }
+      if (log.messageSource === "feed" && log.messageTimestamp) {
+        const postTime = document.createElement("span");
+        postTime.className = "message-log-post-time";
+        postTime.textContent = new Date(log.messageTimestamp).toLocaleString("zh-CN", { hour12: false });
+        title.append(postTime);
+      }
 
       const target = document.createElement("div");
       target.className = "message-log-target";
