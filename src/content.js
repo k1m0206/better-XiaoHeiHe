@@ -56,7 +56,7 @@
   const SANITIZED_COOKIE_RULE_REQUEST_EVENT = "better-xiaoheihe-sanitized-cookie-rule-request";
   const SANITIZED_COOKIE_RULE_RESPONSE_EVENT = "better-xiaoheihe-sanitized-cookie-rule-response";
   const DEFAULT_SUMMARY_PROMPT = "你是社区帖子总结助手，请用中文简洁输出：\n帖子总结\n一句话概括帖子核心内容。\n评论区信息\n提取评论区里有价值的观点、经验、补充或避坑信息，没有则跳过。\nAI简评\n像真实网友一样补充观点，避免AI味。\n返回md格式。";
-  const AI_BOT_DEFAULT_PROMPT = "你是小黑盒社区自动回复助手。请根据消息类型、帖子正文、评论区上下文和触发消息的那条评论，生成一条自然、友好、简洁的中文回复。可以自然使用提供的小黑盒表情短码，但不要编造未提供的短码。不要暴露你是AI，不要使用模板化开头，不要编造事实，不要输出Markdown。";
+  const AI_BOT_DEFAULT_PROMPT = "你是小黑盒社区自动回复助手。请根据消息类型、帖子正文、评论区上下文和触发消息的那条评论，生成一条自然、友好、简洁的中文回复。可以自然使用 Unicode emoji 表情，也可以使用提供的小黑盒表情短码；但不要编造未提供的短码，不要使用类似[摊手]、[笑哭]这类不在列表里的方括号表情。不要暴露你是AI，不要使用模板化开头，不要编造事实，不要输出Markdown。";
   const AI_PROVIDERS = {
     OPENAI_COMPATIBLE: "openai-compatible",
     OPENAI_RESPONSES: "openai-responses",
