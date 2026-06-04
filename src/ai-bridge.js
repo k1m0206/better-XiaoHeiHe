@@ -43,6 +43,82 @@
     [AI_PROVIDERS.GEMINI]: "https://generativelanguage.googleapis.com/v1beta"
   };
   let currentSettings = normalizeAiSettings();
+  let extensionContextInvalidated = false;
+
+  function isExtensionContextInvalidatedError(error) {
+    return /Extension context invalidated/i.test(String(error?.message || error || ""));
+  }
+
+  function getExtensionUnavailableError(error, fallback = "扩展上下文已失效，请刷新页面后重试") {
+    if (isExtensionContextInvalidatedError(error)) {
+      extensionContextInvalidated = true;
+      return "扩展已重新加载，请刷新页面后重试";
+    }
+    return String(error?.message || error || fallback);
+  }
+
+  function isExtensionContextAvailable() {
+    if (extensionContextInvalidated) {
+      return false;
+    }
+    try {
+      return typeof chrome !== "undefined" && Boolean(chrome.runtime?.id && chrome.storage?.local);
+    } catch (error) {
+      getExtensionUnavailableError(error);
+      return false;
+    }
+  }
+
+  function getRuntimeLastErrorMessage(fallback = "") {
+    try {
+      return chrome.runtime.lastError?.message || "";
+    } catch (error) {
+      return getExtensionUnavailableError(error, fallback);
+    }
+  }
+
+  function sendRuntimeMessageSafely(message, fallbackMessage, callback) {
+    if (!isExtensionContextAvailable()) {
+      callback({ ok: false, error: "扩展已重新加载，请刷新页面后重试" });
+      return;
+    }
+
+    try {
+      chrome.runtime.sendMessage(message, (response) => {
+        const errorMessage = getRuntimeLastErrorMessage(fallbackMessage);
+        callback(errorMessage ? { ok: false, error: errorMessage } : response);
+      });
+    } catch (error) {
+      callback({ ok: false, error: getExtensionUnavailableError(error, fallbackMessage) });
+    }
+  }
+
+  function readStorageLocalSafely(keys, callback) {
+    if (!isExtensionContextAvailable()) {
+      callback({}, "扩展已重新加载，请刷新页面后重试");
+      return;
+    }
+
+    try {
+      chrome.storage.local.get(keys, (result) => {
+        callback(result || {}, getRuntimeLastErrorMessage("读取本地设置失败"));
+      });
+    } catch (error) {
+      callback({}, getExtensionUnavailableError(error, "读取本地设置失败"));
+    }
+  }
+
+  function writeStorageLocalSafely(values) {
+    if (!isExtensionContextAvailable()) {
+      return;
+    }
+
+    try {
+      chrome.storage.local.set(values);
+    } catch (error) {
+      getExtensionUnavailableError(error);
+    }
+  }
 
   function parseEventDetail(detail) {
     if (typeof detail !== "string") {
@@ -93,7 +169,7 @@
   }
 
   function readSettings() {
-    chrome.storage.local.get(AI_SETTINGS_STORAGE_KEY, (result) => {
+    readStorageLocalSafely(AI_SETTINGS_STORAGE_KEY, (result) => {
       dispatchSettings(result?.[AI_SETTINGS_STORAGE_KEY]);
     });
   }
@@ -133,21 +209,13 @@
       return;
     }
 
-    chrome.runtime.sendMessage({
+    sendRuntimeMessageSafely({
       type: "better-xiaoheihe-ai-chat",
       detail: {
         messages: Array.isArray(detail?.messages) ? detail.messages : [],
         temperature: Number.isFinite(detail?.temperature) ? detail.temperature : 0.2
       }
-    }, (response) => {
-      if (chrome.runtime.lastError) {
-        sendChatResponse(id, {
-          ok: false,
-          error: chrome.runtime.lastError.message || "AI 请求失败"
-        });
-        return;
-      }
-
+    }, "AI 请求失败", (response) => {
       sendChatResponse(id, response || {
         ok: false,
         error: "AI 请求失败"
@@ -163,20 +231,12 @@
       return;
     }
 
-    chrome.runtime.sendMessage({
+    sendRuntimeMessageSafely({
       type: detail?.cacheOnly ? "better-xiaoheihe-ai-get-model-cache" : "better-xiaoheihe-ai-list-models",
       detail: {
         settings
       }
-    }, (response) => {
-      if (chrome.runtime.lastError) {
-        sendModelListResponse(id, {
-          ok: false,
-          error: chrome.runtime.lastError.message || "模型列表拉取失败"
-        });
-        return;
-      }
-
+    }, "模型列表拉取失败", (response) => {
       sendModelListResponse(id, response || {
         ok: false,
         error: "模型列表拉取失败"
@@ -187,7 +247,7 @@
   function requestSanitizedCookieRuleChange(detail = {}) {
     const id = detail?.id || "";
     const action = detail?.action === "release" ? "release" : "activate";
-    chrome.runtime.sendMessage({
+    sendRuntimeMessageSafely({
       type: action === "release"
         ? "better-xiaoheihe-release-sanitized-comment-cookie"
         : "better-xiaoheihe-activate-sanitized-comment-cookie",
@@ -195,15 +255,7 @@
         id,
         cookieHeader: String(detail?.cookieHeader || "")
       }
-    }, (response) => {
-      if (chrome.runtime.lastError) {
-        sendSanitizedCookieRuleResponse(id, {
-          ok: false,
-          error: chrome.runtime.lastError.message || "请求头规则处理失败"
-        });
-        return;
-      }
-
+    }, "请求头规则处理失败", (response) => {
       sendSanitizedCookieRuleResponse(id, response || {
         ok: false,
         error: "请求头规则处理失败"
@@ -218,17 +270,14 @@
       return;
     }
 
-    chrome.runtime.sendMessage({
+    sendRuntimeMessageSafely({
       type,
       detail: detail?.detail || {}
-    }, (response) => {
+    }, "请求失败", (response) => {
       window.dispatchEvent(new CustomEvent(AI_BOT_RUNTIME_RESPONSE_EVENT, {
         detail: stringifyEventDetail({
           id,
-          ...(chrome.runtime.lastError ? {
-            ok: false,
-            error: chrome.runtime.lastError.message || "请求失败"
-          } : (response || { ok: false, error: "请求失败" }))
+          ...(response || { ok: false, error: "请求失败" })
         })
       }));
     });
@@ -251,11 +300,11 @@
   function readLocalSettings(detail = {}) {
     const id = detail?.id || "";
     const keys = getRequestedLocalSettingsKeys(detail);
-    chrome.storage.local.get(keys, (result) => {
-      if (chrome.runtime.lastError) {
+    readStorageLocalSafely(keys, (result, errorMessage) => {
+      if (errorMessage) {
         dispatchLocalSettingsResponse(id, {
           ok: false,
-          error: chrome.runtime.lastError.message || "读取本地设置失败",
+          error: errorMessage,
           values: {},
           keysPresent: {}
         });
@@ -286,19 +335,19 @@
       return;
     }
 
-    chrome.storage.local.set(values);
+    writeStorageLocalSafely(values);
   }
 
   window.addEventListener(SETTINGS_REQUEST_EVENT, readSettings);
   window.addEventListener(SETTINGS_SAVE_EVENT, (event) => {
     const nextSettings = normalizeAiSettings(parseEventDetail(event.detail));
     dispatchSettings(nextSettings);
-    chrome.storage.local.set({
+    writeStorageLocalSafely({
       [AI_SETTINGS_STORAGE_KEY]: nextSettings
     });
   });
   window.addEventListener(SETTINGS_OPEN_EVENT, () => {
-    chrome.runtime.sendMessage({ type: "better-xiaoheihe-open-ai-settings" });
+    sendRuntimeMessageSafely({ type: "better-xiaoheihe-open-ai-settings" }, "打开设置失败", () => {});
   });
   window.addEventListener(CHAT_REQUEST_EVENT, (event) => requestChat(parseEventDetail(event.detail)));
   window.addEventListener(MODEL_LIST_REQUEST_EVENT, (event) => requestModelList(parseEventDetail(event.detail)));
@@ -307,37 +356,47 @@
   window.addEventListener(LOCAL_SETTINGS_REQUEST_EVENT, (event) => readLocalSettings(parseEventDetail(event.detail)));
   window.addEventListener(LOCAL_SETTINGS_SAVE_EVENT, (event) => saveLocalSettings(parseEventDetail(event.detail)));
 
-  chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName === "local" && changes[AI_SETTINGS_STORAGE_KEY]) {
-      dispatchSettings(changes[AI_SETTINGS_STORAGE_KEY].newValue);
-    }
+  if (isExtensionContextAvailable()) {
+    try {
+      chrome.storage.onChanged.addListener((changes, areaName) => {
+        try {
+          if (areaName === "local" && changes[AI_SETTINGS_STORAGE_KEY]) {
+            dispatchSettings(changes[AI_SETTINGS_STORAGE_KEY].newValue);
+          }
 
-    if (areaName !== "local") {
-      return;
-    }
+          if (areaName !== "local") {
+            return;
+          }
 
-    const localSettingsChanges = Object.keys(changes).reduce((result, key) => {
-      if (LOCAL_SETTINGS_STORAGE_KEYS.includes(key)) {
-        result[key] = {
-          oldValue: changes[key].oldValue,
-          newValue: changes[key].newValue
-        };
-      }
-      return result;
-    }, {});
+          const localSettingsChanges = Object.keys(changes).reduce((result, key) => {
+            if (LOCAL_SETTINGS_STORAGE_KEYS.includes(key)) {
+              result[key] = {
+                oldValue: changes[key].oldValue,
+                newValue: changes[key].newValue
+              };
+            }
+            return result;
+          }, {});
 
-    if (Object.keys(localSettingsChanges).length) {
-      window.dispatchEvent(new CustomEvent(LOCAL_SETTINGS_CHANGED_EVENT, {
-        detail: stringifyEventDetail({
-          changes: localSettingsChanges,
-          values: Object.keys(localSettingsChanges).reduce((values, key) => {
-            values[key] = localSettingsChanges[key].newValue;
-            return values;
-          }, {})
-        })
-      }));
+          if (Object.keys(localSettingsChanges).length) {
+            window.dispatchEvent(new CustomEvent(LOCAL_SETTINGS_CHANGED_EVENT, {
+              detail: stringifyEventDetail({
+                changes: localSettingsChanges,
+                values: Object.keys(localSettingsChanges).reduce((values, key) => {
+                  values[key] = localSettingsChanges[key].newValue;
+                  return values;
+                }, {})
+              })
+            }));
+          }
+        } catch (error) {
+          getExtensionUnavailableError(error);
+        }
+      });
+    } catch (error) {
+      getExtensionUnavailableError(error);
     }
-  });
+  }
 
   readSettings();
 })();
