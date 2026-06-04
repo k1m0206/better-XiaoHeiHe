@@ -60,6 +60,10 @@
   const aiBotMessageFreshMinutesInput = document.getElementById("aiBotMessageFreshMinutes");
   const aiBotReplyMentionsInput = document.getElementById("aiBotReplyMentions");
   const aiBotReplyCommentsInput = document.getElementById("aiBotReplyComments");
+  const aiBotCommentHomeFeedInput = document.getElementById("aiBotCommentHomeFeed");
+  const aiBotFeedPollGroup = document.getElementById("aiBotFeedPollGroup");
+  const aiBotFeedPollMinutesInput = document.getElementById("aiBotFeedPollMinutes");
+  const aiBotFeedSelectStrategyInput = document.getElementById("aiBotFeedSelectStrategy");
   const aiBotWhitelistInput = document.getElementById("aiBotWhitelist");
   const aiBotCommentPromptInput = document.getElementById("aiBotCommentPrompt");
   const aiBotAllowEmojiInput = document.getElementById("aiBotAllowEmoji");
@@ -378,17 +382,21 @@
     const isEnabled = settings?.enabled === true;
     const replyMentions = isEnabled && settings?.replyMentions !== false;
     const replyComments = isEnabled && settings?.replyComments === true;
+    const commentHomeFeed = isEnabled && settings?.commentHomeFeed === true;
     return {
-      enabled: replyMentions || replyComments,
+      enabled: replyMentions || replyComments || commentHomeFeed,
       provider,
       endpointMode: provider,
       baseUrl: String(settings?.baseUrl || PROVIDER_DEFAULT_BASE_URLS[provider] || "").trim().replace(/\/+$/, ""),
       model: String(settings?.model || "").trim(),
       apiKey: String(settings?.apiKey || ""),
       pollMinutes: Math.max(1, Number.parseInt(settings?.pollMinutes, 10) || 1),
+      feedPollMinutes: Math.max(5, Number.parseInt(settings?.feedPollMinutes, 10) || 5),
       messageFreshMinutes: Math.max(1, Number.parseInt(settings?.messageFreshMinutes, 10) || 5),
       replyMentions,
       replyComments,
+      commentHomeFeed,
+      feedSelectStrategy: ["first", "latest", "hot"].includes(settings?.feedSelectStrategy) ? settings.feedSelectStrategy : "first",
       whitelistUserIds: normalizeIdList(settings?.whitelistUserIds || settings?.whitelistText),
       allowEmoji: settings?.allowEmoji !== false,
       commentPrompt: String(settings?.commentPrompt || "").trim() || AI_BOT_DEFAULT_PROMPT
@@ -409,15 +417,18 @@
 
   function getAiBotFormSettings() {
     return normalizeAiBotSettings({
-      enabled: aiBotReplyMentionsInput.checked || aiBotReplyCommentsInput.checked,
+      enabled: aiBotReplyMentionsInput.checked || aiBotReplyCommentsInput.checked || aiBotCommentHomeFeedInput.checked,
       provider: aiBotProviderInput.value,
       baseUrl: aiBotBaseUrlInput.value,
       model: aiBotModelInput.value,
       apiKey: aiBotApiKeyInput.value,
       pollMinutes: aiBotPollMinutesInput.value,
+      feedPollMinutes: aiBotFeedPollMinutesInput.value,
+      feedSelectStrategy: aiBotFeedSelectStrategyInput.value,
       messageFreshMinutes: aiBotMessageFreshMinutesInput.value,
       replyMentions: aiBotReplyMentionsInput.checked,
       replyComments: aiBotReplyCommentsInput.checked,
+      commentHomeFeed: aiBotCommentHomeFeedInput.checked,
       whitelistText: aiBotWhitelistInput.value,
       allowEmoji: aiBotAllowEmojiInput.checked,
       commentPrompt: aiBotCommentPromptInput.value
@@ -662,14 +673,18 @@
     aiBotModelInput.value = normalized.model;
     aiBotApiKeyInput.value = normalized.apiKey;
     aiBotPollMinutesInput.value = normalized.pollMinutes;
+    aiBotFeedPollMinutesInput.value = normalized.feedPollMinutes;
     aiBotMessageFreshMinutesInput.value = normalized.messageFreshMinutes;
     aiBotReplyMentionsInput.checked = normalized.replyMentions;
     aiBotReplyCommentsInput.checked = normalized.replyComments;
+    aiBotCommentHomeFeedInput.checked = normalized.commentHomeFeed;
+    aiBotFeedSelectStrategyInput.value = normalized.feedSelectStrategy;
     aiBotWhitelistInput.value = normalized.whitelistUserIds.join("\n");
     aiBotAllowEmojiInput.checked = normalized.allowEmoji;
     aiBotCommentPromptInput.value = normalized.commentPrompt;
     syncSecretToggle(aiBotApiKeyInput);
     syncConnectionDot("aiBot");
+    syncFeedPollGroupVisibility();
     loadCachedAiBotModelOptions();
   }
 
@@ -784,7 +799,7 @@
         setAiBotStatus(response.error || "轮询失败", true);
         return;
       }
-      setAiBotStatus(`轮询完成：${response.count || 0} 条消息`, false);
+      setAiBotStatus(`轮询完成：${response.count || 0} 条消息，首页推荐帖结果见日志`, false);
       renderAiBotLogsFromStorage();
     } catch (error) {
       setAiBotStatus(error?.message || "轮询失败", true);
@@ -800,7 +815,7 @@
         setAiBotStatus("正在运行", false);
         return;
       }
-      setAiBotStatus(response.enabled ? "等待下一次轮询" : "回复开关未开启", false);
+      setAiBotStatus(response.enabled ? "等待下一次轮询" : "AI Bot 开关未开启", false);
     } catch {
       setAiBotStatus("", false);
     }
@@ -922,14 +937,23 @@
       type.className = "log-level " + (log.skipped ? "log-level--warn" : "log-level--success");
       type.textContent = log.skipped
         ? (log.skipReason === "content_moderation" ? "已跳过" : log.skipReason === "queue_expired" ? "队列超时" : log.skipReason === "send_failed" ? "发送失败" : log.skipReason === "source_disabled" ? "开关关闭" : log.skipReason === "stale" ? "已过期" : log.skipReason === "missing_target" ? "缺少目标" : "跳过")
-        : (log.typeLabel || (log.messageSource === "comment" ? "评论" : "@"));
+        : (log.typeLabel || (log.messageSource === "feed" ? "首页推荐帖" : (log.messageSource === "comment" ? "评论" : "@")));
       const time = document.createElement("span");
       time.textContent = log.timeText || new Date(log.timestamp || Date.now()).toLocaleString("zh-CN", { hour12: false });
       meta.append(type, time);
 
       const title = document.createElement("div");
       title.className = "message-log-title";
-      title.textContent = log.linkTitle || `帖子 ${log.linkId || ""}`;
+      if (log.linkUrl) {
+        const titleLink = document.createElement("a");
+        titleLink.href = log.linkUrl;
+        titleLink.target = "_blank";
+        titleLink.rel = "noopener noreferrer";
+        titleLink.textContent = log.linkTitle || `帖子 ${log.linkId || ""}`;
+        title.append(titleLink);
+      } else {
+        title.textContent = log.linkTitle || `帖子 ${log.linkId || ""}`;
+      }
 
       const target = document.createElement("div");
       target.className = "message-log-target";
@@ -996,7 +1020,7 @@
       const target = document.createElement("div");
       target.className = "message-log-target";
       target.textContent = [
-        `类型：${pending.messageSource === "comment" ? "评论/回复我的消息" : "@我的消息"}`,
+        `类型：${pending.messageSource === "feed" ? "首页推荐帖" : (pending.messageSource === "comment" ? "评论/回复我的消息" : "@我的消息")}`,
         pending.senderName ? `消息发送人：${pending.senderName}${pending.senderId ? `（${pending.senderId}）` : ""}` : "",
         `等待：${Math.max(0, Math.floor((Date.now() - pending.queuedAt) / 1000))} 秒`,
         pending.messageTimestamp ? `消息时间：${new Date(pending.messageTimestamp).toLocaleString("zh-CN", { hour12: false })}` : "",
@@ -1082,9 +1106,18 @@
   function syncAiBotRuleInputs() {
     const settings = getAiBotFormSettings();
     aiBotPollMinutesInput.value = settings.pollMinutes;
+    aiBotFeedPollMinutesInput.value = settings.feedPollMinutes;
+    aiBotFeedSelectStrategyInput.value = settings.feedSelectStrategy;
     aiBotMessageFreshMinutesInput.value = settings.messageFreshMinutes;
     aiBotWhitelistInput.value = settings.whitelistUserIds.join("\n");
     saveAiBotSettings();
+  }
+
+  function syncFeedPollGroupVisibility() {
+    if (aiBotFeedPollGroup) {
+      aiBotFeedPollGroup.hidden = false;
+      aiBotFeedPollGroup.open = aiBotCommentHomeFeedInput.checked;
+    }
   }
 
   function syncAiBotProviderDefaults() {
@@ -1220,7 +1253,7 @@
     input.addEventListener("change", saveSettings);
     input.addEventListener("input", saveSettings);
   });
-  [aiBotBaseUrlInput, aiBotModelInput, aiBotApiKeyInput, aiBotPollMinutesInput, aiBotMessageFreshMinutesInput, aiBotReplyMentionsInput, aiBotReplyCommentsInput, aiBotWhitelistInput, aiBotAllowEmojiInput, aiBotCommentPromptInput].forEach((input) => {
+  [aiBotBaseUrlInput, aiBotModelInput, aiBotApiKeyInput, aiBotPollMinutesInput, aiBotFeedPollMinutesInput, aiBotFeedSelectStrategyInput, aiBotMessageFreshMinutesInput, aiBotReplyMentionsInput, aiBotReplyCommentsInput, aiBotCommentHomeFeedInput, aiBotWhitelistInput, aiBotAllowEmojiInput, aiBotCommentPromptInput].forEach((input) => {
     input.addEventListener("change", saveAiBotSettings);
     input.addEventListener("input", saveAiBotSettings);
   });
@@ -1313,11 +1346,13 @@
   aiBotProviderInput.addEventListener("change", syncAiBotProviderDefaults);
   aiBotResetPromptButton.addEventListener("click", resetAiBotPrompt);
   aiBotPollMinutesInput.addEventListener("change", syncAiBotRuleInputs);
+  aiBotFeedPollMinutesInput.addEventListener("change", syncAiBotRuleInputs);
   aiBotMessageFreshMinutesInput.addEventListener("change", syncAiBotRuleInputs);
   aiBotWhitelistInput.addEventListener("change", syncAiBotRuleInputs);
-  [aiBotReplyMentionsInput, aiBotReplyCommentsInput].forEach((input) => {
+  [aiBotReplyMentionsInput, aiBotReplyCommentsInput, aiBotCommentHomeFeedInput].forEach((input) => {
     input.addEventListener("change", refreshAiBotStatus);
   });
+  aiBotCommentHomeFeedInput.addEventListener("change", syncFeedPollGroupVisibility);
   aiBotFetchModelsButton.addEventListener("click", fetchAiBotModels);
   aiBotTestButton.addEventListener("click", testAiBotConnection);
   aiBotRunNowButton.addEventListener("click", runAiBotNow);

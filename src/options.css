@@ -667,6 +667,15 @@ p {
   min-width: 0;
 }
 
+.feed-poll-section {
+  margin-top: 8px;
+  margin-bottom: 8px;
+}
+
+.feed-poll-section .compact-number-grid {
+  padding: 0;
+}
+
 .model-combobox {
   position: relative;
 }
@@ -935,6 +944,15 @@ button:disabled {
   font-weight: 700;
   line-height: 18px;
   word-break: break-word;
+}
+
+.message-log-title a {
+  color: #1a73e8;
+  text-decoration: none;
+}
+
+.message-log-title a:hover {
+  text-decoration: underline;
 }
 
 .message-log-target {

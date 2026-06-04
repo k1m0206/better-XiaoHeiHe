@@ -158,7 +158,7 @@
           <div class="section ai-header">
             <div>
               <div class="section-title">AI Bot</div>
-              <div class="section-desc">自动回复 @、评论和回复消息</div>
+              <div class="section-desc">自动回复 @、评论和首页推荐帖</div>
             </div>
           </div>
 
@@ -235,6 +235,32 @@
               <span class="rule-toggle__switch" aria-hidden="true"></span>
               <span class="rule-toggle__text">回复评论 / 回复我的消息</span>
             </label>
+
+            <details class="section collapsible-section" id="aiBotFeedPollGroup" hidden>
+              <summary class="collapsible-summary">
+                <span class="section-title">首页推荐帖设置</span>
+                <span class="collapsible-indicator" aria-hidden="true"></span>
+              </summary>
+              <label class="rule-toggle">
+                <input id="aiBotCommentHomeFeed" type="checkbox">
+                <span class="rule-toggle__switch" aria-hidden="true"></span>
+                <span class="rule-toggle__text">评论首页推荐帖</span>
+              </label>
+              <div class="compact-number-grid">
+                <label class="field field--compact-number">
+                  <span>评论周期（分钟，最低5）</span>
+                  <input id="aiBotFeedPollMinutes" type="number" min="5" step="1" value="5">
+                </label>
+                <label class="field field--compact-number">
+                  <span>帖子挑选策略</span>
+                  <select id="aiBotFeedSelectStrategy">
+                    <option value="first">默认（第一条）</option>
+                    <option value="latest">发布时间最新</option>
+                    <option value="hot">热度最高</option>
+                  </select>
+                </label>
+              </div>
+            </details>
 
             <label class="field field--prompt">
               <span>白名单用户 ID</span>

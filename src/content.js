@@ -441,17 +441,21 @@
     const isEnabled = settings?.enabled === true;
     const replyMentions = isEnabled && settings?.replyMentions !== false;
     const replyComments = isEnabled && settings?.replyComments === true;
+    const commentHomeFeed = isEnabled && settings?.commentHomeFeed === true;
     return {
-      enabled: replyMentions || replyComments,
+      enabled: replyMentions || replyComments || commentHomeFeed,
       provider,
       endpointMode: provider,
       baseUrl: String(settings?.baseUrl || AI_PROVIDER_DEFAULT_BASE_URLS[provider] || "").trim().replace(/\/+$/, ""),
       model: String(settings?.model || "").trim(),
       apiKey: String(settings?.apiKey || ""),
       pollMinutes: Math.max(1, Number.parseInt(settings?.pollMinutes, 10) || 1),
+      feedPollMinutes: Math.max(5, Number.parseInt(settings?.feedPollMinutes, 10) || 5),
+      feedSelectStrategy: ["first", "latest", "hot"].includes(settings?.feedSelectStrategy) ? settings.feedSelectStrategy : "first",
       messageFreshMinutes: Math.max(1, Number.parseInt(settings?.messageFreshMinutes, 10) || 5),
       replyMentions,
       replyComments,
+      commentHomeFeed,
       whitelistUserIds: normalizeIdList(settings?.whitelistUserIds || settings?.whitelistText),
       allowEmoji: settings?.allowEmoji !== false,
       commentPrompt: String(settings?.commentPrompt || "").trim() || AI_BOT_DEFAULT_PROMPT
@@ -1043,6 +1047,15 @@
 
       .${SETTINGS_PANEL_CLASS} .better-settings__collapsible-section > .better-settings__field + .better-settings__field {
         margin-top: 0;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__feed-poll-section {
+        margin-top: 8px;
+        margin-bottom: 8px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__feed-poll-section .better-settings__compact-number-grid {
+        padding: 12px;
       }
 
       .${SETTINGS_PANEL_CLASS} .better-settings__config-actions {
@@ -1716,6 +1729,15 @@
         font-weight: 700;
         line-height: 18px;
         word-break: break-word;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-message-title a {
+        color: #1a73e8;
+        text-decoration: none;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-message-title a:hover {
+        text-decoration: underline;
       }
 
       .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-message-target {
@@ -7678,7 +7700,7 @@
         <div class="better-settings__ai-header">
           <div>
             <div class="better-settings__ai-title">AI Bot</div>
-            <div class="better-settings__ai-subtitle">自动回复 @、评论和回复消息</div>
+            <div class="better-settings__ai-subtitle">自动回复 @、评论和首页推荐帖</div>
           </div>
         </div>
         <div class="better-settings__ai-body">
@@ -7743,6 +7765,31 @@
             <span class="better-settings__rule-toggle-switch" aria-hidden="true"></span>
             <span class="better-settings__rule-toggle-text">回复评论 / 回复我的消息</span>
           </label>
+          <details class="better-settings__section better-settings__collapsible-section better-settings__feed-poll-section" ${aiBotSettings.commentHomeFeed ? "open" : ""}>
+            <summary class="better-settings__collapsible-summary">
+              <span class="better-settings__section-title">首页推荐帖设置</span>
+              <span class="better-settings__collapsible-indicator" aria-hidden="true"></span>
+            </summary>
+            <label class="better-settings__rule-toggle">
+              <input class="better-settings__ai-bot-comment-home-feed" type="checkbox"${aiBotSettings.commentHomeFeed ? " checked" : ""}>
+              <span class="better-settings__rule-toggle-switch" aria-hidden="true"></span>
+              <span class="better-settings__rule-toggle-text">评论首页推荐帖</span>
+            </label>
+            <div class="better-settings__compact-number-grid">
+              <label class="better-settings__field better-settings__field--compact-number">
+                <span class="better-settings__field-title">评论周期（分钟，最低5）</span>
+                <input class="better-settings__text-input better-settings__ai-bot-feed-poll-minutes" type="number" min="5" step="1" value="${escapeHtml(aiBotSettings.feedPollMinutes)}">
+              </label>
+              <label class="better-settings__field better-settings__field--compact-number">
+                <span class="better-settings__field-title">帖子挑选策略</span>
+                <select class="better-settings__text-input better-settings__ai-bot-feed-select-strategy">
+                  <option value="first"${aiBotSettings.feedSelectStrategy === "first" ? " selected" : ""}>默认（第一条）</option>
+                  <option value="latest"${aiBotSettings.feedSelectStrategy === "latest" ? " selected" : ""}>发布时间最新</option>
+                  <option value="hot"${aiBotSettings.feedSelectStrategy === "hot" ? " selected" : ""}>热度最高</option>
+                </select>
+              </label>
+            </div>
+          </details>
           <label class="better-settings__field">
             <span class="better-settings__field-title">白名单用户 ID</span>
             <textarea class="better-settings__textarea better-settings__ai-bot-whitelist" placeholder="空白表示允许回复所有触发用户；多个 ID 可用逗号、空格或换行分隔">${escapeHtml(aiBotSettings.whitelistUserIds.join("\n"))}</textarea>
@@ -7821,10 +7868,10 @@
       ? aiBotMessageLogs.map((log) => `
         <div class="better-settings__ai-bot-message-log${log.skipped ? " better-settings__ai-bot-message-log--skipped" : ""}">
           <div class="better-settings__ai-bot-log-meta">
-            <span class="better-settings__ai-bot-log-level better-settings__ai-bot-log-level--${log.skipped ? "warn" : "success"}">${escapeHtml(log.skipped ? (log.skipReason === "content_moderation" ? "已跳过" : log.skipReason === "queue_expired" ? "队列超时" : log.skipReason === "send_failed" ? "发送失败" : log.skipReason === "source_disabled" ? "开关关闭" : log.skipReason === "stale" ? "已过期" : log.skipReason === "missing_target" ? "缺少目标" : "跳过") : (log.typeLabel || (log.messageSource === "comment" ? "评论" : "@")))}</span>
+            <span class="better-settings__ai-bot-log-level better-settings__ai-bot-log-level--${log.skipped ? "warn" : "success"}">${escapeHtml(log.skipped ? (log.skipReason === "content_moderation" ? "已跳过" : log.skipReason === "queue_expired" ? "队列超时" : log.skipReason === "send_failed" ? "发送失败" : log.skipReason === "source_disabled" ? "开关关闭" : log.skipReason === "stale" ? "已过期" : log.skipReason === "missing_target" ? "缺少目标" : "跳过") : (log.typeLabel || (log.messageSource === "feed" ? "首页推荐帖" : (log.messageSource === "comment" ? "评论" : "@"))))}</span>
             <span>${escapeHtml(log.timeText || new Date(log.timestamp || Date.now()).toLocaleString("zh-CN", { hour12: false }))}</span>
           </div>
-          <div class="better-settings__ai-bot-message-title">${escapeHtml(log.linkTitle || `帖子 ${log.linkId || ""}`)}</div>
+          <div class="better-settings__ai-bot-message-title">${log.linkUrl ? `<a href="${escapeHtml(log.linkUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(log.linkTitle || `帖子 ${log.linkId || ""}`)}</a>` : escapeHtml(log.linkTitle || `帖子 ${log.linkId || ""}`)}</div>
           <div class="better-settings__ai-bot-message-target">${escapeHtml([
             log.senderName ? `消息发送人：${log.senderName}${log.senderId ? `（${log.senderId}）` : ""}` : "",
             `消息时间：${log.messageTimeText || (log.messageTimestamp ? new Date(log.messageTimestamp).toLocaleString("zh-CN", { hour12: false }) : "未知")}`,
@@ -7846,7 +7893,7 @@
         const queuedAt = Number(item.queuedAt || 0);
         const messageTimestamp = Number(item.messageTimestamp || 0);
         const queueAgeText = queuedAt ? `${Math.max(0, Math.floor((Date.now() - queuedAt) / 1000))} 秒` : "未知";
-        const typeLabel = item.messageSource === "comment" ? "评论/回复我的消息" : "@我的消息";
+        const typeLabel = item.messageSource === "feed" ? "首页推荐帖" : (item.messageSource === "comment" ? "评论/回复我的消息" : "@我的消息");
         return `
         <div class="better-settings__ai-bot-message-log">
           <div class="better-settings__ai-bot-log-meta">
@@ -8292,16 +8339,20 @@
   function getAiBotSettingsFormValues(panel) {
     const replyMentions = panel.querySelector(".better-settings__ai-bot-reply-mentions")?.checked === true;
     const replyComments = panel.querySelector(".better-settings__ai-bot-reply-comments")?.checked === true;
+    const commentHomeFeed = panel.querySelector(".better-settings__ai-bot-comment-home-feed")?.checked === true;
     return normalizeAiBotSettings({
-      enabled: replyMentions || replyComments,
+      enabled: replyMentions || replyComments || commentHomeFeed,
       provider: panel.querySelector(".better-settings__ai-bot-provider")?.value,
       baseUrl: panel.querySelector(".better-settings__ai-bot-base-url")?.value,
       model: panel.querySelector(".better-settings__ai-bot-model")?.value,
       apiKey: panel.querySelector(".better-settings__ai-bot-api-key")?.value,
       pollMinutes: panel.querySelector(".better-settings__ai-bot-poll-minutes")?.value,
+      feedPollMinutes: panel.querySelector(".better-settings__ai-bot-feed-poll-minutes")?.value,
+      feedSelectStrategy: panel.querySelector(".better-settings__ai-bot-feed-select-strategy")?.value,
       messageFreshMinutes: panel.querySelector(".better-settings__ai-bot-fresh-minutes")?.value,
       replyMentions,
       replyComments,
+      commentHomeFeed,
       whitelistText: panel.querySelector(".better-settings__ai-bot-whitelist")?.value,
       allowEmoji: panel.querySelector(".better-settings__ai-bot-allow-emoji")?.checked !== false,
       commentPrompt: panel.querySelector(".better-settings__ai-bot-comment-prompt")?.value
@@ -8410,7 +8461,7 @@
         setAiBotPanelStatus(panel, response.error || "轮询失败", true);
         return;
       }
-      setAiBotPanelStatus(panel, `轮询完成：${response.count || 0} 条消息`);
+      setAiBotPanelStatus(panel, `轮询完成：${response.count || 0} 条消息，首页推荐帖结果见日志`);
     }).catch((error) => {
       setAiBotPanelStatus(panel, error?.message || "轮询失败", true);
     }).finally(() => {
@@ -8758,7 +8809,7 @@
         saveAiSettingsFromPanel(panel);
       }
 
-      if (event.target.matches(".better-settings__ai-bot-base-url, .better-settings__ai-bot-model, .better-settings__ai-bot-api-key, .better-settings__ai-bot-poll-minutes, .better-settings__ai-bot-fresh-minutes, .better-settings__ai-bot-whitelist, .better-settings__ai-bot-comment-prompt")) {
+      if (event.target.matches(".better-settings__ai-bot-base-url, .better-settings__ai-bot-model, .better-settings__ai-bot-api-key, .better-settings__ai-bot-poll-minutes, .better-settings__ai-bot-feed-poll-minutes, .better-settings__ai-bot-fresh-minutes, .better-settings__ai-bot-whitelist, .better-settings__ai-bot-comment-prompt")) {
         if (event.target.matches(".better-settings__ai-bot-whitelist, .better-settings__ai-bot-comment-prompt")) {
           syncAutoHeightTextarea(event.target);
           repositionSettingsPanelIfOpen();
@@ -8794,13 +8845,17 @@
         return;
       }
 
-      if (event.target.matches(".better-settings__ai-bot-poll-minutes, .better-settings__ai-bot-fresh-minutes, .better-settings__ai-bot-whitelist, .better-settings__ai-bot-reply-mentions, .better-settings__ai-bot-reply-comments, .better-settings__ai-bot-allow-emoji")) {
+      if (event.target.matches(".better-settings__ai-bot-poll-minutes, .better-settings__ai-bot-feed-poll-minutes, .better-settings__ai-bot-fresh-minutes, .better-settings__ai-bot-whitelist, .better-settings__ai-bot-reply-mentions, .better-settings__ai-bot-reply-comments, .better-settings__ai-bot-comment-home-feed, .better-settings__ai-bot-feed-select-strategy, .better-settings__ai-bot-allow-emoji")) {
         const normalized = getAiBotSettingsFormValues(panel);
         const pollInput = panel.querySelector(".better-settings__ai-bot-poll-minutes");
+        const feedPollInput = panel.querySelector(".better-settings__ai-bot-feed-poll-minutes");
         const freshInput = panel.querySelector(".better-settings__ai-bot-fresh-minutes");
         const whitelistInput = panel.querySelector(".better-settings__ai-bot-whitelist");
         if (pollInput) {
           pollInput.value = normalized.pollMinutes;
+        }
+        if (feedPollInput) {
+          feedPollInput.value = normalized.feedPollMinutes;
         }
         if (freshInput) {
           freshInput.value = normalized.messageFreshMinutes;
@@ -8808,6 +8863,12 @@
         if (whitelistInput) {
           whitelistInput.value = normalized.whitelistUserIds.join("\n");
           syncAutoHeightTextarea(whitelistInput);
+        }
+        if (event.target.matches(".better-settings__ai-bot-comment-home-feed")) {
+          const feedSection = panel.querySelector(".better-settings__feed-poll-section");
+          if (feedSection) {
+            feedSection.open = event.target.checked;
+          }
         }
         saveAiBotSettingsFromPanel(panel);
         return;

@@ -6,10 +6,12 @@
   const AI_BOT_MESSAGE_LOGS_STORAGE_KEY = "better-xiaoheihe-ai-bot-message-logs";
   const AI_BOT_EMOJI_CODES_STORAGE_KEY = "better-xiaoheihe-ai-bot-emoji-codes";
   const AI_BOT_REPLIED_RECORDS_STORAGE_KEY = "better-xiaoheihe-ai-bot-replied-records";
+  const AI_BOT_FEED_COMMENT_RECORDS_STORAGE_KEY = "better-xiaoheihe-ai-bot-feed-comment-records";
   const AI_BOT_REPLY_QUEUE_STORAGE_KEY = "better-xiaoheihe-ai-bot-reply-queue";
   const AI_BOT_RUNTIME_STORAGE_KEY = "better-xiaoheihe-ai-bot-runtime";
   const API_PARAMS_STORAGE_KEY = "better-xiaoheihe-api-params";
   const AI_BOT_ALARM_NAME = "better-xiaoheihe-ai-bot-poll";
+  const AI_BOT_FEED_ALARM_NAME = "better-xiaoheihe-ai-bot-feed";
   const AI_BOT_QUEUE_ALARM_NAME = "better-xiaoheihe-ai-bot-queue";
   const AI_BOT_LOG_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
   const AI_BOT_EMOJI_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -21,7 +23,8 @@
   const AI_BOT_BUILTIN_MODERATION_PROMPT = "\n\n[系统内置审查规则 - 不可关闭]：\n在生成回复前，必须同时审查触发消息的评论内容和你将要生成的回复内容。遇到以下情况时，直接返回 [REFUSE] 标记（不要返回其他任何内容）：\n- 违反中国法律法规的内容（涉政敏感、分裂国家、损害国家荣誉和利益等）\n- 违反社会主义核心价值观的内容\n- 涉黄、涉暴、涉恐、涉赌、涉毒等违法内容\n- 侮辱、诽谤、人身攻击、网络暴力、不礼貌的言论\n- 歧视性内容（地域歧视、性别歧视、种族歧视等）\n- 散布谣言、虚假信息、误导性内容\n- 不道德、低俗、恶俗、有悖公序良俗的内容\n- 涉及未成年人不良内容\n- 政治敏感话题、时政评论、涉及领导人或国家政策的讨论\n如果触发消息的评论本身包含上述违规内容，也直接返回 [REFUSE]。";
   const AI_BOT_MESSAGE_TYPES = {
     MENTION: "mention",
-    COMMENT: "comment"
+    COMMENT: "comment",
+    FEED: "feed"
   };
   const DEFAULT_SUMMARY_PROMPT = "你是社区帖子总结助手，请用中文简洁输出：\n帖子总结\n一句话概括帖子核心内容。\n评论区信息\n提取评论区里有价值的观点、经验、补充或避坑信息，没有则跳过。\nAI简评\n像真实网友一样补充观点，避免AI味。\n返回md格式。";
   const AI_PROVIDERS = {
@@ -40,6 +43,7 @@
   const API_ORIGIN = "https://api.xiaoheihe.cn";
   const WEB_ORIGIN = "https://www.xiaoheihe.cn";
   const MESSAGE_API_PATH = "/bbs/app/user/message";
+  const FEEDS_API_PATH = "/bbs/app/feeds";
   const LINK_TREE_API_PATH = "/bbs/app/link/tree";
   const COMMENT_CREATE_API_PATH = "/bbs/app/comment/create";
   const EMOJI_API_PATH = "/bbs/app/api/emojis/list";
@@ -86,17 +90,21 @@
     const isEnabled = settings?.enabled === true;
     const replyMentions = isEnabled && settings?.replyMentions !== false;
     const replyComments = isEnabled && settings?.replyComments === true;
+    const commentHomeFeed = isEnabled && settings?.commentHomeFeed === true;
     return {
-      enabled: replyMentions || replyComments,
+      enabled: replyMentions || replyComments || commentHomeFeed,
       provider,
       endpointMode: provider,
       baseUrl: normalizeBaseUrl(settings?.baseUrl, provider),
       model: String(settings?.model || "").trim(),
       apiKey: String(settings?.apiKey || ""),
       pollMinutes: Math.max(1, Number.parseInt(settings?.pollMinutes, 10) || 1),
+      feedPollMinutes: Math.max(5, Number.parseInt(settings?.feedPollMinutes, 10) || 5),
       messageFreshMinutes: Math.max(1, Number.parseInt(settings?.messageFreshMinutes, 10) || 5),
       replyMentions,
       replyComments,
+      commentHomeFeed,
+      feedSelectStrategy: ["first", "latest", "hot"].includes(settings?.feedSelectStrategy) ? settings.feedSelectStrategy : "first",
       whitelistUserIds: normalizeIdList(settings?.whitelistUserIds || settings?.whitelistText),
       allowEmoji: settings?.allowEmoji !== false,
       commentPrompt: String(settings?.commentPrompt || "").trim() || AI_BOT_DEFAULT_PROMPT
@@ -960,6 +968,52 @@
     ).trim();
   }
 
+  function getLinkIdFromFeedItem(link) {
+    return String(link?.linkid || link?.link_id || link?.id || "").trim();
+  }
+
+  function getFeedItemDetail(link = {}) {
+    return {
+      title: String(link.title || "").trim(),
+      author: String(link.user?.username || link.user?.nickname || "").trim(),
+      content: stripHtml(link.text || link.description || ""),
+      topic: [
+        ...(Array.isArray(link.topics) ? link.topics.map((topic) => typeof topic === "string" ? topic : (topic?.name || topic?.text)) : []),
+        ...(Array.isArray(link.tags) ? link.tags.map((tag) => typeof tag === "string" ? tag : (tag?.text || tag?.name)) : []),
+        ...(Array.isArray(link.hashtags) ? link.hashtags.map((tag) => typeof tag === "string" ? tag : (tag?.text || tag?.name)) : [])
+      ].filter(Boolean).join("\n"),
+      commentNum: Number(link.comment_num || link.comment_count || 0) || 0,
+      up: Number(link.up || link.up_num || 0) || 0
+    };
+  }
+
+  function getFeedItemUrl(link) {
+    const linkId = getLinkIdFromFeedItem(link);
+    return linkId ? `https://www.xiaoheihe.cn/app/bbs/link/${linkId}` : "";
+  }
+
+  function selectFeedItemByStrategy(links, strategy) {
+    const validLinks = links.filter((link) => getLinkIdFromFeedItem(link));
+    if (validLinks.length === 0) {
+      return null;
+    }
+    if (strategy === "latest") {
+      return validLinks.reduce((latest, current) => {
+        const latestTime = Number(latest.post_time || latest.time || latest.created_at || 0);
+        const currentTime = Number(current.post_time || current.time || current.created_at || 0);
+        return currentTime > latestTime ? current : latest;
+      }, validLinks[0]);
+    }
+    if (strategy === "hot") {
+      return validLinks.reduce((hot, current) => {
+        const hotScore = Number(hot.comment_num || hot.comment_count || 0) + Number(hot.up || hot.up_num || 0);
+        const currentScore = Number(current.comment_num || current.comment_count || 0) + Number(current.up || current.up_num || 0);
+        return currentScore > hotScore ? current : hot;
+      }, validLinks[0]);
+    }
+    return validLinks[0];
+  }
+
   function findFirstFieldDeep(source, names, seen = new Set()) {
     if (!source || typeof source !== "object" || seen.has(source)) {
       return "";
@@ -1143,6 +1197,14 @@
     return buildApiUrl(MESSAGE_API_PATH, params);
   }
 
+  function buildFeedsUrl(heyboxId) {
+    return buildApiUrl(FEEDS_API_PATH, {
+      pull: "0",
+      offset: "0",
+      heybox_id: heyboxId
+    });
+  }
+
   function buildLinkTreeUrl(linkId, heyboxId) {
     return buildApiUrl(LINK_TREE_API_PATH, {
       h_src: "",
@@ -1199,6 +1261,18 @@
     return (Array.isArray(data?.result?.messages) ? data.result.messages : [])
       .filter((message) => ["1", "2"].includes(String(message?.message_type || "")))
       .filter((message) => getLinkIdFromMessage(message) && getReplyCommentIdFromMessage(message));
+  }
+
+  async function fetchHomeFeedLinks(heyboxId) {
+    const data = await fetchAiBotJson(buildFeedsUrl(heyboxId));
+    if (data?.status !== "ok") {
+      if (isLoginExpiredResponse(data)) {
+        await stopAiBotForLoginExpired(data?.message || data?.msg || data?.status);
+        return [];
+      }
+      throw new Error(getAiBotApiErrorMessage(data, "首页推荐帖子查询失败"));
+    }
+    return Array.isArray(data?.result?.links) ? data.result.links : [];
   }
 
   async function fetchLinkContext(linkId, heyboxId) {
@@ -1277,10 +1351,16 @@
   }
 
   function getAiBotMessageTypeLabel(messageSource) {
+    if (messageSource === AI_BOT_MESSAGE_TYPES.FEED) {
+      return "首页推荐帖";
+    }
     return messageSource === AI_BOT_MESSAGE_TYPES.COMMENT ? "评论/回复我的消息" : "@我的消息";
   }
 
   function isAiBotMessageSourceEnabled(settings, messageSource) {
+    if (messageSource === AI_BOT_MESSAGE_TYPES.FEED) {
+      return settings.commentHomeFeed === true;
+    }
     return messageSource === AI_BOT_MESSAGE_TYPES.COMMENT
       ? settings.replyComments === true
       : settings.replyMentions !== false;
@@ -1302,6 +1382,31 @@
       message?.comment_a_text ? `触发消息的评论文本：${stripHtml(String(message.comment_a_text || ""))}` : "",
       triggerComment ? `触发消息的评论：${getCommentLine(triggerComment)}` : `触发消息的评论ID：${replyCommentId}`,
       `评论区上下文（最多${AI_BOT_COMMENT_LIMIT}条）：\n${getAiBotCommentLines(context.groups).join("\n") || "暂无评论上下文"}`,
+      allowEmoji
+        ? (emojiCodes.length ? `完整可用小黑盒表情短码列表：${emojiCodes.join(" ")}\n可以自然使用 Unicode emoji 表情，也可以使用 0-2 个列表内短码；不要编造列表外的短码，不要输出任何不在这个列表里的方括号表情，例如[摊手]、[笑哭]。` : "可以自然使用 Unicode emoji 表情；没有可用小黑盒表情短码时，不要输出任何方括号表情。")
+        : "不要使用 Unicode emoji 表情，不要输出任何小黑盒表情短码或方括号表情。"
+    ].filter(Boolean).join("\n\n");
+  }
+
+  function buildAiBotFeedPromptPayload(feedItem, context, emojiCodes = [], allowEmoji = true) {
+    const feedDetail = getFeedItemDetail(feedItem);
+    const contextDetail = context.detail || {};
+    const detail = {
+      title: contextDetail.title || feedDetail.title,
+      author: contextDetail.author || feedDetail.author,
+      content: contextDetail.content || feedDetail.content,
+      topic: contextDetail.topic || feedDetail.topic
+    };
+    return [
+      "当前任务：对小黑盒首页推荐帖发表一条普通主评论，不是回复其他用户。",
+      `帖子标题：${detail.title || "无标题"}`,
+      detail.author ? `帖子作者：${detail.author}` : "",
+      detail.content ? `帖子正文：${detail.content}` : "",
+      detail.topic ? `话题：${detail.topic}` : "",
+      feedDetail.commentNum ? `首页列表显示评论数：${feedDetail.commentNum}` : "",
+      feedDetail.up ? `首页列表显示点赞数：${feedDetail.up}` : "",
+      `评论区上下文（最多${AI_BOT_COMMENT_LIMIT}条）：\n${getAiBotCommentLines(context.groups).join("\n") || "暂无评论上下文"}`,
+      "请生成一条像真实用户看到该帖子后自然留下的中文主评论。不要声称自己已体验未提供的信息，不要提到你是 AI，不要输出 Markdown。",
       allowEmoji
         ? (emojiCodes.length ? `完整可用小黑盒表情短码列表：${emojiCodes.join(" ")}\n可以自然使用 Unicode emoji 表情，也可以使用 0-2 个列表内短码；不要编造列表外的短码，不要输出任何不在这个列表里的方括号表情，例如[摊手]、[笑哭]。` : "可以自然使用 Unicode emoji 表情；没有可用小黑盒表情短码时，不要输出任何方括号表情。")
         : "不要使用 Unicode emoji 表情，不要输出任何小黑盒表情短码或方括号表情。"
@@ -1357,6 +1462,36 @@
     });
     if (!response.ok) {
       throw new Error(response.error || "AI 回复生成失败");
+    }
+    const reply = cleanAiBotReply(response.content, allowedEmojiCodes, settings.allowEmoji);
+    if (!reply) {
+      return null;
+    }
+    return reply;
+  }
+
+  async function createAiBotFeedComment(settings, feedItem, context, emojiCodes = []) {
+    const allowedEmojiCodes = settings.allowEmoji ? emojiCodes : [];
+    const payload = buildAiBotFeedPromptPayload(feedItem, context, allowedEmojiCodes, settings.allowEmoji);
+    const emojiInstruction = settings.allowEmoji
+      ? ""
+      : "\n\n不要使用 Unicode emoji 表情，不要输出任何小黑盒表情短码或方括号表情。";
+    const systemPrompt = settings.commentPrompt + emojiInstruction + AI_BOT_BUILTIN_MODERATION_PROMPT;
+    const response = await requestChat({
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: payload }
+      ],
+      temperature: 0.6
+    }, {
+      enabled: true,
+      provider: settings.provider,
+      baseUrl: settings.baseUrl,
+      model: settings.model,
+      apiKey: settings.apiKey
+    });
+    if (!response.ok) {
+      throw new Error(response.error || "AI 首页评论生成失败");
     }
     const reply = cleanAiBotReply(response.content, allowedEmojiCodes, settings.allowEmoji);
     if (!reply) {
@@ -1586,6 +1721,26 @@
       ...data
     };
     await storageSet({ [AI_BOT_REPLIED_RECORDS_STORAGE_KEY]: nextRecords });
+  }
+
+  async function readFeedCommentRecords() {
+    const result = await storageGet(AI_BOT_FEED_COMMENT_RECORDS_STORAGE_KEY);
+    const records = result[AI_BOT_FEED_COMMENT_RECORDS_STORAGE_KEY];
+    return records && typeof records === "object" && !Array.isArray(records) ? records : {};
+  }
+
+  async function markFeedCommented(linkId, data = {}) {
+    const records = await readFeedCommentRecords();
+    const now = Date.now();
+    await storageSet({
+      [AI_BOT_FEED_COMMENT_RECORDS_STORAGE_KEY]: {
+        ...records,
+        [String(linkId)]: {
+          commentedAt: now,
+          ...data
+        }
+      }
+    });
   }
 
   function getAiBotMessagePrecheckSkipReason(settings, message, records) {
@@ -1833,6 +1988,156 @@
     };
   }
 
+  async function processAiBotHomeFeedComment(settings, heyboxId, reason = "alarm") {
+    if (!settings.commentHomeFeed) {
+      await appendAiBotLog("info", "查询首页推荐帖", {
+        enabled: false,
+        reason,
+        actionResult: "disabled"
+      });
+      return {
+        actionResult: "disabled",
+        actionLabel: "评论首页推荐帖开关关闭"
+      };
+    }
+
+    const strategy = settings.feedSelectStrategy || "first";
+    await appendAiBotLog("info", "开始查询首页推荐帖", { reason, strategy });
+    const feedLinks = await fetchHomeFeedLinks(heyboxId);
+    const selected = selectFeedItemByStrategy(feedLinks, strategy);
+    if (!selected) {
+      await appendAiBotLog("warn", "首页推荐帖查询无有效帖子", {
+        reason,
+        count: feedLinks.length,
+        strategy
+      });
+      return {
+        actionResult: "skipped",
+        actionLabel: "无有效首页推荐帖",
+        skipReason: "empty_feed"
+      };
+    }
+
+    const linkId = getLinkIdFromFeedItem(selected);
+    const feedDetail = getFeedItemDetail(selected);
+    const linkUrl = getFeedItemUrl(selected);
+    const feedRecords = await readFeedCommentRecords();
+    if (feedRecords[linkId]) {
+      await appendAiBotLog("info", "跳过首页推荐帖：已评论过", {
+        reason,
+        linkId,
+        linkTitle: feedDetail.title,
+        linkUrl,
+        record: feedRecords[linkId],
+        actionResult: "skipped",
+        skipReason: "already_commented"
+      });
+      return {
+        actionResult: "skipped",
+        actionLabel: "已评论过，已跳过",
+        skipReason: "already_commented",
+        linkId
+      };
+    }
+
+    const debugInfo = {
+      reason,
+      strategy,
+      linkId,
+      linkTitle: feedDetail.title,
+      linkUrl,
+      linkAuthor: feedDetail.author,
+      feedCommentNum: feedDetail.commentNum,
+      feedUp: feedDetail.up
+    };
+    await appendAiBotLog("info", "选中首页推荐帖，获取帖子详情", debugInfo);
+
+    let context;
+    try {
+      context = await fetchLinkContext(linkId, heyboxId);
+    } catch (error) {
+      throw createAiBotStageError("查询首页推荐帖详情和评论区", error, debugInfo);
+    }
+    if (!context) {
+      await appendAiBotLog("warn", "跳过首页推荐帖：帖子详情为空", debugInfo);
+      return {
+        actionResult: "skipped",
+        actionLabel: "帖子详情为空，已跳过",
+        skipReason: "empty_context",
+        linkId
+      };
+    }
+
+    const emojiCodes = await loadAiBotEmojiCodes(heyboxId);
+    let reply;
+    try {
+      reply = await createAiBotFeedComment(settings, selected, context, emojiCodes);
+    } catch (error) {
+      throw createAiBotStageError("生成首页推荐帖评论", error, debugInfo);
+    }
+    if (!reply) {
+      await appendAiBotLog("info", "跳过首页推荐帖：内容审查未通过", debugInfo);
+      return {
+        actionResult: "skipped",
+        actionLabel: "内容审查未通过，已跳过",
+        skipReason: "content_moderation",
+        linkId
+      };
+    }
+
+    await appendAiBotLog("info", "首页推荐帖评论生成完成，准备发送主评论", {
+      ...debugInfo,
+      replyPreview: String(reply || "").slice(0, 200),
+      replyLength: String(reply || "").length
+    });
+
+    let result;
+    try {
+      result = await submitAiBotComment(heyboxId, linkId, "-1", "-1", reply);
+    } catch (error) {
+      throw createAiBotStageError("发送首页推荐帖主评论", error, {
+        ...debugInfo,
+        replyPreview: String(reply || "").slice(0, 200)
+      });
+    }
+
+    const commentId = result?.commentid || result?.result?.commentid || "";
+    const sentTimestamp = Date.now();
+    await markFeedCommented(linkId, {
+      linkId,
+      linkTitle: context.detail?.title || feedDetail.title || "",
+      commentId,
+      replyPreview: String(reply || "").slice(0, 200),
+      reason,
+      sentAt: sentTimestamp
+    });
+    await appendAiBotMessageLog({
+      messageId: `feed-${linkId}-${sentTimestamp}`,
+      messageSource: AI_BOT_MESSAGE_TYPES.FEED,
+      typeLabel: getAiBotMessageTypeLabel(AI_BOT_MESSAGE_TYPES.FEED),
+      linkId,
+      linkTitle: context.detail?.title || feedDetail.title || "",
+      linkUrl,
+      commentId,
+      sentTimestamp,
+      sentTimeText: formatLogTime(sentTimestamp),
+      messageText: "首页推荐帖主评论",
+      triggerText: "首页推荐帖主评论",
+      replyText: reply
+    });
+    await appendAiBotLog("success", "首页推荐帖主评论已发送", {
+      ...debugInfo,
+      commentId,
+      replyPreview: String(reply || "").slice(0, 200)
+    });
+    return {
+      actionResult: "sent",
+      actionLabel: "首页推荐帖主评论已发送",
+      linkId,
+      commentId
+    };
+  }
+
   async function processQueueItem(item) {
     const settings = await readAiBotSettings();
     const heyboxId = await getCurrentHeyboxId();
@@ -2030,6 +2335,40 @@
     }
   }
 
+  let aiBotFeedRunning = false;
+
+  async function runAiBotFeedComment() {
+    if (aiBotFeedRunning) {
+      return { ok: true, skipped: true };
+    }
+
+    aiBotFeedRunning = true;
+    try {
+      const settings = await readAiBotSettings();
+      if (!settings.enabled || !settings.commentHomeFeed) {
+        return { ok: true, disabled: true };
+      }
+      if (!settings.baseUrl || !settings.model) {
+        return { ok: false, error: "AI 参数未配置完整" };
+      }
+
+      const heyboxId = await getCurrentHeyboxId();
+      if (!heyboxId) {
+        return { ok: false, error: "未登录" };
+      }
+
+      const result = await processAiBotHomeFeedComment(settings, heyboxId, "feed-alarm");
+      return { ok: true, result };
+    } catch (error) {
+      await appendAiBotLog("error", "首页推荐帖评论定时任务失败", {
+        error: error?.message || "未知错误"
+      });
+      return { ok: false, error: error?.message || "首页推荐帖评论失败" };
+    } finally {
+      aiBotFeedRunning = false;
+    }
+  }
+
   async function runAiBotPoll(reason = "alarm") {
     if (aiBotRunning) {
       return { ok: true, skipped: true };
@@ -2168,7 +2507,9 @@
         return;
       }
       chrome.alarms.clear(AI_BOT_ALARM_NAME, () => {
-        chrome.alarms.clear(AI_BOT_QUEUE_ALARM_NAME, resolve);
+        chrome.alarms.clear(AI_BOT_FEED_ALARM_NAME, () => {
+          chrome.alarms.clear(AI_BOT_QUEUE_ALARM_NAME, resolve);
+        });
       });
     });
   }
@@ -2183,6 +2524,12 @@
       delayInMinutes: 0.1,
       periodInMinutes: Math.max(1, settings.pollMinutes)
     });
+    if (settings.commentHomeFeed) {
+      chrome.alarms.create(AI_BOT_FEED_ALARM_NAME, {
+        delayInMinutes: 0.15,
+        periodInMinutes: Math.max(5, settings.feedPollMinutes)
+      });
+    }
     chrome.alarms.create(AI_BOT_QUEUE_ALARM_NAME, {
       delayInMinutes: 0.2,
       periodInMinutes: 0.5
@@ -2193,12 +2540,15 @@
     const settings = await readAiBotSettings();
     const apiParams = await refreshCachedApiParams();
     const queueStatus = await getQueueStatus();
+    const feedCommentRecords = await readFeedCommentRecords();
     return {
       ok: true,
       enabled: settings.enabled,
+      commentHomeFeed: settings.commentHomeFeed,
       running: aiBotRunning,
       queueProcessing: aiBotQueueProcessing,
       queueCount: queueStatus.count,
+      feedCommentRecordsCount: Object.keys(feedCommentRecords).length,
       alarmName: AI_BOT_ALARM_NAME,
       queueAlarmName: AI_BOT_QUEUE_ALARM_NAME,
       hasCapturedApiParams: Object.keys(apiParams).length > 0,
@@ -2384,6 +2734,9 @@
   chrome.alarms?.onAlarm?.addListener((alarm) => {
     if (alarm?.name === AI_BOT_ALARM_NAME) {
       runAiBotPoll("alarm");
+    }
+    if (alarm?.name === AI_BOT_FEED_ALARM_NAME) {
+      runAiBotFeedComment().catch(() => {});
     }
     if (alarm?.name === AI_BOT_QUEUE_ALARM_NAME) {
       runAiBotQueueConsumer().catch(() => {});
