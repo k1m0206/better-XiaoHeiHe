@@ -298,8 +298,7 @@ p {
 }
 
 .collapsible-actions {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  display: block;
   align-items: center;
   gap: 10px;
   margin-top: 4px;
@@ -511,6 +510,13 @@ p {
   position: relative;
 }
 
+.connection-input {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
 .secret-input input {
   padding-right: 58px;
 }
@@ -534,6 +540,28 @@ p {
 .secret-toggle[aria-pressed="true"] {
   background: #e5f7f2;
   color: #0b806f;
+}
+
+.connection-test {
+  width: 78px;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+
+.connection-test.is-ok {
+  background: #13a97c;
+}
+
+.connection-test.is-ok:hover {
+  background: #0b806f;
+}
+
+.connection-test.is-error {
+  background: #e54858;
+}
+
+.connection-test.is-error:hover {
+  background: #d33b4a;
 }
 
 .rule-toggle {

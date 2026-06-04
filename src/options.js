@@ -7,6 +7,7 @@
   const AI_BOT_REPLY_QUEUE_STORAGE_KEY = "better-xiaoheihe-ai-bot-reply-queue";
   const BLOCKED_KEYWORDS_STORAGE_KEY = "better-xiaoheihe-blocked-keywords";
   const LEVEL_FILTERS_STORAGE_KEY = "better-xiaoheihe-level-filters";
+  const UI_STATE_STORAGE_KEY = "better-xiaoheihe-ui-state";
   const AI_BOT_DEFAULT_PROMPT = "你是小黑盒社区自动回复助手。请根据消息类型、帖子正文、评论区上下文和触发消息的那条评论，生成一条自然、友好、简洁的中文回复。可以自然使用 Unicode emoji 表情，也可以使用提供的小黑盒表情短码；但不要编造未提供的短码，不要使用类似[摊手]、[笑哭]这类不在列表里的方括号表情。不要暴露你是AI，不要使用模板化开头，不要编造事实，不要输出Markdown。";
   const AI_BOT_LOG_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
   const LEVEL_FILTER_MIN = 7;
@@ -80,6 +81,7 @@
   let aiBotLogRefreshTimer = null;
   let activeAiBotLogView = "runtime";
   const expandedAiBotLogIds = new Set();
+  let uiState = normalizeUiState();
   const connectionStatus = {
     ai: { state: "idle", fingerprint: "" },
     aiBot: { state: "idle", fingerprint: "" }
@@ -142,6 +144,38 @@
       result[scope] = normalizeLevelFilter(filters?.[scope]);
       return result;
     }, {});
+  }
+
+  function normalizeUiState(state) {
+    return {
+      aiConnectionConfigOpen: state?.aiConnectionConfigOpen !== false,
+      aiBotConnectionConfigOpen: state?.aiBotConnectionConfigOpen !== false
+    };
+  }
+
+  function getConnectionConfigStateKey(scope) {
+    return scope === "aiBot" ? "aiBotConnectionConfigOpen" : "aiConnectionConfigOpen";
+  }
+
+  function applyConnectionConfigState(scope) {
+    const detail = document.querySelector(`[data-connection-config="${scope}"]`);
+    if (detail) {
+      detail.open = uiState[getConnectionConfigStateKey(scope)] !== false;
+    }
+  }
+
+  function saveUiState() {
+    chrome.storage.local.set({
+      [UI_STATE_STORAGE_KEY]: uiState
+    });
+  }
+
+  function setConnectionConfigOpen(scope, isOpen) {
+    uiState = normalizeUiState({
+      ...uiState,
+      [getConnectionConfigStateKey(scope)]: Boolean(isOpen)
+    });
+    saveUiState();
   }
 
   function getLevelFilterLabel(maxLevel) {
@@ -399,18 +433,25 @@
 
   function syncConnectionDot(scope) {
     const dot = document.querySelector(`[data-connection-status="${scope}"]`);
-    if (!dot) {
-      return;
-    }
+    const button = scope === "aiBot" ? aiBotTestButton : testButton;
     const currentFingerprint = getConnectionFingerprint(getConnectionSettings(scope));
     const state = connectionStatus[scope]?.fingerprint === currentFingerprint
       ? connectionStatus[scope].state
       : "idle";
-    dot.classList.toggle("is-ok", state === "ok");
-    dot.classList.toggle("is-error", state === "error");
-    dot.title = state === "ok"
+    const title = state === "ok"
       ? "接入状态：连通"
       : (state === "error" ? "接入状态：失败" : "接入状态：未测试");
+
+    if (dot) {
+      dot.classList.toggle("is-ok", state === "ok");
+      dot.classList.toggle("is-error", state === "error");
+      dot.title = title;
+    }
+    if (button) {
+      button.classList.toggle("is-ok", state === "ok");
+      button.classList.toggle("is-error", state === "error");
+      button.title = title;
+    }
   }
 
   function setConnectionStatus(scope, state) {
@@ -1153,6 +1194,11 @@
   chrome.storage.local.get(AI_SETTINGS_STORAGE_KEY, (result) => {
     fillForm(result?.[AI_SETTINGS_STORAGE_KEY]);
   });
+  chrome.storage.local.get(UI_STATE_STORAGE_KEY, (result) => {
+    uiState = normalizeUiState(result?.[UI_STATE_STORAGE_KEY]);
+    applyConnectionConfigState("ai");
+    applyConnectionConfigState("aiBot");
+  });
   chrome.storage.local.get([AI_BOT_SETTINGS_STORAGE_KEY, AI_BOT_LOGS_STORAGE_KEY, AI_BOT_MESSAGE_LOGS_STORAGE_KEY, AI_BOT_REPLY_QUEUE_STORAGE_KEY], (result) => {
     fillAiBotForm(result?.[AI_BOT_SETTINGS_STORAGE_KEY]);
     renderAiBotLogs(result?.[AI_BOT_LOGS_STORAGE_KEY]);
@@ -1217,6 +1263,11 @@
   });
   document.querySelectorAll("[data-secret-toggle]").forEach((button) => {
     button.addEventListener("click", () => toggleSecretInput(button.dataset.secretToggle));
+  });
+  document.querySelectorAll("[data-connection-config]").forEach((detail) => {
+    detail.addEventListener("toggle", () => {
+      setConnectionConfigOpen(detail.dataset.connectionConfig, detail.open);
+    });
   });
   modelInput.addEventListener("change", syncSelectedModelOption);
   modelInput.addEventListener("input", syncSelectedModelOption);
@@ -1298,6 +1349,11 @@
     if (changes[LEVEL_FILTERS_STORAGE_KEY]) {
       levelFilters = normalizeLevelFilters(changes[LEVEL_FILTERS_STORAGE_KEY].newValue);
       renderLocalSettings();
+    }
+    if (changes[UI_STATE_STORAGE_KEY]) {
+      uiState = normalizeUiState(changes[UI_STATE_STORAGE_KEY].newValue);
+      applyConnectionConfigState("ai");
+      applyConnectionConfigState("aiBot");
     }
     if (changes[AI_BOT_SETTINGS_STORAGE_KEY]) {
       const aiBotPanel = document.querySelector('[data-panel="aibot"]');

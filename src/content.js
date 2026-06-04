@@ -27,6 +27,7 @@
   const AI_BOT_MESSAGE_LOGS_STORAGE_KEY = "better-xiaoheihe-ai-bot-message-logs";
   const AI_BOT_REPLY_QUEUE_STORAGE_KEY = "better-xiaoheihe-ai-bot-reply-queue";
   const API_PARAMS_STORAGE_KEY = "better-xiaoheihe-api-params";
+  const UI_STATE_STORAGE_KEY = "better-xiaoheihe-ui-state";
   const AI_BOT_LOG_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
   const LOCAL_SETTINGS_STORAGE_KEYS = [
     HIDE_CY_COMMENTS_STORAGE_KEY,
@@ -37,7 +38,8 @@
     AI_BOT_LOGS_STORAGE_KEY,
     AI_BOT_MESSAGE_LOGS_STORAGE_KEY,
     AI_BOT_REPLY_QUEUE_STORAGE_KEY,
-    API_PARAMS_STORAGE_KEY
+    API_PARAMS_STORAGE_KEY,
+    UI_STATE_STORAGE_KEY
   ];
   const LOCAL_SETTINGS_REQUEST_EVENT = "better-xiaoheihe-local-settings-request";
   const LOCAL_SETTINGS_RESPONSE_EVENT = "better-xiaoheihe-local-settings-response";
@@ -144,6 +146,7 @@
   let levelFilters = normalizeLevelFilters({});
   let aiSettings = normalizeAiSettings();
   let aiBotSettings = normalizeAiBotSettings();
+  let uiState = normalizeUiState();
   let aiBotLogs = [];
   let aiBotMessageLogs = [];
   let aiBotReplyQueue = [];
@@ -367,6 +370,40 @@
     }, {});
   }
 
+  function normalizeUiState(state) {
+    return {
+      aiConnectionConfigOpen: state?.aiConnectionConfigOpen !== false,
+      aiBotConnectionConfigOpen: state?.aiBotConnectionConfigOpen !== false
+    };
+  }
+
+  function getConnectionConfigStateKey(scope) {
+    return scope === "aiBot" ? "aiBotConnectionConfigOpen" : "aiConnectionConfigOpen";
+  }
+
+  function persistUiState() {
+    saveLocalSettings({
+      [UI_STATE_STORAGE_KEY]: uiState
+    });
+  }
+
+  function setConnectionConfigOpen(scope, isOpen) {
+    uiState = normalizeUiState({
+      ...uiState,
+      [getConnectionConfigStateKey(scope)]: Boolean(isOpen)
+    });
+    persistUiState();
+  }
+
+  function syncUiState(savedState) {
+    const normalizedState = normalizeUiState(savedState);
+    if (JSON.stringify(normalizedState) === JSON.stringify(uiState)) {
+      return;
+    }
+    uiState = normalizedState;
+    renderSettingsPanel();
+  }
+
   function readLegacyLevelFiltersState() {
     try {
       return normalizeLevelFilters(JSON.parse(localStorage.getItem(LEVEL_FILTERS_STORAGE_KEY) || "{}"));
@@ -577,6 +614,7 @@
     levelFilters = normalizeLevelFilters(values[LEVEL_FILTERS_STORAGE_KEY]);
     commentPreviewSort = normalizeCommentPreviewSort(values[COMMENT_PREVIEW_SORT_STORAGE_KEY]);
     aiBotSettings = normalizeAiBotSettings(values[AI_BOT_SETTINGS_STORAGE_KEY]);
+    uiState = normalizeUiState(values[UI_STATE_STORAGE_KEY]);
     aiBotLogs = normalizeAiBotLogs(values[AI_BOT_LOGS_STORAGE_KEY]);
     aiBotMessageLogs = normalizeAiBotMessageLogs(values[AI_BOT_MESSAGE_LOGS_STORAGE_KEY]);
     aiBotReplyQueue = normalizeAiBotReplyQueue(values[AI_BOT_REPLY_QUEUE_STORAGE_KEY]);
@@ -642,6 +680,9 @@
     nextValues[AI_BOT_REPLY_QUEUE_STORAGE_KEY] = keysPresent[AI_BOT_REPLY_QUEUE_STORAGE_KEY]
       ? normalizeAiBotReplyQueue(values[AI_BOT_REPLY_QUEUE_STORAGE_KEY])
       : [];
+    nextValues[UI_STATE_STORAGE_KEY] = keysPresent[UI_STATE_STORAGE_KEY]
+      ? normalizeUiState(values[UI_STATE_STORAGE_KEY])
+      : normalizeUiState();
 
     applyLocalSettingsValues(nextValues);
 
@@ -1003,8 +1044,7 @@
       }
 
       .${SETTINGS_PANEL_CLASS} .better-settings__config-actions {
-        display: grid;
-        grid-template-columns: auto minmax(0, 1fr);
+        display: block;
         align-items: center;
         gap: 8px;
         margin-top: 4px;
@@ -1227,6 +1267,13 @@
 
       .${SETTINGS_PANEL_CLASS} .better-settings__secret-input {
         position: relative;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__connection-input {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 8px;
+        align-items: center;
       }
 
       .${SETTINGS_PANEL_CLASS} .better-settings__secret-input .better-settings__text-input {
@@ -1532,6 +1579,28 @@
       .${SETTINGS_PANEL_CLASS} .better-settings__primary:disabled {
         cursor: default;
         opacity: 0.65;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__connection-test {
+        width: 78px;
+        padding: 0 10px;
+        white-space: nowrap;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__connection-test.is-ok {
+        background: #13a97c;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__connection-test.is-ok:hover {
+        background: #0b806f;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__connection-test.is-error {
+        background: #e54858;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__connection-test.is-error:hover {
+        background: #d33b4a;
       }
 
       .${SETTINGS_PANEL_CLASS} .better-settings__message {
@@ -7353,15 +7422,24 @@
   function syncAiConnectionDot(scope, settings) {
     const panel = document.querySelector(`.${SETTINGS_PANEL_CLASS}`);
     const dot = panel?.querySelector(`[data-ai-connection-status="${scope}"]`);
-    if (!dot) {
-      return;
-    }
+    const button = panel?.querySelector(scope === "aiBot"
+      ? ".better-settings__ai-bot-test"
+      : ".better-settings__ai-test");
     const state = getAiConnectionState(scope, settings || (scope === "aiBot" ? aiBotSettings : aiSettings));
-    dot.classList.toggle("is-ok", state === "ok");
-    dot.classList.toggle("is-error", state === "error");
-    dot.title = state === "ok"
+    const title = state === "ok"
       ? "接入状态：连通"
       : (state === "error" ? "接入状态：失败" : "接入状态：未测试");
+
+    if (dot) {
+      dot.classList.toggle("is-ok", state === "ok");
+      dot.classList.toggle("is-error", state === "error");
+      dot.title = title;
+    }
+    if (button) {
+      button.classList.toggle("is-ok", state === "ok");
+      button.classList.toggle("is-error", state === "error");
+      button.title = title;
+    }
   }
 
   function setAiConnectionStatus(scope, state, settings) {
@@ -7435,7 +7513,7 @@
           </label>
         </div>
         <div class="better-settings__ai-body">
-          <details class="better-settings__collapsible-section" open>
+          <details class="better-settings__collapsible-section" data-connection-config="ai"${uiState.aiConnectionConfigOpen ? " open" : ""}>
             <summary class="better-settings__collapsible-summary">
               <span class="better-settings__connection-title">接入配置 ${renderAiConnectionDot("ai", aiSettings)}</span>
               <span class="better-settings__collapsible-indicator" aria-hidden="true"></span>
@@ -7464,13 +7542,15 @@
             </label>
             <label class="better-settings__field">
               <span class="better-settings__field-title">API Key</span>
-              <div class="better-settings__secret-input">
-                <input class="better-settings__text-input better-settings__ai-api-key" type="password" value="${escapeHtml(aiSettings.apiKey)}" autocomplete="off" placeholder="sk-...">
-                <button class="better-settings__secret-toggle" type="button" data-secret-input=".better-settings__ai-api-key" aria-label="显示 API Key" aria-pressed="false">显示</button>
+              <div class="better-settings__connection-input">
+                <div class="better-settings__secret-input">
+                  <input class="better-settings__text-input better-settings__ai-api-key" type="password" value="${escapeHtml(aiSettings.apiKey)}" autocomplete="off" placeholder="sk-...">
+                  <button class="better-settings__secret-toggle" type="button" data-secret-input=".better-settings__ai-api-key" aria-label="显示 API Key" aria-pressed="false">显示</button>
+                </div>
+                <button class="better-settings__primary better-settings__connection-test better-settings__ai-test" type="button">测试连通</button>
               </div>
             </label>
             <div class="better-settings__config-actions">
-              <button class="better-settings__primary better-settings__ai-test" type="button">测试连通</button>
               <span class="better-settings__message" role="status">${isAiConfigured() ? "已配置" : "请填写 Base URL 和模型"}</span>
             </div>
           </details>
@@ -7504,7 +7584,7 @@
           </div>
         </div>
         <div class="better-settings__ai-body">
-          <details class="better-settings__collapsible-section" open>
+          <details class="better-settings__collapsible-section" data-connection-config="aiBot"${uiState.aiBotConnectionConfigOpen ? " open" : ""}>
             <summary class="better-settings__collapsible-summary">
               <span class="better-settings__connection-title">接入配置 ${renderAiConnectionDot("aiBot", aiBotSettings)}</span>
               <span class="better-settings__collapsible-indicator" aria-hidden="true"></span>
@@ -7533,13 +7613,15 @@
             </label>
             <label class="better-settings__field">
               <span class="better-settings__field-title">API Key</span>
-              <div class="better-settings__secret-input">
-                <input class="better-settings__text-input better-settings__ai-bot-api-key" type="password" value="${escapeHtml(aiBotSettings.apiKey)}" autocomplete="off" placeholder="sk-...">
-                <button class="better-settings__secret-toggle" type="button" data-secret-input=".better-settings__ai-bot-api-key" aria-label="显示 API Key" aria-pressed="false">显示</button>
+              <div class="better-settings__connection-input">
+                <div class="better-settings__secret-input">
+                  <input class="better-settings__text-input better-settings__ai-bot-api-key" type="password" value="${escapeHtml(aiBotSettings.apiKey)}" autocomplete="off" placeholder="sk-...">
+                  <button class="better-settings__secret-toggle" type="button" data-secret-input=".better-settings__ai-bot-api-key" aria-label="显示 API Key" aria-pressed="false">显示</button>
+                </div>
+                <button class="better-settings__primary better-settings__connection-test better-settings__ai-bot-test" type="button">测试连通</button>
               </div>
             </label>
             <div class="better-settings__config-actions">
-              <button class="better-settings__primary better-settings__ai-bot-test" type="button">测试连通</button>
               <span class="better-settings__message" role="status">${aiBotSettings.baseUrl && aiBotSettings.model ? "已配置" : "请填写 Base URL 和模型"}</span>
             </div>
           </details>
@@ -7796,9 +7878,11 @@
     `;
     syncSettingsAutoHeightTextareas(panel);
     if (activeSettingsTab === SETTINGS_TABS.AI) {
+      syncAiConnectionDot("ai", aiSettings);
       loadCachedAiModelOptions(panel);
     }
     if (activeSettingsTab === SETTINGS_TABS.AIBOT) {
+      syncAiConnectionDot("aiBot", aiBotSettings);
       loadCachedAiBotModelOptions(panel);
     }
     repositionSettingsPanelIfOpen();
@@ -8525,6 +8609,11 @@
       if (!(event.target instanceof Element)) {
         return;
       }
+      const connectionConfig = event.target.closest("[data-connection-config]");
+      if (connectionConfig) {
+        setConnectionConfigOpen(connectionConfig.dataset.connectionConfig, connectionConfig.open);
+        return;
+      }
       const detail = event.target.closest(".better-settings__ai-bot-log-detail-wrap");
       const logId = detail?.dataset.logId || "";
       if (!logId) {
@@ -9127,6 +9216,9 @@
       }
       if (Object.prototype.hasOwnProperty.call(values, COMMENT_PREVIEW_SORT_STORAGE_KEY)) {
         syncCommentPreviewSortState(values[COMMENT_PREVIEW_SORT_STORAGE_KEY]);
+      }
+      if (Object.prototype.hasOwnProperty.call(values, UI_STATE_STORAGE_KEY)) {
+        syncUiState(values[UI_STATE_STORAGE_KEY]);
       }
       if (Object.prototype.hasOwnProperty.call(values, AI_BOT_SETTINGS_STORAGE_KEY)) {
         aiBotSettings = normalizeAiBotSettings(values[AI_BOT_SETTINGS_STORAGE_KEY]);
