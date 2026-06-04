@@ -7443,6 +7443,11 @@
     }
     renderSettingsPanel();
     if (activeSettingsTab === SETTINGS_TABS.AIBOT_LOGS) {
+      loadEmojis().then(() => {
+        if (activeSettingsTab === SETTINGS_TABS.AIBOT_LOGS) {
+          refreshAiBotLogsPanel();
+        }
+      });
       startAiBotLogAutoRefresh();
     } else {
       stopAiBotLogAutoRefresh();
@@ -7967,7 +7972,7 @@
             item.replyCommentId ? `回复评论ID：${item.replyCommentId}` : "",
             item.rootCommentId ? `根评论ID：${item.rootCommentId}` : ""
           ].filter(Boolean).join(" · "))}</div>
-          <div class="better-settings__ai-bot-message-source">${escapeHtml(`消息内容：${item.messageText || ""}`)}</div>
+          <div class="better-settings__ai-bot-message-source">消息内容：${renderPlainCommentText(item.messageText || "")}</div>
         </div>
       `;
       }).join("")
@@ -8614,7 +8619,10 @@
         expandedAiBotLogIds.delete(logId);
       }
     });
-    requestLocalSettingsState(1200).then((response) => {
+    Promise.all([
+      requestLocalSettingsState(1200),
+      loadEmojis()
+    ]).then(([response]) => {
       if (response?.ok) {
         aiBotLogs = normalizeAiBotLogs(response.values?.[AI_BOT_LOGS_STORAGE_KEY]);
         aiBotMessageLogs = normalizeAiBotMessageLogs(response.values?.[AI_BOT_MESSAGE_LOGS_STORAGE_KEY]);
@@ -9500,25 +9508,29 @@
       if (Object.prototype.hasOwnProperty.call(values, AI_BOT_MESSAGE_LOGS_STORAGE_KEY)) {
         aiBotMessageLogs = normalizeAiBotMessageLogs(values[AI_BOT_MESSAGE_LOGS_STORAGE_KEY]);
         if (activeSettingsTab === SETTINGS_TABS.AIBOT_LOGS) {
-          const messageLogList = document.querySelector(`.${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-message-logs`);
-          if (messageLogList) {
-            const previousScrollTop = messageLogList.scrollTop;
-            const wasNearTop = previousScrollTop <= 4;
-            messageLogList.innerHTML = renderAiBotMessageLogItemsHtml();
-            messageLogList.scrollTop = wasNearTop ? 0 : Math.min(previousScrollTop, messageLogList.scrollHeight);
-          }
+          loadEmojis().finally(() => {
+            const messageLogList = document.querySelector(`.${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-message-logs`);
+            if (messageLogList) {
+              const previousScrollTop = messageLogList.scrollTop;
+              const wasNearTop = previousScrollTop <= 4;
+              messageLogList.innerHTML = renderAiBotMessageLogItemsHtml();
+              messageLogList.scrollTop = wasNearTop ? 0 : Math.min(previousScrollTop, messageLogList.scrollHeight);
+            }
+          });
         }
       }
       if (Object.prototype.hasOwnProperty.call(values, AI_BOT_REPLY_QUEUE_STORAGE_KEY)) {
         aiBotReplyQueue = normalizeAiBotReplyQueue(values[AI_BOT_REPLY_QUEUE_STORAGE_KEY]);
         if (activeSettingsTab === SETTINGS_TABS.AIBOT_LOGS) {
-          const pendingLogList = document.querySelector(`.${SETTINGS_PANEL_CLASS} [data-ai-bot-log-panel="pending"]`);
-          if (pendingLogList) {
-            const previousScrollTop = pendingLogList.scrollTop;
-            const wasNearTop = previousScrollTop <= 4;
-            pendingLogList.innerHTML = renderAiBotReplyQueueItemsHtml();
-            pendingLogList.scrollTop = wasNearTop ? 0 : Math.min(previousScrollTop, pendingLogList.scrollHeight);
-          }
+          loadEmojis().finally(() => {
+            const pendingLogList = document.querySelector(`.${SETTINGS_PANEL_CLASS} [data-ai-bot-log-panel="pending"]`);
+            if (pendingLogList) {
+              const previousScrollTop = pendingLogList.scrollTop;
+              const wasNearTop = previousScrollTop <= 4;
+              pendingLogList.innerHTML = renderAiBotReplyQueueItemsHtml();
+              pendingLogList.scrollTop = wasNearTop ? 0 : Math.min(previousScrollTop, pendingLogList.scrollHeight);
+            }
+          });
         }
       }
     });
