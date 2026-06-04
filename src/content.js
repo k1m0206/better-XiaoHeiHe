@@ -374,7 +374,9 @@
   function normalizeUiState(state) {
     return {
       aiConnectionConfigOpen: state?.aiConnectionConfigOpen !== false,
-      aiBotConnectionConfigOpen: state?.aiBotConnectionConfigOpen !== false
+      aiBotConnectionConfigOpen: state?.aiBotConnectionConfigOpen !== false,
+      aiBotAutoReplyOpen: state?.aiBotAutoReplyOpen === true,
+      aiBotAutoFeedOpen: state?.aiBotAutoFeedOpen === true
     };
   }
 
@@ -7767,7 +7769,7 @@
               <span class="better-settings__message" role="status">${aiBotSettings.baseUrl && aiBotSettings.model ? "已配置" : "请填写 Base URL 和模型"}</span>
             </div>
           </details>
-          <details class="better-settings__section better-settings__collapsible-section">
+          <details class="better-settings__section better-settings__collapsible-section" data-ai-bot-section="auto-reply"${uiState.aiBotAutoReplyOpen ? " open" : ""}>
             <summary class="better-settings__collapsible-summary">
               <span class="better-settings__section-title">自动回复设置</span>
               <span class="better-settings__collapsible-indicator" aria-hidden="true"></span>
@@ -7810,7 +7812,7 @@
               <textarea class="better-settings__textarea better-settings__ai-bot-comment-prompt">${escapeHtml(aiBotSettings.commentPrompt)}</textarea>
             </div>
           </details>
-          <details class="better-settings__section better-settings__collapsible-section better-settings__feed-poll-section" ${aiBotSettings.commentHomeFeed ? "open" : ""}>
+          <details class="better-settings__section better-settings__collapsible-section better-settings__feed-poll-section" data-ai-bot-section="auto-feed"${uiState.aiBotAutoFeedOpen ? " open" : ""}>
             <summary class="better-settings__collapsible-summary">
               <span class="better-settings__section-title">自动暖贴设置</span>
               <span class="better-settings__collapsible-indicator" aria-hidden="true"></span>
@@ -8814,6 +8816,17 @@
       const connectionConfig = event.target.closest("[data-connection-config]");
       if (connectionConfig) {
         setConnectionConfigOpen(connectionConfig.dataset.connectionConfig, connectionConfig.open);
+        return;
+      }
+      const aiBotSection = event.target.closest("[data-ai-bot-section]");
+      if (aiBotSection) {
+        const section = aiBotSection.dataset.aiBotSection;
+        if (section === "auto-reply") {
+          uiState = normalizeUiState({ ...uiState, aiBotAutoReplyOpen: aiBotSection.open });
+        } else if (section === "auto-feed") {
+          uiState = normalizeUiState({ ...uiState, aiBotAutoFeedOpen: aiBotSection.open });
+        }
+        persistUiState();
         return;
       }
       const detail = event.target.closest(".better-settings__ai-bot-log-detail-wrap");

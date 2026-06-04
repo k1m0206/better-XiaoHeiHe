@@ -221,7 +221,9 @@
   function normalizeUiState(state) {
     return {
       aiConnectionConfigOpen: state?.aiConnectionConfigOpen !== false,
-      aiBotConnectionConfigOpen: state?.aiBotConnectionConfigOpen !== false
+      aiBotConnectionConfigOpen: state?.aiBotConnectionConfigOpen !== false,
+      aiBotAutoReplyOpen: state?.aiBotAutoReplyOpen === true,
+      aiBotAutoFeedOpen: state?.aiBotAutoFeedOpen === true
     };
   }
 
@@ -233,6 +235,13 @@
     const detail = document.querySelector(`[data-connection-config="${scope}"]`);
     if (detail) {
       detail.open = uiState[getConnectionConfigStateKey(scope)] !== false;
+    }
+  }
+
+  function applyAiBotSectionState(section, isOpen) {
+    const detail = document.querySelector(`[data-ai-bot-section="${section}"]`);
+    if (detail) {
+      detail.open = isOpen;
     }
   }
 
@@ -1314,6 +1323,8 @@
     uiState = normalizeUiState(result?.[UI_STATE_STORAGE_KEY]);
     applyConnectionConfigState("ai");
     applyConnectionConfigState("aiBot");
+    applyAiBotSectionState("auto-reply", uiState.aiBotAutoReplyOpen);
+    applyAiBotSectionState("auto-feed", uiState.aiBotAutoFeedOpen);
   });
   chrome.storage.local.get([AI_BOT_SETTINGS_STORAGE_KEY, AI_BOT_LOGS_STORAGE_KEY, AI_BOT_MESSAGE_LOGS_STORAGE_KEY, AI_BOT_REPLY_QUEUE_STORAGE_KEY], (result) => {
     fillAiBotForm(result?.[AI_BOT_SETTINGS_STORAGE_KEY]);
@@ -1383,6 +1394,17 @@
   document.querySelectorAll("[data-connection-config]").forEach((detail) => {
     detail.addEventListener("toggle", () => {
       setConnectionConfigOpen(detail.dataset.connectionConfig, detail.open);
+    });
+  });
+  document.querySelectorAll("[data-ai-bot-section]").forEach((detail) => {
+    detail.addEventListener("toggle", () => {
+      const section = detail.dataset.aiBotSection;
+      if (section === "auto-reply") {
+        uiState = normalizeUiState({ ...uiState, aiBotAutoReplyOpen: detail.open });
+      } else if (section === "auto-feed") {
+        uiState = normalizeUiState({ ...uiState, aiBotAutoFeedOpen: detail.open });
+      }
+      saveUiState();
     });
   });
   modelInput.addEventListener("change", syncSelectedModelOption);
