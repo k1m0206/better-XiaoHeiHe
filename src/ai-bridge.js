@@ -3,7 +3,6 @@
   const SETTINGS_EVENT = "better-xiaoheihe-ai-settings";
   const SETTINGS_REQUEST_EVENT = "better-xiaoheihe-ai-settings-request";
   const SETTINGS_SAVE_EVENT = "better-xiaoheihe-ai-settings-save";
-  const SETTINGS_OPEN_EVENT = "better-xiaoheihe-ai-settings-open";
   const CHAT_REQUEST_EVENT = "better-xiaoheihe-ai-chat-request";
   const CHAT_RESPONSE_EVENT = "better-xiaoheihe-ai-chat-response";
   const MODEL_LIST_REQUEST_EVENT = "better-xiaoheihe-ai-model-list-request";
@@ -16,6 +15,7 @@
   const LOCAL_SETTINGS_CHANGED_EVENT = "better-xiaoheihe-local-settings-changed";
   const AI_BOT_RUNTIME_REQUEST_EVENT = "better-xiaoheihe-ai-bot-runtime-request";
   const AI_BOT_RUNTIME_RESPONSE_EVENT = "better-xiaoheihe-ai-bot-runtime-response";
+  const OPEN_PAGE_SETTINGS_EVENT = "better-xiaoheihe-open-page-settings";
   const LOCAL_SETTINGS_STORAGE_KEYS = [
     "better-xiaoheihe-hide-cy-comments",
     "better-xiaoheihe-blocked-keywords",
@@ -346,9 +346,6 @@
       [AI_SETTINGS_STORAGE_KEY]: nextSettings
     });
   });
-  window.addEventListener(SETTINGS_OPEN_EVENT, () => {
-    sendRuntimeMessageSafely({ type: "better-xiaoheihe-open-ai-settings" }, "打开设置失败", () => {});
-  });
   window.addEventListener(CHAT_REQUEST_EVENT, (event) => requestChat(parseEventDetail(event.detail)));
   window.addEventListener(MODEL_LIST_REQUEST_EVENT, (event) => requestModelList(parseEventDetail(event.detail)));
   window.addEventListener(SANITIZED_COOKIE_RULE_REQUEST_EVENT, (event) => requestSanitizedCookieRuleChange(parseEventDetail(event.detail)));
@@ -358,6 +355,16 @@
 
   if (isExtensionContextAvailable()) {
     try {
+      chrome.runtime.onMessage.addListener((message) => {
+        if (message?.type !== "better-xiaoheihe-open-page-settings") {
+          return false;
+        }
+        window.dispatchEvent(new CustomEvent(OPEN_PAGE_SETTINGS_EVENT, {
+          detail: stringifyEventDetail(message.detail || {})
+        }));
+        return false;
+      });
+
       chrome.storage.onChanged.addListener((changes, areaName) => {
         try {
           if (areaName === "local" && changes[AI_SETTINGS_STORAGE_KEY]) {

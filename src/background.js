@@ -275,19 +275,50 @@
     return normalizedModels;
   }
 
-  function openAiSettings() {
-    const url = chrome.runtime.getURL("src/options.html");
-    if (chrome.windows?.create) {
-      chrome.windows.create({
-        url,
-        type: "popup",
-        width: 500,
-        height: 760
-      });
+  function isXiaoheiheWebTab(tab) {
+    return /^https:\/\/www\.xiaoheihe\.cn\//.test(String(tab?.url || ""));
+  }
+
+  function sendOpenPageSettingsMessage(tabId, detail = {}) {
+    if (!tabId || !chrome.tabs?.sendMessage) {
+      return;
+    }
+    chrome.tabs.sendMessage(tabId, {
+      type: "better-xiaoheihe-open-page-settings",
+      detail: {
+        tab: "aibot",
+        ...detail
+      }
+    }, () => {
+      void chrome.runtime.lastError;
+    });
+  }
+
+  function openPageSettingsFromAction(tab) {
+    if (tab?.id && isXiaoheiheWebTab(tab)) {
+      sendOpenPageSettingsMessage(tab.id);
       return;
     }
 
-    chrome.tabs.create({ url });
+    if (!chrome.tabs?.create) {
+      return;
+    }
+
+    chrome.tabs.create({ url: "https://www.xiaoheihe.cn/app/bbs/home" }, (createdTab) => {
+      const tabId = createdTab?.id;
+      if (!tabId || !chrome.tabs?.onUpdated) {
+        return;
+      }
+
+      const handleUpdated = (updatedTabId, changeInfo) => {
+        if (updatedTabId !== tabId || changeInfo.status !== "complete") {
+          return;
+        }
+        chrome.tabs.onUpdated.removeListener(handleUpdated);
+        setTimeout(() => sendOpenPageSettingsMessage(tabId), 500);
+      };
+      chrome.tabs.onUpdated.addListener(handleUpdated);
+    });
   }
 
   function md5(input) {
@@ -2941,8 +2972,8 @@
     });
   }
 
-  chrome.action?.onClicked?.addListener(() => {
-    openAiSettings();
+  chrome.action?.onClicked?.addListener((tab) => {
+    openPageSettingsFromAction(tab);
   });
 
   chrome.runtime.onInstalled?.addListener(() => {
@@ -2975,11 +3006,6 @@
   });
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-    if (message?.type === "better-xiaoheihe-open-ai-settings") {
-      openAiSettings();
-      return false;
-    }
-
     if (message?.type === "better-xiaoheihe-ai-test") {
       requestChat({
         messages: [{ role: "user", content: "请回复 OK" }],

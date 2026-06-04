@@ -115,10 +115,8 @@ better-XiaoHeiHe/
   scripts/
   src/
     ai-bridge.js
+    background.js
     content.js
-    options.html
-    options.css
-    options.js
 ```
 
 ## 实现说明

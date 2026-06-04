@@ -47,10 +47,10 @@
   const LOCAL_SETTINGS_CHANGED_EVENT = "better-xiaoheihe-local-settings-changed";
   const AI_BOT_RUNTIME_REQUEST_EVENT = "better-xiaoheihe-ai-bot-runtime-request";
   const AI_BOT_RUNTIME_RESPONSE_EVENT = "better-xiaoheihe-ai-bot-runtime-response";
+  const OPEN_PAGE_SETTINGS_EVENT = "better-xiaoheihe-open-page-settings";
   const AI_SETTINGS_EVENT = "better-xiaoheihe-ai-settings";
   const AI_SETTINGS_REQUEST_EVENT = "better-xiaoheihe-ai-settings-request";
   const AI_SETTINGS_SAVE_EVENT = "better-xiaoheihe-ai-settings-save";
-  const AI_SETTINGS_OPEN_EVENT = "better-xiaoheihe-ai-settings-open";
   const AI_CHAT_REQUEST_EVENT = "better-xiaoheihe-ai-chat-request";
   const AI_CHAT_RESPONSE_EVENT = "better-xiaoheihe-ai-chat-response";
   const AI_MODEL_LIST_REQUEST_EVENT = "better-xiaoheihe-ai-model-list-request";
@@ -1060,6 +1060,7 @@
       }
 
       .${SETTINGS_PANEL_CLASS} .better-settings__feed-poll-section .better-settings__compact-number-grid {
+        grid-template-columns: minmax(112px, 0.45fr) minmax(168px, 1fr);
         padding: 12px;
       }
 
@@ -1310,6 +1311,12 @@
 
       .${SETTINGS_PANEL_CLASS} .better-settings__field--compact-number .better-settings__text-input {
         width: 88px;
+        max-width: 100%;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__field--compact-number .better-settings__select {
+        width: 100%;
+        min-width: 168px;
         max-width: 100%;
       }
 
@@ -7839,9 +7846,9 @@
                 <span class="better-settings__field-title">评论周期（分钟，最低2）</span>
                 <input class="better-settings__text-input better-settings__ai-bot-feed-poll-minutes" type="number" min="2" step="1" value="${escapeHtml(aiBotSettings.feedPollMinutes)}">
               </label>
-              <label class="better-settings__field better-settings__field--compact-number">
+              <label class="better-settings__field better-settings__field--compact-number better-settings__field--feed-strategy">
                 <span class="better-settings__field-title">帖子挑选策略</span>
-                <select class="better-settings__text-input better-settings__ai-bot-feed-select-strategy">
+                <select class="better-settings__select better-settings__ai-bot-feed-select-strategy">
                   <option value="first"${aiBotSettings.feedSelectStrategy === "first" ? " selected" : ""}>默认（第一条）</option>
                   <option value="latest"${aiBotSettings.feedSelectStrategy === "latest" ? " selected" : ""}>发布时间最新</option>
                   <option value="hot"${aiBotSettings.feedSelectStrategy === "hot" ? " selected" : ""}>热度最高</option>
@@ -9022,7 +9029,6 @@
     activeSettingsTab = tab === SETTINGS_TABS.AI || tab === SETTINGS_TABS.AIBOT || tab === SETTINGS_TABS.AIBOT_LOGS ? tab : normalizeBlockedKeywordScope(tab);
     const button = document.querySelector(`.${SETTINGS_ENTRY_CLASS}`);
     if (!button) {
-      window.dispatchEvent(new CustomEvent(AI_SETTINGS_OPEN_EVENT));
       return;
     }
 
@@ -9038,6 +9044,12 @@
       stopAiBotLogAutoRefresh();
     }
     bindSettingsPanelResizeSync();
+  }
+
+  function handleOpenPageSettings(event) {
+    const detail = parseEventDetail(event?.detail);
+    ensureSettingsEntry();
+    openSettingsPanelTab(detail.tab || SETTINGS_TABS.AIBOT);
   }
 
   function ensureFavoriteEntry() {
@@ -9576,6 +9588,7 @@
   }
 
   function installAiSettingsSync() {
+    window.addEventListener(OPEN_PAGE_SETTINGS_EVENT, handleOpenPageSettings);
     window.addEventListener(AI_SETTINGS_EVENT, (event) => {
       let settingsDetail = {};
       try {
