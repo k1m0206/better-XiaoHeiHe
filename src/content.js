@@ -7834,7 +7834,6 @@
             </label>
           </details>
           <div class="better-settings__actions">
-            <button class="better-settings__primary better-settings__ai-bot-run-now" type="button">立即轮询</button>
             <button class="better-settings__primary better-settings__ai-bot-view-logs" type="button">查看运行日志</button>
           </div>
         </div>
