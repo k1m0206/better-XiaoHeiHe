@@ -71,6 +71,7 @@
       baseUrl: String(settings?.baseUrl || PROVIDER_DEFAULT_BASE_URLS[provider] || "").trim().replace(/\/+$/, ""),
       model: String(settings?.model || "").trim(),
       apiKey: String(settings?.apiKey || ""),
+      allowEmoji: settings?.allowEmoji !== false,
       summaryPrompt: String(settings?.summaryPrompt || "").trim() || DEFAULT_SUMMARY_PROMPT
     };
   }
@@ -85,6 +86,7 @@
         baseUrl: currentSettings.baseUrl,
         model: currentSettings.model,
         apiKey: currentSettings.apiKey,
+        allowEmoji: currentSettings.allowEmoji,
         summaryPrompt: currentSettings.summaryPrompt
       })
     }));

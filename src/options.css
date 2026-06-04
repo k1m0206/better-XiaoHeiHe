@@ -459,6 +459,38 @@ p {
   gap: 12px;
 }
 
+.prompt-toggle {
+  display: inline-flex;
+  height: 24px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  color: #52606d;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 24px;
+}
+
+.field .prompt-toggle span {
+  display: inline;
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+}
+
+.prompt-toggle input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  accent-color: #2775d1;
+  transition: none;
+}
+
 .field input,
 .field select,
 .field textarea {

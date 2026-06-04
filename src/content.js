@@ -58,7 +58,7 @@
   const SANITIZED_COOKIE_RULE_REQUEST_EVENT = "better-xiaoheihe-sanitized-cookie-rule-request";
   const SANITIZED_COOKIE_RULE_RESPONSE_EVENT = "better-xiaoheihe-sanitized-cookie-rule-response";
   const DEFAULT_SUMMARY_PROMPT = "你是社区帖子总结助手，请用中文简洁输出：\n帖子总结\n一句话概括帖子核心内容。\n评论区信息\n提取评论区里有价值的观点、经验、补充或避坑信息，没有则跳过。\nAI简评\n像真实网友一样补充观点，避免AI味。\n返回md格式。";
-  const AI_BOT_DEFAULT_PROMPT = "你是小黑盒社区自动回复助手。请根据消息类型、帖子正文、评论区上下文和触发消息的那条评论，生成一条自然、友好、简洁的中文回复。可以自然使用 Unicode emoji 表情，也可以使用提供的小黑盒表情短码；但不要编造未提供的短码，不要使用类似[摊手]、[笑哭]这类不在列表里的方括号表情。不要暴露你是AI，不要使用模板化开头，不要编造事实，不要输出Markdown。";
+  const AI_BOT_DEFAULT_PROMPT = "你是小黑盒社区自动回复助手。请根据消息类型、帖子正文、评论区上下文和触发消息的那条评论，生成一条自然、友好、简洁的中文回复。不要暴露你是AI，不要使用模板化开头，不要编造事实，不要输出Markdown。";
   const AI_PROVIDERS = {
     OPENAI_COMPATIBLE: "openai-compatible",
     OPENAI_RESPONSES: "openai-responses",
@@ -423,6 +423,7 @@
       baseUrl: String(settings?.baseUrl || AI_PROVIDER_DEFAULT_BASE_URLS[provider] || "").trim().replace(/\/+$/, ""),
       model: String(settings?.model || "").trim(),
       apiKey: String(settings?.apiKey || ""),
+      allowEmoji: settings?.allowEmoji !== false,
       summaryPrompt: String(settings?.summaryPrompt || "").trim() || DEFAULT_SUMMARY_PROMPT
     };
   }
@@ -452,6 +453,7 @@
       replyMentions,
       replyComments,
       whitelistUserIds: normalizeIdList(settings?.whitelistUserIds || settings?.whitelistText),
+      allowEmoji: settings?.allowEmoji !== false,
       commentPrompt: String(settings?.commentPrompt || "").trim() || AI_BOT_DEFAULT_PROMPT
     };
   }
@@ -1246,6 +1248,27 @@
         font-size: 12px;
         font-weight: 700;
         line-height: 18px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__prompt-toggle {
+        display: inline-flex;
+        height: 24px;
+        flex: 0 0 auto;
+        align-items: center;
+        gap: 5px;
+        margin-left: auto;
+        color: #52606d;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 24px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__prompt-toggle input {
+        width: 14px;
+        height: 14px;
+        margin: 0;
+        accent-color: #2775d1;
       }
 
       .${SETTINGS_PANEL_CLASS} .better-settings__compact-number-grid {
@@ -3027,6 +3050,20 @@
         text-decoration: underline;
       }
 
+      .${AI_SUMMARY_MODAL_CLASS} .better-comment-preview__emoji {
+        width: 22px;
+        height: 22px;
+        margin: 0 2px;
+        object-fit: contain;
+        vertical-align: -5px;
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-comment-preview__emoji--big {
+        width: 36px;
+        height: 36px;
+        vertical-align: -10px;
+      }
+
       .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__summary-content {
         min-height: 0;
       }
@@ -4301,6 +4338,39 @@
       const emoji = emojiCache.get(matched[1]) || emojiCache.get(normalizeEmojiToken(matched[1]));
       return emoji ? renderEmojiImage(emoji) : escapeHtml(normalizeCommentText(part));
     }).join("");
+  }
+
+  function renderEmojiTokensInHtml(html) {
+    return String(html || "").split(/(<[^>]+>)/g).map((part) => {
+      if (!part || part.startsWith("<")) {
+        return part;
+      }
+
+      return part.split(/(\[[^\]\r\n]{1,40}\])/g).map((token) => {
+        const matched = token.match(/^\[([^\]\r\n]{1,40})\]$/);
+        if (!matched) {
+          return token;
+        }
+
+        const normalizedToken = normalizeEmojiToken(matched[1]);
+        const emoji = emojiCache.get(matched[1]) || emojiCache.get(normalizedToken);
+        return emoji ? renderEmojiImage(emoji) : token;
+      }).join("");
+    }).join("");
+  }
+
+  function cleanAiSummaryContent(content, allowEmoji = true) {
+    const text = String(content || "")
+      .replace(/\s*\[\d{1,6}\](?=\s|$|[，。！？、,.!?；;：:])/g, "")
+      .replace(/[ \t]{2,}/g, " ");
+    if (allowEmoji) {
+      return text;
+    }
+
+    return text
+      .replace(/\[[^\]\r\n]{1,40}\]/g, "")
+      .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, "")
+      .replace(/[ \t]{2,}/g, " ");
   }
 
   function isSafeCommentLink(href) {
@@ -6246,13 +6316,13 @@
   function normalizeAiSummaryCacheEntry(entry) {
     if (entry && typeof entry === "object") {
       return {
-        content: String(entry.content || ""),
+        content: cleanAiSummaryContent(entry.content, aiSettings.allowEmoji),
         elapsedMs: Number.isFinite(entry.elapsedMs) ? entry.elapsedMs : null,
         payload: String(entry.payload || ""),
         chatMessages: Array.isArray(entry.chatMessages)
           ? entry.chatMessages.map((message) => ({
             role: message?.role === "user" ? "user" : "assistant",
-            content: String(message?.content || ""),
+            content: message?.role === "user" ? String(message?.content || "") : cleanAiSummaryContent(message?.content, aiSettings.allowEmoji),
             muted: message?.muted === true,
             pending: message?.pending === true,
             elapsedMs: Number.isFinite(message?.elapsedMs) ? message.elapsedMs : null
@@ -6262,7 +6332,7 @@
     }
 
     return {
-      content: String(entry || ""),
+      content: cleanAiSummaryContent(entry, aiSettings.allowEmoji),
       elapsedMs: null,
       payload: "",
       chatMessages: []
@@ -6325,7 +6395,7 @@
     return [
       {
         role: "system",
-        content: `${aiSettings.summaryPrompt}\n\n你现在要继续回答用户围绕同一篇帖子提出的问题。回答要简洁、直接，并延续已有上下文；需要时可以结合帖子外的通用知识进行补充；如果当前 AI 服务支持联网搜索或检索工具，也允许进行网络搜索。不要把补充或搜索得到的内容伪装成原帖信息；引用网络搜索结果时必须标注出处链接。`
+        content: buildAiSummarySystemPrompt("你现在要继续回答用户围绕同一篇帖子提出的问题。回答要简洁、直接，并延续已有上下文；需要时可以结合帖子外的通用知识进行补充；如果当前 AI 服务支持联网搜索或检索工具，也允许进行网络搜索。不要把补充或搜索得到的内容伪装成原帖信息；引用网络搜索结果时必须标注出处链接。")
       },
       {
         role: "user",
@@ -6390,7 +6460,7 @@
         ...cacheEntry,
         chatMessages: [
           ...cacheEntry.chatMessages.filter((message) => !message.pending),
-          { role: "assistant", content: answer || "模型没有返回内容", elapsedMs }
+          { role: "assistant", content: cleanAiSummaryContent(answer, aiSettings.allowEmoji) || "模型没有返回内容", elapsedMs }
         ]
       }));
     }).catch((error) => {
@@ -6445,7 +6515,7 @@
     html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
     html = html.replace(/\*([^*\n]+)\*/g, "<em>$1</em>");
     html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
-    return html;
+    return renderEmojiTokensInHtml(html);
   }
 
   function renderMarkdownBlock(lines) {
@@ -6721,6 +6791,29 @@
     });
   }
 
+  function getAiSummaryEmojiCodes(limit = 120) {
+    const codes = [...new Set(Array.from(emojiCache.values())
+      .map((emoji) => normalizeEmojiToken(emoji?.code))
+      .filter((code) => code && !/^\d+$/.test(code) && !/^https?:\/\//i.test(code))
+      .map((code) => `[${code}]`)
+      .filter((code) => /^\[[^\]\r\n]{1,40}\]$/.test(code)))];
+    return codes.slice(0, limit);
+  }
+
+  function buildAiSummarySystemPrompt(extraInstruction = "") {
+    const emojiCodes = getAiSummaryEmojiCodes();
+    return [
+      aiSettings.summaryPrompt,
+      "",
+      aiSettings.allowEmoji
+        ? (emojiCodes.length
+          ? `可以自然使用 Unicode emoji 表情，也可以使用 0-3 个列表内小黑盒表情短码：${emojiCodes.join(" ")}。不要编造列表外的方括号短码，不要输出纯数字方括号编号，例如 [34]、[64]。`
+          : "可以自然使用 Unicode emoji 表情；没有可用小黑盒表情短码时，不要输出方括号表情短码。")
+        : "不要使用 Unicode emoji 表情，不要输出任何小黑盒表情短码或方括号表情。",
+      extraInstruction
+    ].filter((part) => String(part || "").trim()).join("\n\n");
+  }
+
   function handleAiChatResponse(event) {
     let detail = {};
     try {
@@ -6809,12 +6902,12 @@
 
     setAiButtonLoading(button, true);
     const summaryStartTime = performance.now();
-    ensureSummaryContext(linkId).then(({ commentLines, linkDetail }) => {
+    Promise.all([ensureSummaryContext(linkId), aiSettings.allowEmoji ? loadEmojis() : Promise.resolve(emojiCache)]).then(([{ commentLines, linkDetail }]) => {
       const payload = getFeedItemSummaryPayload(item, linkId, commentLines, linkDetail);
       return requestAiChat([
         {
           role: "system",
-          content: aiSettings.summaryPrompt
+          content: buildAiSummarySystemPrompt()
         },
         {
           role: "user",
@@ -6823,7 +6916,7 @@
       ]).then((summary) => ({ summary, payload }));
     }).then(({ summary, payload }) => {
       const elapsedMs = performance.now() - summaryStartTime;
-      const content = summary || "没有生成总结。";
+      const content = cleanAiSummaryContent(summary, aiSettings.allowEmoji) || "没有生成总结。";
       aiSummaryCache.set(linkId, { content, elapsedMs, payload, chatMessages: [] });
       setAiSummaryModal(title, content, false, linkId, elapsedMs);
     }).catch((error) => {
@@ -6853,12 +6946,12 @@
 
     setAiButtonLoading(button, true);
     const summaryStartTime = performance.now();
-    ensureSummaryContext(linkId).then(({ commentLines, linkDetail }) => {
+    Promise.all([ensureSummaryContext(linkId), aiSettings.allowEmoji ? loadEmojis() : Promise.resolve(emojiCache)]).then(([{ commentLines, linkDetail }]) => {
       const payload = getLinkPageSummaryPayload(linkId, commentLines, linkDetail);
       return requestAiChat([
         {
           role: "system",
-          content: aiSettings.summaryPrompt
+          content: buildAiSummarySystemPrompt()
         },
         {
           role: "user",
@@ -6867,7 +6960,7 @@
       ]).then((summary) => ({ summary, payload }));
     }).then(({ summary, payload }) => {
       const elapsedMs = performance.now() - summaryStartTime;
-      const content = summary || "没有生成总结。";
+      const content = cleanAiSummaryContent(summary, aiSettings.allowEmoji) || "没有生成总结。";
       aiSummaryCache.set(linkId, { content, elapsedMs, payload, chatMessages: [] });
       setAiSummaryModal(title, content, false, linkId, elapsedMs);
     }).catch((error) => {
@@ -7389,6 +7482,7 @@
       baseUrl: panel.querySelector(".better-settings__ai-base-url")?.value,
       model: panel.querySelector(".better-settings__ai-model")?.value,
       apiKey: panel.querySelector(".better-settings__ai-api-key")?.value,
+      allowEmoji: panel.querySelector(".better-settings__ai-allow-emoji")?.checked !== false,
       summaryPrompt: panel.querySelector(".better-settings__ai-summary-prompt")?.value
     });
   }
@@ -7557,6 +7651,10 @@
           <label class="better-settings__field">
             <span class="better-settings__field-title">
               总结提示词
+              <label class="better-settings__prompt-toggle">
+                <input class="better-settings__ai-allow-emoji" type="checkbox"${aiSettings.allowEmoji ? " checked" : ""}>
+                <span>允许表情</span>
+              </label>
               <button class="better-settings__text-button better-settings__ai-reset-prompt" type="button">恢复默认</button>
             </span>
             <textarea class="better-settings__textarea better-settings__ai-summary-prompt">${escapeHtml(aiSettings.summaryPrompt)}</textarea>
@@ -7652,6 +7750,10 @@
           <label class="better-settings__field">
             <span class="better-settings__field-title">
               AI 评论提示词
+              <label class="better-settings__prompt-toggle">
+                <input class="better-settings__ai-bot-allow-emoji" type="checkbox"${aiBotSettings.allowEmoji ? " checked" : ""}>
+                <span>允许表情</span>
+              </label>
               <button class="better-settings__text-button better-settings__ai-bot-reset-prompt" type="button">恢复默认</button>
             </span>
             <textarea class="better-settings__textarea better-settings__ai-bot-comment-prompt">${escapeHtml(aiBotSettings.commentPrompt)}</textarea>
@@ -8201,6 +8303,7 @@
       replyMentions,
       replyComments,
       whitelistText: panel.querySelector(".better-settings__ai-bot-whitelist")?.value,
+      allowEmoji: panel.querySelector(".better-settings__ai-bot-allow-emoji")?.checked !== false,
       commentPrompt: panel.querySelector(".better-settings__ai-bot-comment-prompt")?.value
     });
   }
@@ -8671,7 +8774,7 @@
         return;
       }
 
-      if (event.target.matches(".better-settings__ai-enabled")) {
+      if (event.target.matches(".better-settings__ai-enabled, .better-settings__ai-allow-emoji")) {
         saveAiSettingsFromPanel(panel);
         return;
       }
@@ -8691,7 +8794,7 @@
         return;
       }
 
-      if (event.target.matches(".better-settings__ai-bot-poll-minutes, .better-settings__ai-bot-fresh-minutes, .better-settings__ai-bot-whitelist, .better-settings__ai-bot-reply-mentions, .better-settings__ai-bot-reply-comments")) {
+      if (event.target.matches(".better-settings__ai-bot-poll-minutes, .better-settings__ai-bot-fresh-minutes, .better-settings__ai-bot-whitelist, .better-settings__ai-bot-reply-mentions, .better-settings__ai-bot-reply-comments, .better-settings__ai-bot-allow-emoji")) {
         const normalized = getAiBotSettingsFormValues(panel);
         const pollInput = panel.querySelector(".better-settings__ai-bot-poll-minutes");
         const freshInput = panel.querySelector(".better-settings__ai-bot-fresh-minutes");

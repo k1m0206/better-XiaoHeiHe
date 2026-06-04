@@ -8,7 +8,7 @@
   const BLOCKED_KEYWORDS_STORAGE_KEY = "better-xiaoheihe-blocked-keywords";
   const LEVEL_FILTERS_STORAGE_KEY = "better-xiaoheihe-level-filters";
   const UI_STATE_STORAGE_KEY = "better-xiaoheihe-ui-state";
-  const AI_BOT_DEFAULT_PROMPT = "你是小黑盒社区自动回复助手。请根据消息类型、帖子正文、评论区上下文和触发消息的那条评论，生成一条自然、友好、简洁的中文回复。可以自然使用 Unicode emoji 表情，也可以使用提供的小黑盒表情短码；但不要编造未提供的短码，不要使用类似[摊手]、[笑哭]这类不在列表里的方括号表情。不要暴露你是AI，不要使用模板化开头，不要编造事实，不要输出Markdown。";
+  const AI_BOT_DEFAULT_PROMPT = "你是小黑盒社区自动回复助手。请根据消息类型、帖子正文、评论区上下文和触发消息的那条评论，生成一条自然、友好、简洁的中文回复。不要暴露你是AI，不要使用模板化开头，不要编造事实，不要输出Markdown。";
   const AI_BOT_LOG_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
   const LEVEL_FILTER_MIN = 7;
   const LEVEL_FILTER_MAX = 18;
@@ -43,6 +43,7 @@
   const modelMenu = document.getElementById("modelMenu");
   const apiKeyInput = document.getElementById("apiKey");
   const summaryPromptInput = document.getElementById("summaryPrompt");
+  const summaryAllowEmojiInput = document.getElementById("summaryAllowEmoji");
   const resetPromptButton = document.getElementById("resetPrompt");
   const fetchModelsButton = document.getElementById("fetchModels");
   const testButton = document.getElementById("test");
@@ -61,6 +62,7 @@
   const aiBotReplyCommentsInput = document.getElementById("aiBotReplyComments");
   const aiBotWhitelistInput = document.getElementById("aiBotWhitelist");
   const aiBotCommentPromptInput = document.getElementById("aiBotCommentPrompt");
+  const aiBotAllowEmojiInput = document.getElementById("aiBotAllowEmoji");
   const aiBotResetPromptButton = document.getElementById("aiBotResetPrompt");
   const aiBotFetchModelsButton = document.getElementById("aiBotFetchModels");
   const aiBotTestButton = document.getElementById("aiBotTest");
@@ -360,6 +362,7 @@
       baseUrl: String(settings?.baseUrl || PROVIDER_DEFAULT_BASE_URLS[provider] || "").trim().replace(/\/+$/, ""),
       model: String(settings?.model || "").trim(),
       apiKey: String(settings?.apiKey || ""),
+      allowEmoji: settings?.allowEmoji !== false,
       summaryPrompt: String(settings?.summaryPrompt || "").trim() || DEFAULT_SUMMARY_PROMPT
     };
   }
@@ -387,6 +390,7 @@
       replyMentions,
       replyComments,
       whitelistUserIds: normalizeIdList(settings?.whitelistUserIds || settings?.whitelistText),
+      allowEmoji: settings?.allowEmoji !== false,
       commentPrompt: String(settings?.commentPrompt || "").trim() || AI_BOT_DEFAULT_PROMPT
     };
   }
@@ -398,6 +402,7 @@
       baseUrl: baseUrlInput.value,
       model: modelInput.value,
       apiKey: apiKeyInput.value,
+      allowEmoji: summaryAllowEmojiInput.checked,
       summaryPrompt: summaryPromptInput.value
     });
   }
@@ -414,6 +419,7 @@
       replyMentions: aiBotReplyMentionsInput.checked,
       replyComments: aiBotReplyCommentsInput.checked,
       whitelistText: aiBotWhitelistInput.value,
+      allowEmoji: aiBotAllowEmojiInput.checked,
       commentPrompt: aiBotCommentPromptInput.value
     });
   }
@@ -641,6 +647,7 @@
     baseUrlInput.value = normalized.baseUrl;
     modelInput.value = normalized.model;
     apiKeyInput.value = normalized.apiKey;
+    summaryAllowEmojiInput.checked = normalized.allowEmoji;
     summaryPromptInput.value = normalized.summaryPrompt;
     syncSecretToggle(apiKeyInput);
     syncEnabledLabel();
@@ -659,6 +666,7 @@
     aiBotReplyMentionsInput.checked = normalized.replyMentions;
     aiBotReplyCommentsInput.checked = normalized.replyComments;
     aiBotWhitelistInput.value = normalized.whitelistUserIds.join("\n");
+    aiBotAllowEmojiInput.checked = normalized.allowEmoji;
     aiBotCommentPromptInput.value = normalized.commentPrompt;
     syncSecretToggle(aiBotApiKeyInput);
     syncConnectionDot("aiBot");
@@ -1208,11 +1216,11 @@
   });
   loadLocalSettings();
 
-  [enabledInput, baseUrlInput, modelInput, apiKeyInput, summaryPromptInput].forEach((input) => {
+  [enabledInput, baseUrlInput, modelInput, apiKeyInput, summaryAllowEmojiInput, summaryPromptInput].forEach((input) => {
     input.addEventListener("change", saveSettings);
     input.addEventListener("input", saveSettings);
   });
-  [aiBotBaseUrlInput, aiBotModelInput, aiBotApiKeyInput, aiBotPollMinutesInput, aiBotMessageFreshMinutesInput, aiBotReplyMentionsInput, aiBotReplyCommentsInput, aiBotWhitelistInput, aiBotCommentPromptInput].forEach((input) => {
+  [aiBotBaseUrlInput, aiBotModelInput, aiBotApiKeyInput, aiBotPollMinutesInput, aiBotMessageFreshMinutesInput, aiBotReplyMentionsInput, aiBotReplyCommentsInput, aiBotWhitelistInput, aiBotAllowEmojiInput, aiBotCommentPromptInput].forEach((input) => {
     input.addEventListener("change", saveAiBotSettings);
     input.addEventListener("input", saveAiBotSettings);
   });

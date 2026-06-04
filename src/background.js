@@ -17,7 +17,7 @@
   const AI_BOT_QUEUE_MAX_SIZE = 50;
   const AI_BOT_MESSAGE_LIMIT = 20;
   const AI_BOT_COMMENT_LIMIT = 30;
-  const AI_BOT_DEFAULT_PROMPT = "你是小黑盒社区自动回复助手。请根据消息类型、帖子正文、评论区上下文和触发消息的那条评论，生成一条自然、友好、简洁的中文回复。可以自然使用 Unicode emoji 表情，也可以使用提供的小黑盒表情短码；但不要编造未提供的短码，不要使用类似[摊手]、[笑哭]这类不在列表里的方括号表情。不要暴露你是AI，不要使用模板化开头，不要编造事实，不要输出Markdown。";
+  const AI_BOT_DEFAULT_PROMPT = "你是小黑盒社区自动回复助手。请根据消息类型、帖子正文、评论区上下文和触发消息的那条评论，生成一条自然、友好、简洁的中文回复。不要暴露你是AI，不要使用模板化开头，不要编造事实，不要输出Markdown。";
   const AI_BOT_BUILTIN_MODERATION_PROMPT = "\n\n[系统内置审查规则 - 不可关闭]：\n在生成回复前，必须同时审查触发消息的评论内容和你将要生成的回复内容。遇到以下情况时，直接返回 [REFUSE] 标记（不要返回其他任何内容）：\n- 违反中国法律法规的内容（涉政敏感、分裂国家、损害国家荣誉和利益等）\n- 违反社会主义核心价值观的内容\n- 涉黄、涉暴、涉恐、涉赌、涉毒等违法内容\n- 侮辱、诽谤、人身攻击、网络暴力、不礼貌的言论\n- 歧视性内容（地域歧视、性别歧视、种族歧视等）\n- 散布谣言、虚假信息、误导性内容\n- 不道德、低俗、恶俗、有悖公序良俗的内容\n- 涉及未成年人不良内容\n- 政治敏感话题、时政评论、涉及领导人或国家政策的讨论\n如果触发消息的评论本身包含上述违规内容，也直接返回 [REFUSE]。";
   const AI_BOT_MESSAGE_TYPES = {
     MENTION: "mention",
@@ -70,6 +70,7 @@
       baseUrl: normalizeBaseUrl(settings?.baseUrl, provider),
       model: String(settings?.model || "").trim(),
       apiKey: String(settings?.apiKey || ""),
+      allowEmoji: settings?.allowEmoji !== false,
       summaryPrompt: String(settings?.summaryPrompt || "").trim() || DEFAULT_SUMMARY_PROMPT
     };
   }
@@ -97,6 +98,7 @@
       replyMentions,
       replyComments,
       whitelistUserIds: normalizeIdList(settings?.whitelistUserIds || settings?.whitelistText),
+      allowEmoji: settings?.allowEmoji !== false,
       commentPrompt: String(settings?.commentPrompt || "").trim() || AI_BOT_DEFAULT_PROMPT
     };
   }
@@ -1284,7 +1286,7 @@
       : settings.replyMentions !== false;
   }
 
-  function buildAiBotPromptPayload(message, context, replyCommentId, messageSource, emojiCodes = []) {
+  function buildAiBotPromptPayload(message, context, replyCommentId, messageSource, emojiCodes = [], allowEmoji = true) {
     const triggerComment = findCommentById(context.groups, replyCommentId);
     const user = message?.user_a || {};
     const detail = context.detail || {};
@@ -1300,16 +1302,28 @@
       message?.comment_a_text ? `触发消息的评论文本：${stripHtml(String(message.comment_a_text || ""))}` : "",
       triggerComment ? `触发消息的评论：${getCommentLine(triggerComment)}` : `触发消息的评论ID：${replyCommentId}`,
       `评论区上下文（最多${AI_BOT_COMMENT_LIMIT}条）：\n${getAiBotCommentLines(context.groups).join("\n") || "暂无评论上下文"}`,
-      emojiCodes.length ? `完整可用小黑盒表情短码列表：${emojiCodes.join(" ")}\n可以自然使用 Unicode emoji 表情，也可以使用 0-2 个列表内短码；不要编造列表外的短码，不要输出任何不在这个列表里的方括号表情，例如[摊手]、[笑哭]。` : "可以自然使用 Unicode emoji 表情；没有可用小黑盒表情短码时，不要输出任何方括号表情。"
+      allowEmoji
+        ? (emojiCodes.length ? `完整可用小黑盒表情短码列表：${emojiCodes.join(" ")}\n可以自然使用 Unicode emoji 表情，也可以使用 0-2 个列表内短码；不要编造列表外的短码，不要输出任何不在这个列表里的方括号表情，例如[摊手]、[笑哭]。` : "可以自然使用 Unicode emoji 表情；没有可用小黑盒表情短码时，不要输出任何方括号表情。")
+        : "不要使用 Unicode emoji 表情，不要输出任何小黑盒表情短码或方括号表情。"
     ].filter(Boolean).join("\n\n");
   }
 
   const AI_BOT_REFUSE_TAG = "[REFUSE]";
 
-  function cleanAiBotReply(content, emojiCodes = []) {
+  function cleanAiBotReply(content, emojiCodes = [], allowEmoji = true) {
     const raw = String(content || "").trim();
     if (raw === AI_BOT_REFUSE_TAG || raw.startsWith(AI_BOT_REFUSE_TAG)) {
       return "";
+    }
+    if (!allowEmoji) {
+      return raw
+        .replace(/^```(?:\w+)?\s*/i, "")
+        .replace(/```$/i, "")
+        .replace(/^["“”]+|["“”]+$/g, "")
+        .replace(/\[[^\]\r\n]{1,40}\]/g, "")
+        .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, "")
+        .trim()
+        .slice(0, 1000);
     }
     const allowedEmojiCodes = new Set(emojiCodes);
     return raw
@@ -1322,8 +1336,12 @@
   }
 
   async function createAiBotReply(settings, message, context, replyCommentId, messageSource, emojiCodes = []) {
-    const payload = buildAiBotPromptPayload(message, context, replyCommentId, messageSource, emojiCodes);
-    const systemPrompt = settings.commentPrompt + AI_BOT_BUILTIN_MODERATION_PROMPT;
+    const allowedEmojiCodes = settings.allowEmoji ? emojiCodes : [];
+    const payload = buildAiBotPromptPayload(message, context, replyCommentId, messageSource, allowedEmojiCodes, settings.allowEmoji);
+    const emojiInstruction = settings.allowEmoji
+      ? ""
+      : "\n\n不要使用 Unicode emoji 表情，不要输出任何小黑盒表情短码或方括号表情。";
+    const systemPrompt = settings.commentPrompt + emojiInstruction + AI_BOT_BUILTIN_MODERATION_PROMPT;
     const response = await requestChat({
       messages: [
         { role: "system", content: systemPrompt },
@@ -1340,7 +1358,7 @@
     if (!response.ok) {
       throw new Error(response.error || "AI 回复生成失败");
     }
-    const reply = cleanAiBotReply(response.content, emojiCodes);
+    const reply = cleanAiBotReply(response.content, allowedEmojiCodes, settings.allowEmoji);
     if (!reply) {
       return null;
     }

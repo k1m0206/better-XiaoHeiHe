@@ -142,6 +142,10 @@
             <label class="field field--prompt">
               <span class="field-title">
                 总结提示词
+                <label class="prompt-toggle">
+                  <input id="summaryAllowEmoji" type="checkbox" checked>
+                  <span>允许表情</span>
+                </label>
                 <button id="resetPrompt" class="text-button" type="button">恢复默认</button>
               </span>
               <textarea id="summaryPrompt" rows="6"></textarea>
@@ -240,6 +244,10 @@
             <label class="field field--prompt">
               <span class="field-title">
                 AI 评论提示词
+                <label class="prompt-toggle">
+                  <input id="aiBotAllowEmoji" type="checkbox" checked>
+                  <span>允许表情</span>
+                </label>
                 <button id="aiBotResetPrompt" class="text-button" type="button">恢复默认</button>
               </span>
               <textarea id="aiBotCommentPrompt" rows="6"></textarea>
