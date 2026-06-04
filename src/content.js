@@ -59,6 +59,7 @@
   const SANITIZED_COOKIE_RULE_RESPONSE_EVENT = "better-xiaoheihe-sanitized-cookie-rule-response";
   const DEFAULT_SUMMARY_PROMPT = "你是社区帖子总结助手，请用中文简洁输出：\n帖子总结\n一句话概括帖子核心内容。\n评论区信息\n提取评论区里有价值的观点、经验、补充或避坑信息，没有则跳过。\nAI简评\n像真实网友一样补充观点，避免AI味。\n返回md格式。";
   const AI_BOT_DEFAULT_PROMPT = "你是小黑盒社区自动回复助手。请根据消息类型、帖子正文、评论区上下文和触发消息的那条评论，生成一条自然、友好、简洁的中文回复。不要暴露你是AI，不要使用模板化开头，不要编造事实，不要输出Markdown。";
+  const AI_BOT_DEFAULT_FEED_PROMPT = "你是小黑盒社区暖贴助手。请根据帖子标题、正文和话题，生成一条自然、真实、简洁的中文评论，像普通用户浏览帖子后留下的感想。不要暴露你是AI，不要使用模板化开头，不要编造未提供的信息，不要输出Markdown。";
   const AI_PROVIDERS = {
     OPENAI_COMPATIBLE: "openai-compatible",
     OPENAI_RESPONSES: "openai-responses",
@@ -458,7 +459,8 @@
       commentHomeFeed,
       whitelistUserIds: normalizeIdList(settings?.whitelistUserIds || settings?.whitelistText),
       allowEmoji: settings?.allowEmoji !== false,
-      commentPrompt: String(settings?.commentPrompt || "").trim() || AI_BOT_DEFAULT_PROMPT
+      commentPrompt: String(settings?.commentPrompt || "").trim() || AI_BOT_DEFAULT_PROMPT,
+      feedCommentPrompt: String(settings?.feedCommentPrompt || "").trim() || AI_BOT_DEFAULT_FEED_PROMPT
     };
   }
 
@@ -7823,6 +7825,13 @@
                 </select>
               </label>
             </div>
+            <label class="better-settings__field">
+              <span class="better-settings__field-title">
+                暖贴提示词
+                <button class="better-settings__text-button better-settings__ai-bot-reset-feed-prompt" type="button">恢复默认</button>
+              </span>
+              <textarea class="better-settings__textarea better-settings__ai-bot-feed-comment-prompt">${escapeHtml(aiBotSettings.feedCommentPrompt)}</textarea>
+            </label>
           </details>
           <div class="better-settings__actions">
             <button class="better-settings__primary better-settings__ai-bot-run-now" type="button">立即轮询</button>
@@ -8374,7 +8383,8 @@
       commentHomeFeed,
       whitelistText: panel.querySelector(".better-settings__ai-bot-whitelist")?.value,
       allowEmoji: panel.querySelector(".better-settings__ai-bot-allow-emoji")?.checked !== false,
-      commentPrompt: panel.querySelector(".better-settings__ai-bot-comment-prompt")?.value
+      commentPrompt: panel.querySelector(".better-settings__ai-bot-comment-prompt")?.value,
+      feedCommentPrompt: panel.querySelector(".better-settings__ai-bot-feed-comment-prompt")?.value
     });
   }
 
@@ -8662,6 +8672,17 @@
         return;
       }
 
+      const resetAiBotFeedPromptButton = event.target.closest(".better-settings__ai-bot-reset-feed-prompt");
+      if (resetAiBotFeedPromptButton && panel.contains(resetAiBotFeedPromptButton)) {
+        const feedPromptInput = panel.querySelector(".better-settings__ai-bot-feed-comment-prompt");
+        if (feedPromptInput) {
+          feedPromptInput.value = AI_BOT_DEFAULT_FEED_PROMPT;
+          syncAutoHeightTextarea(feedPromptInput);
+        }
+        saveAiBotSettingsFromPanel(panel);
+        return;
+      }
+
       const aiBotTestButton = event.target.closest(".better-settings__ai-bot-test");
       if (aiBotTestButton && panel.contains(aiBotTestButton)) {
         testAiBotSettingsFromPanel(panel, aiBotTestButton);
@@ -8828,8 +8849,8 @@
         saveAiSettingsFromPanel(panel);
       }
 
-      if (event.target.matches(".better-settings__ai-bot-base-url, .better-settings__ai-bot-model, .better-settings__ai-bot-api-key, .better-settings__ai-bot-poll-minutes, .better-settings__ai-bot-feed-poll-minutes, .better-settings__ai-bot-fresh-minutes, .better-settings__ai-bot-whitelist, .better-settings__ai-bot-comment-prompt")) {
-        if (event.target.matches(".better-settings__ai-bot-whitelist, .better-settings__ai-bot-comment-prompt")) {
+      if (event.target.matches(".better-settings__ai-bot-base-url, .better-settings__ai-bot-model, .better-settings__ai-bot-api-key, .better-settings__ai-bot-poll-minutes, .better-settings__ai-bot-feed-poll-minutes, .better-settings__ai-bot-fresh-minutes, .better-settings__ai-bot-whitelist, .better-settings__ai-bot-comment-prompt, .better-settings__ai-bot-feed-comment-prompt")) {
+        if (event.target.matches(".better-settings__ai-bot-whitelist, .better-settings__ai-bot-comment-prompt, .better-settings__ai-bot-feed-comment-prompt")) {
           syncAutoHeightTextarea(event.target);
           repositionSettingsPanelIfOpen();
         }

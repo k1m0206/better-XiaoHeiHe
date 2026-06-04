@@ -9,6 +9,7 @@
   const LEVEL_FILTERS_STORAGE_KEY = "better-xiaoheihe-level-filters";
   const UI_STATE_STORAGE_KEY = "better-xiaoheihe-ui-state";
   const AI_BOT_DEFAULT_PROMPT = "你是小黑盒社区自动回复助手。请根据消息类型、帖子正文、评论区上下文和触发消息的那条评论，生成一条自然、友好、简洁的中文回复。不要暴露你是AI，不要使用模板化开头，不要编造事实，不要输出Markdown。";
+  const AI_BOT_DEFAULT_FEED_PROMPT = "你是小黑盒社区暖贴助手。请根据帖子标题、正文和话题，生成一条自然、真实、简洁的中文评论，像普通用户浏览帖子后留下的感想。不要暴露你是AI，不要使用模板化开头，不要编造未提供的信息，不要输出Markdown。";
   const AI_BOT_LOG_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
   const LEVEL_FILTER_MIN = 7;
   const LEVEL_FILTER_MAX = 18;
@@ -68,6 +69,8 @@
   const aiBotCommentPromptInput = document.getElementById("aiBotCommentPrompt");
   const aiBotAllowEmojiInput = document.getElementById("aiBotAllowEmoji");
   const aiBotResetPromptButton = document.getElementById("aiBotResetPrompt");
+  const aiBotFeedCommentPromptInput = document.getElementById("aiBotFeedCommentPrompt");
+  const aiBotResetFeedPromptButton = document.getElementById("aiBotResetFeedPrompt");
   const aiBotFetchModelsButton = document.getElementById("aiBotFetchModels");
   const aiBotTestButton = document.getElementById("aiBotTest");
   const aiBotRunNowButton = document.getElementById("aiBotRunNow");
@@ -460,7 +463,8 @@
       feedSelectStrategy: ["first", "latest", "hot"].includes(settings?.feedSelectStrategy) ? settings.feedSelectStrategy : "first",
       whitelistUserIds: normalizeIdList(settings?.whitelistUserIds || settings?.whitelistText),
       allowEmoji: settings?.allowEmoji !== false,
-      commentPrompt: String(settings?.commentPrompt || "").trim() || AI_BOT_DEFAULT_PROMPT
+      commentPrompt: String(settings?.commentPrompt || "").trim() || AI_BOT_DEFAULT_PROMPT,
+      feedCommentPrompt: String(settings?.feedCommentPrompt || "").trim() || AI_BOT_DEFAULT_FEED_PROMPT
     };
   }
 
@@ -492,7 +496,8 @@
       commentHomeFeed: aiBotCommentHomeFeedInput.checked,
       whitelistText: aiBotWhitelistInput.value,
       allowEmoji: aiBotAllowEmojiInput.checked,
-      commentPrompt: aiBotCommentPromptInput.value
+      commentPrompt: aiBotCommentPromptInput.value,
+      feedCommentPrompt: aiBotFeedCommentPromptInput.value
     });
   }
 
@@ -743,6 +748,7 @@
     aiBotWhitelistInput.value = normalized.whitelistUserIds.join("\n");
     aiBotAllowEmojiInput.checked = normalized.allowEmoji;
     aiBotCommentPromptInput.value = normalized.commentPrompt;
+    aiBotFeedCommentPromptInput.value = normalized.feedCommentPrompt;
     syncSecretToggle(aiBotApiKeyInput);
     syncConnectionDot("aiBot");
     syncFeedPollGroupVisibility();
@@ -1164,6 +1170,12 @@
     setAiBotStatus("已恢复默认提示词", false);
   }
 
+  function resetAiBotFeedPrompt() {
+    aiBotFeedCommentPromptInput.value = AI_BOT_DEFAULT_FEED_PROMPT;
+    saveAiBotSettings();
+    setAiBotStatus("已恢复默认暖贴提示词", false);
+  }
+
   function syncAiBotRuleInputs() {
     const settings = getAiBotFormSettings();
     aiBotPollMinutesInput.value = settings.pollMinutes;
@@ -1313,7 +1325,7 @@
     input.addEventListener("change", saveSettings);
     input.addEventListener("input", saveSettings);
   });
-  [aiBotBaseUrlInput, aiBotModelInput, aiBotApiKeyInput, aiBotPollMinutesInput, aiBotFeedPollMinutesInput, aiBotFeedSelectStrategyInput, aiBotMessageFreshMinutesInput, aiBotReplyMentionsInput, aiBotReplyCommentsInput, aiBotCommentHomeFeedInput, aiBotWhitelistInput, aiBotAllowEmojiInput, aiBotCommentPromptInput].forEach((input) => {
+  [aiBotBaseUrlInput, aiBotModelInput, aiBotApiKeyInput, aiBotPollMinutesInput, aiBotFeedPollMinutesInput, aiBotFeedSelectStrategyInput, aiBotMessageFreshMinutesInput, aiBotReplyMentionsInput, aiBotReplyCommentsInput, aiBotCommentHomeFeedInput, aiBotWhitelistInput, aiBotAllowEmojiInput, aiBotCommentPromptInput, aiBotFeedCommentPromptInput].forEach((input) => {
     input.addEventListener("change", saveAiBotSettings);
     input.addEventListener("input", saveAiBotSettings);
   });
@@ -1405,6 +1417,7 @@
   testButton.addEventListener("click", testConnection);
   aiBotProviderInput.addEventListener("change", syncAiBotProviderDefaults);
   aiBotResetPromptButton.addEventListener("click", resetAiBotPrompt);
+  aiBotResetFeedPromptButton.addEventListener("click", resetAiBotFeedPrompt);
   aiBotPollMinutesInput.addEventListener("change", syncAiBotRuleInputs);
   aiBotFeedPollMinutesInput.addEventListener("change", syncAiBotRuleInputs);
   aiBotMessageFreshMinutesInput.addEventListener("change", syncAiBotRuleInputs);
