@@ -7758,29 +7758,50 @@
               <span class="better-settings__message" role="status">${aiBotSettings.baseUrl && aiBotSettings.model ? "已配置" : "请填写 Base URL 和模型"}</span>
             </div>
           </details>
-          <div class="better-settings__compact-number-grid">
-            <label class="better-settings__field better-settings__field--compact-number">
-              <span class="better-settings__field-title">轮询评论和@周期（分钟）</span>
-              <input class="better-settings__text-input better-settings__ai-bot-poll-minutes" type="number" min="1" step="1" value="${escapeHtml(aiBotSettings.pollMinutes)}">
+          <details class="better-settings__section better-settings__collapsible-section">
+            <summary class="better-settings__collapsible-summary">
+              <span class="better-settings__section-title">自动回复设置</span>
+              <span class="better-settings__collapsible-indicator" aria-hidden="true"></span>
+            </summary>
+            <div class="better-settings__compact-number-grid">
+              <label class="better-settings__field better-settings__field--compact-number">
+                <span class="better-settings__field-title">轮询评论和@周期（分钟）</span>
+                <input class="better-settings__text-input better-settings__ai-bot-poll-minutes" type="number" min="1" step="1" value="${escapeHtml(aiBotSettings.pollMinutes)}">
+              </label>
+              <label class="better-settings__field better-settings__field--compact-number">
+                <span class="better-settings__field-title">只处理最近消息（分钟）</span>
+                <input class="better-settings__text-input better-settings__ai-bot-fresh-minutes" type="number" min="1" step="1" value="${escapeHtml(aiBotSettings.messageFreshMinutes)}">
+              </label>
+            </div>
+            <label class="better-settings__rule-toggle">
+              <input class="better-settings__ai-bot-reply-mentions" type="checkbox"${aiBotSettings.replyMentions ? " checked" : ""}>
+              <span class="better-settings__rule-toggle-switch" aria-hidden="true"></span>
+              <span class="better-settings__rule-toggle-text">回复 @ 我的消息</span>
             </label>
-            <label class="better-settings__field better-settings__field--compact-number">
-              <span class="better-settings__field-title">只处理最近消息（分钟）</span>
-              <input class="better-settings__text-input better-settings__ai-bot-fresh-minutes" type="number" min="1" step="1" value="${escapeHtml(aiBotSettings.messageFreshMinutes)}">
+            <label class="better-settings__rule-toggle">
+              <input class="better-settings__ai-bot-reply-comments" type="checkbox"${aiBotSettings.replyComments ? " checked" : ""}>
+              <span class="better-settings__rule-toggle-switch" aria-hidden="true"></span>
+              <span class="better-settings__rule-toggle-text">回复评论 / 回复我的消息</span>
             </label>
-          </div>
-          <label class="better-settings__rule-toggle">
-            <input class="better-settings__ai-bot-reply-mentions" type="checkbox"${aiBotSettings.replyMentions ? " checked" : ""}>
-            <span class="better-settings__rule-toggle-switch" aria-hidden="true"></span>
-            <span class="better-settings__rule-toggle-text">回复 @ 我的消息</span>
-          </label>
-          <label class="better-settings__rule-toggle">
-            <input class="better-settings__ai-bot-reply-comments" type="checkbox"${aiBotSettings.replyComments ? " checked" : ""}>
-            <span class="better-settings__rule-toggle-switch" aria-hidden="true"></span>
-            <span class="better-settings__rule-toggle-text">回复评论 / 回复我的消息</span>
-          </label>
+            <label class="better-settings__field">
+              <span class="better-settings__field-title">白名单用户 ID</span>
+              <textarea class="better-settings__textarea better-settings__ai-bot-whitelist" placeholder="空白表示允许回复所有触发用户；多个 ID 可用逗号、空格或换行分隔">${escapeHtml(aiBotSettings.whitelistUserIds.join("\n"))}</textarea>
+            </label>
+            <label class="better-settings__field">
+              <span class="better-settings__field-title">
+                AI 评论提示词
+                <label class="better-settings__prompt-toggle">
+                  <input class="better-settings__ai-bot-allow-emoji" type="checkbox"${aiBotSettings.allowEmoji ? " checked" : ""}>
+                  <span>允许表情</span>
+                </label>
+                <button class="better-settings__text-button better-settings__ai-bot-reset-prompt" type="button">恢复默认</button>
+              </span>
+              <textarea class="better-settings__textarea better-settings__ai-bot-comment-prompt">${escapeHtml(aiBotSettings.commentPrompt)}</textarea>
+            </label>
+          </details>
           <details class="better-settings__section better-settings__collapsible-section better-settings__feed-poll-section" ${aiBotSettings.commentHomeFeed ? "open" : ""}>
             <summary class="better-settings__collapsible-summary">
-              <span class="better-settings__section-title">首页推荐帖设置</span>
+              <span class="better-settings__section-title">自动暖贴设置</span>
               <span class="better-settings__collapsible-indicator" aria-hidden="true"></span>
             </summary>
             <label class="better-settings__rule-toggle">
@@ -7803,21 +7824,6 @@
               </label>
             </div>
           </details>
-          <label class="better-settings__field">
-            <span class="better-settings__field-title">白名单用户 ID</span>
-            <textarea class="better-settings__textarea better-settings__ai-bot-whitelist" placeholder="空白表示允许回复所有触发用户；多个 ID 可用逗号、空格或换行分隔">${escapeHtml(aiBotSettings.whitelistUserIds.join("\n"))}</textarea>
-          </label>
-          <label class="better-settings__field">
-            <span class="better-settings__field-title">
-              AI 评论提示词
-              <label class="better-settings__prompt-toggle">
-                <input class="better-settings__ai-bot-allow-emoji" type="checkbox"${aiBotSettings.allowEmoji ? " checked" : ""}>
-                <span>允许表情</span>
-              </label>
-              <button class="better-settings__text-button better-settings__ai-bot-reset-prompt" type="button">恢复默认</button>
-            </span>
-            <textarea class="better-settings__textarea better-settings__ai-bot-comment-prompt">${escapeHtml(aiBotSettings.commentPrompt)}</textarea>
-          </label>
           <div class="better-settings__actions">
             <button class="better-settings__primary better-settings__ai-bot-run-now" type="button">立即轮询</button>
             <button class="better-settings__primary better-settings__ai-bot-view-logs" type="button">查看运行日志</button>

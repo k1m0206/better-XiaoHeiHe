@@ -1176,7 +1176,6 @@
 
   function syncFeedPollGroupVisibility() {
     if (aiBotFeedPollGroup) {
-      aiBotFeedPollGroup.hidden = false;
       aiBotFeedPollGroup.open = aiBotCommentHomeFeedInput.checked;
     }
   }
