@@ -456,6 +456,7 @@
       feedPollMinutes: Math.max(2, Number.parseInt(settings?.feedPollMinutes, 10) || 5),
       feedSelectStrategy: ["first", "latest", "hot"].includes(settings?.feedSelectStrategy) ? settings.feedSelectStrategy : "first",
       messageFreshMinutes: Math.max(1, Number.parseInt(settings?.messageFreshMinutes, 10) || 5),
+      replyLimitPerLinkUser: Math.max(1, Number.parseInt(settings?.replyLimitPerLinkUser, 10) || 5),
       replyMentions,
       replyComments,
       commentHomeFeed,
@@ -7790,6 +7791,10 @@
                 <span class="better-settings__field-title">只处理最近消息（分钟）</span>
                 <input class="better-settings__text-input better-settings__ai-bot-fresh-minutes" type="number" min="1" step="1" value="${escapeHtml(aiBotSettings.messageFreshMinutes)}">
               </label>
+              <label class="better-settings__field better-settings__field--compact-number">
+                <span class="better-settings__field-title">每贴每人最多回复（次）</span>
+                <input class="better-settings__text-input better-settings__ai-bot-reply-limit" type="number" min="1" step="1" value="${escapeHtml(aiBotSettings.replyLimitPerLinkUser)}">
+              </label>
             </div>
             <label class="better-settings__rule-toggle">
               <input class="better-settings__ai-bot-reply-mentions" type="checkbox"${aiBotSettings.replyMentions ? " checked" : ""}>
@@ -7913,7 +7918,7 @@
       ? aiBotMessageLogs.map((log) => `
         <div class="better-settings__ai-bot-message-log${log.skipped ? " better-settings__ai-bot-message-log--skipped" : ""}">
           <div class="better-settings__ai-bot-log-meta">
-            <span class="better-settings__ai-bot-log-level better-settings__ai-bot-log-level--${log.skipped ? "warn" : "success"}">${escapeHtml(log.skipped ? (log.skipReason === "content_moderation" ? "已跳过" : log.skipReason === "queue_expired" ? "队列超时" : log.skipReason === "send_failed" ? "发送失败" : log.skipReason === "source_disabled" ? "开关关闭" : log.skipReason === "stale" ? "已过期" : log.skipReason === "missing_target" ? "缺少目标" : "跳过") : (log.typeLabel || (log.messageSource === "feed" ? "首页推荐帖" : (log.messageSource === "comment" ? "评论" : "@"))))}</span>
+            <span class="better-settings__ai-bot-log-level better-settings__ai-bot-log-level--${log.skipped ? "warn" : "success"}">${escapeHtml(log.skipped ? (log.skipReason === "content_moderation" ? "已跳过" : log.skipReason === "queue_expired" ? "队列超时" : log.skipReason === "send_failed" ? "发送失败" : log.skipReason === "source_disabled" ? "开关关闭" : log.skipReason === "stale" ? "已过期" : log.skipReason === "missing_target" ? "缺少目标" : log.skipReason === "reply_target_limit" ? "次数上限" : "跳过") : (log.typeLabel || (log.messageSource === "feed" ? "首页推荐帖" : (log.messageSource === "comment" ? "评论" : "@"))))}</span>
             <span>${escapeHtml(log.timeText || new Date(log.timestamp || Date.now()).toLocaleString("zh-CN", { hour12: false }))}</span>
           </div>
           <div class="better-settings__ai-bot-message-title">${log.linkUrl ? `<a href="${escapeHtml(log.linkUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(log.linkTitle || `帖子 ${log.linkId || ""}`)}</a>` : escapeHtml(log.linkTitle || `帖子 ${log.linkId || ""}`)}${log.messageSource === "feed" && log.messageTimestamp ? `<span class="better-settings__ai-bot-post-time">${escapeHtml(new Date(log.messageTimestamp).toLocaleString("zh-CN", { hour12: false }))}</span>` : ""}</div>
@@ -8395,6 +8400,7 @@
       feedPollMinutes: panel.querySelector(".better-settings__ai-bot-feed-poll-minutes")?.value,
       feedSelectStrategy: panel.querySelector(".better-settings__ai-bot-feed-select-strategy")?.value,
       messageFreshMinutes: panel.querySelector(".better-settings__ai-bot-fresh-minutes")?.value,
+      replyLimitPerLinkUser: panel.querySelector(".better-settings__ai-bot-reply-limit")?.value,
       replyMentions,
       replyComments,
       commentHomeFeed,
@@ -8877,7 +8883,7 @@
         saveAiSettingsFromPanel(panel);
       }
 
-      if (event.target.matches(".better-settings__ai-bot-base-url, .better-settings__ai-bot-model, .better-settings__ai-bot-api-key, .better-settings__ai-bot-poll-minutes, .better-settings__ai-bot-feed-poll-minutes, .better-settings__ai-bot-fresh-minutes, .better-settings__ai-bot-whitelist, .better-settings__ai-bot-comment-prompt, .better-settings__ai-bot-feed-comment-prompt")) {
+      if (event.target.matches(".better-settings__ai-bot-base-url, .better-settings__ai-bot-model, .better-settings__ai-bot-api-key, .better-settings__ai-bot-poll-minutes, .better-settings__ai-bot-feed-poll-minutes, .better-settings__ai-bot-fresh-minutes, .better-settings__ai-bot-reply-limit, .better-settings__ai-bot-whitelist, .better-settings__ai-bot-comment-prompt, .better-settings__ai-bot-feed-comment-prompt")) {
         if (event.target.matches(".better-settings__ai-bot-whitelist, .better-settings__ai-bot-comment-prompt, .better-settings__ai-bot-feed-comment-prompt")) {
           syncAutoHeightTextarea(event.target);
           repositionSettingsPanelIfOpen();
@@ -8913,11 +8919,12 @@
         return;
       }
 
-      if (event.target.matches(".better-settings__ai-bot-poll-minutes, .better-settings__ai-bot-feed-poll-minutes, .better-settings__ai-bot-fresh-minutes, .better-settings__ai-bot-whitelist, .better-settings__ai-bot-reply-mentions, .better-settings__ai-bot-reply-comments, .better-settings__ai-bot-comment-home-feed, .better-settings__ai-bot-feed-select-strategy, .better-settings__ai-bot-allow-emoji")) {
+      if (event.target.matches(".better-settings__ai-bot-poll-minutes, .better-settings__ai-bot-feed-poll-minutes, .better-settings__ai-bot-fresh-minutes, .better-settings__ai-bot-reply-limit, .better-settings__ai-bot-whitelist, .better-settings__ai-bot-reply-mentions, .better-settings__ai-bot-reply-comments, .better-settings__ai-bot-comment-home-feed, .better-settings__ai-bot-feed-select-strategy, .better-settings__ai-bot-allow-emoji")) {
         const normalized = getAiBotSettingsFormValues(panel);
         const pollInput = panel.querySelector(".better-settings__ai-bot-poll-minutes");
         const feedPollInput = panel.querySelector(".better-settings__ai-bot-feed-poll-minutes");
         const freshInput = panel.querySelector(".better-settings__ai-bot-fresh-minutes");
+        const replyLimitInput = panel.querySelector(".better-settings__ai-bot-reply-limit");
         const whitelistInput = panel.querySelector(".better-settings__ai-bot-whitelist");
         if (pollInput) {
           pollInput.value = normalized.pollMinutes;
@@ -8927,6 +8934,9 @@
         }
         if (freshInput) {
           freshInput.value = normalized.messageFreshMinutes;
+        }
+        if (replyLimitInput) {
+          replyLimitInput.value = normalized.replyLimitPerLinkUser;
         }
         if (whitelistInput) {
           whitelistInput.value = normalized.whitelistUserIds.join("\n");

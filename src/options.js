@@ -59,6 +59,7 @@
   const aiBotApiKeyInput = document.getElementById("aiBotApiKey");
   const aiBotPollMinutesInput = document.getElementById("aiBotPollMinutes");
   const aiBotMessageFreshMinutesInput = document.getElementById("aiBotMessageFreshMinutes");
+  const aiBotReplyLimitPerLinkUserInput = document.getElementById("aiBotReplyLimitPerLinkUser");
   const aiBotReplyMentionsInput = document.getElementById("aiBotReplyMentions");
   const aiBotReplyCommentsInput = document.getElementById("aiBotReplyComments");
   const aiBotCommentHomeFeedInput = document.getElementById("aiBotCommentHomeFeed");
@@ -469,6 +470,7 @@
       pollMinutes: Math.max(1, Number.parseInt(settings?.pollMinutes, 10) || 1),
       feedPollMinutes: Math.max(2, Number.parseInt(settings?.feedPollMinutes, 10) || 5),
       messageFreshMinutes: Math.max(1, Number.parseInt(settings?.messageFreshMinutes, 10) || 5),
+      replyLimitPerLinkUser: Math.max(1, Number.parseInt(settings?.replyLimitPerLinkUser, 10) || 5),
       replyMentions,
       replyComments,
       commentHomeFeed,
@@ -503,6 +505,7 @@
       feedPollMinutes: aiBotFeedPollMinutesInput.value,
       feedSelectStrategy: aiBotFeedSelectStrategyInput.value,
       messageFreshMinutes: aiBotMessageFreshMinutesInput.value,
+      replyLimitPerLinkUser: aiBotReplyLimitPerLinkUserInput.value,
       replyMentions: aiBotReplyMentionsInput.checked,
       replyComments: aiBotReplyCommentsInput.checked,
       commentHomeFeed: aiBotCommentHomeFeedInput.checked,
@@ -753,6 +756,7 @@
     aiBotPollMinutesInput.value = normalized.pollMinutes;
     aiBotFeedPollMinutesInput.value = normalized.feedPollMinutes;
     aiBotMessageFreshMinutesInput.value = normalized.messageFreshMinutes;
+    aiBotReplyLimitPerLinkUserInput.value = normalized.replyLimitPerLinkUser;
     aiBotReplyMentionsInput.checked = normalized.replyMentions;
     aiBotReplyCommentsInput.checked = normalized.replyComments;
     aiBotCommentHomeFeedInput.checked = normalized.commentHomeFeed;
@@ -1015,7 +1019,7 @@
       const type = document.createElement("span");
       type.className = "log-level " + (log.skipped ? "log-level--warn" : "log-level--success");
       type.textContent = log.skipped
-        ? (log.skipReason === "content_moderation" ? "已跳过" : log.skipReason === "queue_expired" ? "队列超时" : log.skipReason === "send_failed" ? "发送失败" : log.skipReason === "source_disabled" ? "开关关闭" : log.skipReason === "stale" ? "已过期" : log.skipReason === "missing_target" ? "缺少目标" : "跳过")
+        ? (log.skipReason === "content_moderation" ? "已跳过" : log.skipReason === "queue_expired" ? "队列超时" : log.skipReason === "send_failed" ? "发送失败" : log.skipReason === "source_disabled" ? "开关关闭" : log.skipReason === "stale" ? "已过期" : log.skipReason === "missing_target" ? "缺少目标" : log.skipReason === "reply_target_limit" ? "次数上限" : "跳过")
         : (log.typeLabel || (log.messageSource === "feed" ? "首页推荐帖" : (log.messageSource === "comment" ? "评论" : "@")));
       const time = document.createElement("span");
       time.textContent = log.timeText || new Date(log.timestamp || Date.now()).toLocaleString("zh-CN", { hour12: false });
@@ -1200,6 +1204,7 @@
     aiBotFeedPollMinutesInput.value = settings.feedPollMinutes;
     aiBotFeedSelectStrategyInput.value = settings.feedSelectStrategy;
     aiBotMessageFreshMinutesInput.value = settings.messageFreshMinutes;
+    aiBotReplyLimitPerLinkUserInput.value = settings.replyLimitPerLinkUser;
     aiBotWhitelistInput.value = settings.whitelistUserIds.join("\n");
     saveAiBotSettings();
   }
@@ -1345,7 +1350,7 @@
     input.addEventListener("change", saveSettings);
     input.addEventListener("input", saveSettings);
   });
-  [aiBotBaseUrlInput, aiBotModelInput, aiBotApiKeyInput, aiBotPollMinutesInput, aiBotFeedPollMinutesInput, aiBotFeedSelectStrategyInput, aiBotMessageFreshMinutesInput, aiBotReplyMentionsInput, aiBotReplyCommentsInput, aiBotCommentHomeFeedInput, aiBotWhitelistInput, aiBotAllowEmojiInput, aiBotCommentPromptInput, aiBotFeedCommentPromptInput].forEach((input) => {
+  [aiBotBaseUrlInput, aiBotModelInput, aiBotApiKeyInput, aiBotPollMinutesInput, aiBotFeedPollMinutesInput, aiBotFeedSelectStrategyInput, aiBotMessageFreshMinutesInput, aiBotReplyLimitPerLinkUserInput, aiBotReplyMentionsInput, aiBotReplyCommentsInput, aiBotCommentHomeFeedInput, aiBotWhitelistInput, aiBotAllowEmojiInput, aiBotCommentPromptInput, aiBotFeedCommentPromptInput].forEach((input) => {
     input.addEventListener("change", saveAiBotSettings);
     input.addEventListener("input", saveAiBotSettings);
   });
@@ -1452,6 +1457,7 @@
   aiBotPollMinutesInput.addEventListener("change", syncAiBotRuleInputs);
   aiBotFeedPollMinutesInput.addEventListener("change", syncAiBotRuleInputs);
   aiBotMessageFreshMinutesInput.addEventListener("change", syncAiBotRuleInputs);
+  aiBotReplyLimitPerLinkUserInput.addEventListener("change", syncAiBotRuleInputs);
   aiBotWhitelistInput.addEventListener("change", syncAiBotRuleInputs);
   [aiBotReplyMentionsInput, aiBotReplyCommentsInput, aiBotCommentHomeFeedInput].forEach((input) => {
     input.addEventListener("change", refreshAiBotStatus);

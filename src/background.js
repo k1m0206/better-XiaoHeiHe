@@ -7,6 +7,7 @@
   const AI_BOT_EMOJI_CODES_STORAGE_KEY = "better-xiaoheihe-ai-bot-emoji-codes";
   const AI_BOT_REPLIED_RECORDS_STORAGE_KEY = "better-xiaoheihe-ai-bot-replied-records";
   const AI_BOT_FEED_COMMENT_RECORDS_STORAGE_KEY = "better-xiaoheihe-ai-bot-feed-comment-records";
+  const AI_BOT_REPLY_TARGET_RECORDS_STORAGE_KEY = "better-xiaoheihe-ai-bot-reply-target-records";
   const AI_BOT_REPLY_QUEUE_STORAGE_KEY = "better-xiaoheihe-ai-bot-reply-queue";
   const AI_BOT_RUNTIME_STORAGE_KEY = "better-xiaoheihe-ai-bot-runtime";
   const API_PARAMS_STORAGE_KEY = "better-xiaoheihe-api-params";
@@ -19,6 +20,7 @@
   const AI_BOT_QUEUE_MAX_SIZE = 50;
   const AI_BOT_MESSAGE_LIMIT = 20;
   const AI_BOT_COMMENT_LIMIT = 30;
+  const AI_BOT_DEFAULT_REPLY_LIMIT_PER_LINK_USER = 5;
   const AI_BOT_DEFAULT_PROMPT = "你是小黑盒社区自动回复助手。请根据消息类型、帖子正文、评论区上下文和触发消息的那条评论，生成一条自然、友好、简洁的中文回复。不要暴露你是AI，不要使用模板化开头，不要编造事实，不要输出Markdown。如果触发消息的评论内容只有表情（没有文字，表情数量可以是多个），那么你只回复一个表情，不要添加任何文字。";
   const AI_BOT_DEFAULT_FEED_PROMPT = "你是小黑盒社区暖贴助手。请根据帖子标题、正文和话题，生成一条自然、真实、简洁的中文评论，像普通用户浏览帖子后留下的感想。不要暴露你是AI，不要使用模板化开头，不要编造未提供的信息，不要输出Markdown。";
   const AI_BOT_BUILTIN_MODERATION_PROMPT = "\n\n[系统内置审查规则 - 不可关闭]：\n在生成回复前，必须同时审查触发消息的评论内容和你将要生成的回复内容。遇到以下情况时，直接返回 [REFUSE] 标记（不要返回其他任何内容）：\n- 违反中国法律法规的内容（涉政敏感、分裂国家、损害国家荣誉和利益等）\n- 违反社会主义核心价值观的内容\n- 涉黄、涉暴、涉恐、涉赌、涉毒等违法内容\n- 侮辱、诽谤、人身攻击、网络暴力、不礼貌的言论\n- 歧视性内容（地域歧视、性别歧视、种族歧视等）\n- 散布谣言、虚假信息、误导性内容\n- 不道德、低俗、恶俗、有悖公序良俗的内容\n- 涉及未成年人不良内容\n- 政治敏感话题、时政评论、涉及领导人或国家政策的讨论\n如果触发消息的评论本身包含上述违规内容，也直接返回 [REFUSE]。";
@@ -102,6 +104,7 @@
       pollMinutes: Math.max(1, Number.parseInt(settings?.pollMinutes, 10) || 1),
       feedPollMinutes: Math.max(2, Number.parseInt(settings?.feedPollMinutes, 10) || 5),
       messageFreshMinutes: Math.max(1, Number.parseInt(settings?.messageFreshMinutes, 10) || 5),
+      replyLimitPerLinkUser: Math.max(1, Number.parseInt(settings?.replyLimitPerLinkUser, 10) || AI_BOT_DEFAULT_REPLY_LIMIT_PER_LINK_USER),
       replyMentions,
       replyComments,
       commentHomeFeed,
@@ -927,6 +930,10 @@
     return String(user?.heybox_id || user?.user_heybox_id || user?.userid || user?.user_id || user?.uid || user?.id || "").trim();
   }
 
+  function getUserDisplayName(user) {
+    return String(user?.username || user?.nickname || user?.name || "").trim();
+  }
+
   function stripHtml(value) {
     return String(value || "")
       .replace(/<br\s*\/?>/gi, "\n")
@@ -998,6 +1005,34 @@
     return linkId ? `https://www.xiaoheihe.cn/app/bbs/link/${linkId}` : "";
   }
 
+  function getAiBotReplyTargetId(user) {
+    const userId = getUserId(user || {});
+    if (userId) {
+      return `id:${userId}`;
+    }
+    const userName = getUserDisplayName(user || {});
+    return userName ? `name:${userName}` : "";
+  }
+
+  function getAiBotReplyTargetRecordKey(linkId, targetId) {
+    return linkId && targetId ? `${String(linkId)}::${String(targetId)}` : "";
+  }
+
+  function getFeedItemTimestampMs(link) {
+    const rawTimestamp = Number(
+      link?.create_at
+      || link?.created_at
+      || link?.post_time
+      || link?.publish_at
+      || link?.time
+      || 0
+    );
+    if (!Number.isFinite(rawTimestamp) || rawTimestamp <= 0) {
+      return 0;
+    }
+    return rawTimestamp > 100000000000 ? rawTimestamp : Math.floor(rawTimestamp * 1000);
+  }
+
   function selectFeedItemByStrategy(links, strategy) {
     const validLinks = links.filter((link) => getLinkIdFromFeedItem(link));
     if (validLinks.length === 0) {
@@ -1005,8 +1040,8 @@
     }
     if (strategy === "latest") {
       return validLinks.reduce((latest, current) => {
-        const latestTime = Number(latest.post_time || latest.time || latest.created_at || 0);
-        const currentTime = Number(current.post_time || current.time || current.created_at || 0);
+        const latestTime = getFeedItemTimestampMs(latest);
+        const currentTime = getFeedItemTimestampMs(current);
         return currentTime > latestTime ? current : latest;
       }, validLinks[0]);
     }
@@ -1663,8 +1698,9 @@
       emojiCodes,
       linkId: getLinkIdFromMessage(message),
       rootCommentId: getRootCommentIdFromMessage(message),
+      targetId: getAiBotReplyTargetId(message?.user_a || {}),
       senderId: getUserId(message?.user_a || {}),
-      senderName: String(message?.user_a?.username || message?.user_a?.nickname || ""),
+      senderName: getUserDisplayName(message?.user_a || {}),
       messageText: stripHtml(String(message?.comment_a_text || message?.text || "")).slice(0, 500),
       messageTimestamp: getMessageTimestampMs(message)
     };
@@ -1749,6 +1785,92 @@
     });
   }
 
+  async function readReplyTargetRecords() {
+    const result = await storageGet(AI_BOT_REPLY_TARGET_RECORDS_STORAGE_KEY);
+    const records = result[AI_BOT_REPLY_TARGET_RECORDS_STORAGE_KEY];
+    return records && typeof records === "object" && !Array.isArray(records) ? records : {};
+  }
+
+  async function countSentReplyTargetMessageLogs(linkId, targetId) {
+    const recordKey = getAiBotReplyTargetRecordKey(linkId, targetId);
+    if (!recordKey) {
+      return 0;
+    }
+    const result = await storageGet(AI_BOT_MESSAGE_LOGS_STORAGE_KEY);
+    const logs = Array.isArray(result[AI_BOT_MESSAGE_LOGS_STORAGE_KEY]) ? result[AI_BOT_MESSAGE_LOGS_STORAGE_KEY] : [];
+    return logs.filter((log) => {
+      if (log?.skipped || log?.messageSource === AI_BOT_MESSAGE_TYPES.FEED) {
+        return false;
+      }
+      const logTargetId = log?.targetId || (log?.senderId ? `id:${log.senderId}` : (log?.senderName ? `name:${log.senderName}` : ""));
+      return getAiBotReplyTargetRecordKey(log?.linkId, logTargetId) === recordKey;
+    }).length;
+  }
+
+  async function markReplyTargetSent(linkId, targetId, data = {}) {
+    const recordKey = getAiBotReplyTargetRecordKey(linkId, targetId);
+    if (!recordKey) {
+      return;
+    }
+    const records = await readReplyTargetRecords();
+    const now = Date.now();
+    const current = records[recordKey] && typeof records[recordKey] === "object" ? records[recordKey] : {};
+    const count = Math.max(
+      Math.max(0, Number.parseInt(current.count, 10) || 0),
+      await countSentReplyTargetMessageLogs(linkId, targetId)
+    ) + 1;
+    await storageSet({
+      [AI_BOT_REPLY_TARGET_RECORDS_STORAGE_KEY]: {
+        ...records,
+        [recordKey]: {
+          ...current,
+          ...data,
+          linkId: String(linkId),
+          targetId: String(targetId),
+          count,
+          lastRepliedAt: now
+        }
+      }
+    });
+  }
+
+  async function getQueuedReplyTargetCount(linkId, targetId) {
+    const recordKey = getAiBotReplyTargetRecordKey(linkId, targetId);
+    if (!recordKey) {
+      return 0;
+    }
+    const queue = await cleanupReplyQueue();
+    return queue.filter((item) => getAiBotReplyTargetRecordKey(item?.linkId, item?.targetId) === recordKey).length;
+  }
+
+  async function getReplyTargetUsage(linkId, targetId, limit = AI_BOT_DEFAULT_REPLY_LIMIT_PER_LINK_USER) {
+    const normalizedLimit = Math.max(1, Number.parseInt(limit, 10) || AI_BOT_DEFAULT_REPLY_LIMIT_PER_LINK_USER);
+    const recordKey = getAiBotReplyTargetRecordKey(linkId, targetId);
+    if (!recordKey) {
+      return {
+        sentCount: 0,
+        queuedCount: 0,
+        totalCount: 0,
+        limit: normalizedLimit,
+        record: null
+      };
+    }
+    const records = await readReplyTargetRecords();
+    const record = records[recordKey] && typeof records[recordKey] === "object" ? records[recordKey] : null;
+    const sentCount = Math.max(
+      Math.max(0, Number.parseInt(record?.count, 10) || 0),
+      await countSentReplyTargetMessageLogs(linkId, targetId)
+    );
+    const queuedCount = await getQueuedReplyTargetCount(linkId, targetId);
+    return {
+      sentCount,
+      queuedCount,
+      totalCount: sentCount + queuedCount,
+      limit: normalizedLimit,
+      record
+    };
+  }
+
   function getAiBotMessagePrecheckSkipReason(settings, message, records) {
     const messageId = String(message?.message_id || "");
     if (!messageId) {
@@ -1792,7 +1914,7 @@
       replyCommentId: getReplyCommentIdFromMessage(message),
       rootCommentId: getRootCommentIdFromMessage(message),
       senderId: getUserId(sender),
-      senderName: String(sender.username || sender.nickname || ""),
+      senderName: getUserDisplayName(sender),
       linkTitle: String(message?.link?.title || "").slice(0, 120),
       linkTag: String(message?.link_tag || message?.link?.link_tag || "")
     };
@@ -1933,9 +2055,11 @@
     const directReplyCommentId = getReplyCommentIdFromMessage(message);
     const rootCommentId = getRootCommentIdFromMessage(message);
     const replyCommentId = directReplyCommentId || rootCommentId;
+    const targetId = getAiBotReplyTargetId(message?.user_a || {});
     const messageDebug = {
       ...getAiBotMessageDebugInfo(message),
       messageSource,
+      targetId,
       effectiveReplyCommentId: replyCommentId,
       replyTargetSource: directReplyCommentId ? "reply_comment_id" : (rootCommentId ? "root_comment_id" : "")
     };
@@ -1949,6 +2073,39 @@
         actionLabel: "缺少帖子ID或评论ID，已跳过",
         skipReason: "missing_target"
       };
+    }
+
+    if (targetId) {
+      const targetUsage = await getReplyTargetUsage(linkId, targetId, settings.replyLimitPerLinkUser);
+      if (targetUsage.totalCount >= targetUsage.limit) {
+        await markMessageReplied(messageId, {
+          skippedAt: Date.now(),
+          skipReason: "reply_target_limit",
+          messageSource,
+          linkId,
+          targetId,
+          sentCount: targetUsage.sentCount,
+          queuedCount: targetUsage.queuedCount,
+          limit: targetUsage.limit
+        });
+        records[messageId] = {
+          skippedAt: Date.now(),
+          skipReason: "reply_target_limit"
+        };
+        await appendAiBotPollDecisionLog("info", `同帖同人回复已达到 ${targetUsage.limit} 次，跳过`, message, messageSource, {
+          ...messageDebug,
+          skipReason: "reply_target_limit",
+          sentCount: targetUsage.sentCount,
+          queuedCount: targetUsage.queuedCount,
+          limit: targetUsage.limit,
+          record: targetUsage.record || ""
+        });
+        return {
+          actionResult: "skipped",
+          actionLabel: `同帖同人回复已达到 ${targetUsage.limit} 次，已跳过`,
+          skipReason: "reply_target_limit"
+        };
+      }
     }
 
     await appendAiBotLog("info", `开始处理${typeLabel}，获取帖子详情`, messageDebug);
@@ -2125,7 +2282,7 @@
       linkTitle: context.detail?.title || feedDetail.title || "",
       linkUrl,
       commentId,
-      messageTimestamp: Number(selected.post_time || selected.time || selected.created_at || 0) * 1000 || sentTimestamp,
+      messageTimestamp: getFeedItemTimestampMs(selected) || sentTimestamp,
       sentTimestamp,
       sentTimeText: formatLogTime(sentTimestamp),
       messageText: "首页推荐帖主评论",
@@ -2173,10 +2330,12 @@
     const replyCommentId = item.replyCommentId;
     const rootCommentId = item.rootCommentId;
     const emojiCodes = item.emojiCodes || [];
+    const targetId = item.targetId || getAiBotReplyTargetId(message?.user_a || {});
     const messageDebug = {
       messageId: item.messageId,
       messageSource: item.messageSource,
       linkId: item.linkId,
+      targetId,
       senderId: item.senderId,
       senderName: item.senderName,
       queuedAt: item.queuedAt,
@@ -2186,6 +2345,50 @@
       rootCommentId: rootCommentId || replyCommentId,
       messageText: item.messageText || ""
     };
+
+    if (targetId) {
+      const targetUsage = await getReplyTargetUsage(item.linkId, targetId, settings.replyLimitPerLinkUser);
+      if (targetUsage.sentCount >= targetUsage.limit) {
+        await markMessageReplied(item.messageId, {
+          skippedAt: Date.now(),
+          skipReason: "reply_target_limit",
+          messageSource: item.messageSource,
+          linkId: item.linkId,
+          targetId,
+          sentCount: targetUsage.sentCount,
+          queuedCount: targetUsage.queuedCount,
+          limit: targetUsage.limit
+        });
+        await appendAiBotMessageLog({
+          skipped: true,
+          skipReason: "reply_target_limit",
+          messageId: item.messageId,
+          messageSource: item.messageSource,
+          typeLabel,
+          linkId: item.linkId,
+          linkTitle: context.detail?.title || "",
+          linkUrl: getLinkUrl(item.linkId),
+          replyCommentId,
+          rootCommentId: rootCommentId || replyCommentId,
+          targetId,
+          senderId: item.senderId,
+          senderName: item.senderName,
+          messageText: item.messageText || "",
+          messageTimestamp: getMessageTimestampMs(message),
+          triggerText: item.messageText || "",
+          replyText: `同一个帖子下同一个人最多回复 ${targetUsage.limit} 次`
+        });
+        await appendAiBotLog("info", `队列消息跳过：同帖同人回复已达到 ${targetUsage.limit} 次`, {
+          ...messageDebug,
+          skipReason: "reply_target_limit",
+          sentCount: targetUsage.sentCount,
+          queuedCount: targetUsage.queuedCount,
+          limit: targetUsage.limit,
+          record: targetUsage.record || ""
+        });
+        return;
+      }
+    }
 
     await appendAiBotLog("info", `队列消息开始处理：${typeLabel}`, messageDebug);
     let reply;
@@ -2222,6 +2425,16 @@
     await markMessageReplied(item.messageId, {
       linkId: item.linkId,
       replyCommentId,
+      targetId,
+      commentId: result?.commentid || result?.result?.commentid || ""
+    });
+    await markReplyTargetSent(item.linkId, targetId, {
+      messageId: item.messageId,
+      messageSource: item.messageSource,
+      replyCommentId,
+      rootCommentId: rootCommentId || replyCommentId,
+      senderId: item.senderId,
+      senderName: item.senderName,
       commentId: result?.commentid || result?.result?.commentid || ""
     });
     const messageTimestamp = getMessageTimestampMs(message);
@@ -2236,6 +2449,7 @@
       replyCommentId,
       rootCommentId: rootCommentId || replyCommentId,
       commentId: result?.commentid || result?.result?.commentid || "",
+      targetId,
       senderId: item.senderId,
       senderName: item.senderName,
       messageText: item.messageText || "",
