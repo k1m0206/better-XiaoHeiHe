@@ -1763,6 +1763,19 @@
         word-break: break-word;
       }
 
+      .${SETTINGS_PANEL_CLASS} .better-comment-preview__emoji {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        vertical-align: middle;
+        margin: 0 1px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-comment-preview__emoji--big {
+        width: 40px;
+        height: 40px;
+      }
+
       .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-log-meta {
         display: flex;
         align-items: center;
@@ -7880,8 +7893,8 @@
             log.replyCommentId ? `回复评论ID：${log.replyCommentId}` : "",
             log.commentId ? `发送评论ID：${log.commentId}` : ""
           ].filter(Boolean).join(" · "))}</div>
-          <div class="better-settings__ai-bot-message-source">${escapeHtml(`消息内容：${log.messageText || log.triggerText || ""}`)}</div>
-          <div class="better-settings__ai-bot-message-reply">${escapeHtml(`回复内容：${log.replyText || ""}`)}</div>
+          <div class="better-settings__ai-bot-message-source">消息内容：${renderPlainCommentText(log.messageText || log.triggerText || "")}</div>
+          <div class="better-settings__ai-bot-message-reply">回复内容：${renderPlainCommentText(log.replyText || "")}</div>
         </div>
       `).join("")
       : `<div class="better-settings__empty">暂无 AI 回复记录</div>`;

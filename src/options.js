@@ -88,10 +88,21 @@
   let activeAiBotLogView = "runtime";
   const expandedAiBotLogIds = new Set();
   let uiState = normalizeUiState();
+  const emojiCache = new Map();
+  let emojiLoaded = false;
   const connectionStatus = {
     ai: { state: "idle", fingerprint: "" },
     aiBot: { state: "idle", fingerprint: "" }
   };
+
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
 
   function normalizeProvider(provider) {
     return Object.values(AI_PROVIDERS).includes(provider) ? provider : DEFAULT_PROVIDER;
@@ -124,6 +135,55 @@
         seen.add(key);
         return true;
       });
+  }
+
+  function normalizeEmojiToken(code) {
+    return String(code || "").replace(/^cube_/, "").trim().toLowerCase();
+  }
+
+  function loadEmojis() {
+    if (emojiLoaded) {
+      return Promise.resolve();
+    }
+    emojiLoaded = true;
+    return fetch("https://api.xiaoheihe.cn/bbs/app/api/emojis/list", {
+      credentials: "include",
+      headers: { accept: "*/*" }
+    }).then((response) => response.json()).then((data) => {
+      if (data?.status === "ok") {
+        const groups = Array.isArray(data?.result?.emoji_groups) ? data.result.emoji_groups : [];
+        groups.forEach((group) => {
+          const groupCode = String(group.group_code || group.group_name || "").trim();
+          const emojis = Array.isArray(group.emojis) ? group.emojis : [];
+          emojis.forEach((emoji) => {
+            const code = String(emoji?.code || emoji?.name || "").trim();
+            if (!code) return;
+            const fullCode = groupCode ? `${groupCode}_${code.replace(/^cube_/, "")}` : code;
+            emojiCache.set(fullCode, { code: fullCode, img: emoji.img, type: emoji.type });
+            emojiCache.set(code, { code: fullCode, img: emoji.img, type: emoji.type });
+            emojiCache.set(normalizeEmojiToken(code), { code: fullCode, img: emoji.img, type: emoji.type });
+          });
+        });
+      }
+    }).catch(() => {});
+  }
+
+  function renderEmojiImage(emoji) {
+    const className = emoji.type === 2
+      ? "better-comment-preview__emoji better-comment-preview__emoji--big"
+      : "better-comment-preview__emoji";
+    return `<img class="${className}" src="${escapeHtml(emoji.img)}" alt="[${escapeHtml(emoji.code)}]" title="${escapeHtml(emoji.code)}" loading="lazy">`;
+  }
+
+  function renderPlainCommentText(text) {
+    return String(text || "").split(/(\[[^\]\r\n]{1,40}\])/g).map((part) => {
+      const matched = part.match(/^\[([^\]\r\n]{1,40})\]$/);
+      if (!matched) {
+        return escapeHtml(part);
+      }
+      const emoji = emojiCache.get(matched[1]) || emojiCache.get(normalizeEmojiToken(matched[1]));
+      return emoji ? renderEmojiImage(emoji) : escapeHtml(part);
+    }).join("");
   }
 
   function createDefaultLevelFilter() {
@@ -279,6 +339,7 @@
       levelFilters = normalizeLevelFilters(result?.[LEVEL_FILTERS_STORAGE_KEY]);
       renderLocalSettings();
     });
+    loadEmojis();
   }
 
   function addBlockedKeyword(keyword, scope) {
@@ -968,11 +1029,11 @@
 
       const messageText = document.createElement("div");
       messageText.className = "message-log-source";
-      messageText.textContent = `消息内容：${log.messageText || log.triggerText || ""}`;
+      messageText.innerHTML = `消息内容：${renderPlainCommentText(log.messageText || log.triggerText || "")}`;
 
       const reply = document.createElement("div");
       reply.className = "message-log-reply" + (log.skipped ? " message-log-reply--skipped" : "");
-      reply.textContent = `回复内容：${log.replyText || ""}`;
+      reply.innerHTML = `回复内容：${renderPlainCommentText(log.replyText || "")}`;
 
       item.append(meta, title, target, messageText, reply);
       aiBotMessageLogsElement.appendChild(item);

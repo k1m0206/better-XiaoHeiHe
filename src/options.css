@@ -1062,3 +1062,16 @@ button:disabled {
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+.better-comment-preview__emoji {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  vertical-align: middle;
+  margin: 0 1px;
+}
+
+.better-comment-preview__emoji--big {
+  width: 40px;
+  height: 40px;
+}
