@@ -90,8 +90,11 @@
             </div>
           </div>
 
-          <div class="section">
-            <div class="section-title">接入配置</div>
+          <details class="section collapsible-section" open>
+            <summary class="collapsible-summary">
+              <span class="section-title">接入配置 <span class="connection-dot" data-connection-status="ai" title="接入状态：未测试"></span></span>
+              <span class="collapsible-indicator" aria-hidden="true"></span>
+            </summary>
             <label class="field">
               <span>服务商类型</span>
               <select id="provider">
@@ -122,9 +125,16 @@
 
             <label class="field">
               <span>API Key</span>
-              <input id="apiKey" type="password" autocomplete="off" placeholder="sk-...">
+              <div class="secret-input">
+                <input id="apiKey" type="password" autocomplete="off" placeholder="sk-...">
+                <button class="secret-toggle" type="button" data-secret-toggle="apiKey" aria-label="显示 API Key" aria-pressed="false">显示</button>
+              </div>
             </label>
-          </div>
+            <div class="collapsible-actions">
+              <button id="test" type="button">测试连通</button>
+              <span id="status" role="status"></span>
+            </div>
+          </details>
 
           <div class="section">
             <label class="field field--prompt">
@@ -136,10 +146,6 @@
             </label>
           </div>
 
-          <div class="actions">
-            <button id="test" type="button">测试连通</button>
-            <span id="status" role="status"></span>
-          </div>
         </div>
 
         <div id="panel-aibot" class="tab-panel" data-panel="aibot" hidden>
@@ -148,17 +154,13 @@
               <div class="section-title">AI Bot</div>
               <div class="section-desc">自动回复 @、评论和回复消息</div>
             </div>
-            <div class="header-actions">
-              <span id="aiBotEnabledLabel" class="status-pill">未开启</span>
-              <label class="switch" aria-label="开启 AI Bot">
-                <input id="aiBotEnabled" type="checkbox">
-                <span></span>
-              </label>
-            </div>
           </div>
 
-          <div class="section">
-            <div class="section-title">接入配置</div>
+          <details class="section collapsible-section" open>
+            <summary class="collapsible-summary">
+              <span class="section-title">接入配置 <span class="connection-dot" data-connection-status="aiBot" title="接入状态：未测试"></span></span>
+              <span class="collapsible-indicator" aria-hidden="true"></span>
+            </summary>
             <label class="field">
               <span>服务商类型</span>
               <select id="aiBotProvider">
@@ -189,9 +191,16 @@
 
             <label class="field">
               <span>API Key</span>
-              <input id="aiBotApiKey" type="password" autocomplete="off" placeholder="sk-...">
+              <div class="secret-input">
+                <input id="aiBotApiKey" type="password" autocomplete="off" placeholder="sk-...">
+                <button class="secret-toggle" type="button" data-secret-toggle="aiBotApiKey" aria-label="显示 API Key" aria-pressed="false">显示</button>
+              </div>
             </label>
-          </div>
+            <div class="collapsible-actions">
+              <button id="aiBotTest" type="button">测试连通</button>
+              <span id="aiBotStatus" role="status"></span>
+            </div>
+          </details>
 
           <div class="section">
             <div class="section-title">运行规则</div>
@@ -207,14 +216,16 @@
               </label>
             </div>
 
-            <label class="check-row">
+            <label class="rule-toggle">
               <input id="aiBotReplyMentions" type="checkbox" checked>
-              <span>回复 @ 我的消息</span>
+              <span class="rule-toggle__switch" aria-hidden="true"></span>
+              <span class="rule-toggle__text">回复 @ 我的消息</span>
             </label>
 
-            <label class="check-row">
+            <label class="rule-toggle">
               <input id="aiBotReplyComments" type="checkbox">
-              <span>回复评论 / 回复我的消息</span>
+              <span class="rule-toggle__switch" aria-hidden="true"></span>
+              <span class="rule-toggle__text">回复评论 / 回复我的消息</span>
             </label>
 
             <label class="field field--prompt">
@@ -232,10 +243,8 @@
           </div>
 
           <div class="actions">
-            <button id="aiBotTest" type="button">测试连通</button>
             <button id="aiBotRunNow" type="button">立即轮询</button>
             <button id="aiBotViewLogs" type="button">查看运行日志</button>
-            <span id="aiBotStatus" role="status"></span>
           </div>
         </div>
 

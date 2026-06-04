@@ -47,8 +47,6 @@
   const testButton = document.getElementById("test");
   const statusElement = document.getElementById("status");
   const enabledLabel = document.getElementById("enabledLabel");
-  const aiBotEnabledInput = document.getElementById("aiBotEnabled");
-  const aiBotEnabledLabel = document.getElementById("aiBotEnabledLabel");
   const aiBotProviderInput = document.getElementById("aiBotProvider");
   const aiBotBaseUrlInput = document.getElementById("aiBotBaseUrl");
   const aiBotModelInput = document.getElementById("aiBotModel");
@@ -82,6 +80,10 @@
   let aiBotLogRefreshTimer = null;
   let activeAiBotLogView = "runtime";
   const expandedAiBotLogIds = new Set();
+  const connectionStatus = {
+    ai: { state: "idle", fingerprint: "" },
+    aiBot: { state: "idle", fingerprint: "" }
+  };
 
   function normalizeProvider(provider) {
     return Object.values(AI_PROVIDERS).includes(provider) ? provider : DEFAULT_PROVIDER;
@@ -336,8 +338,11 @@
 
   function normalizeAiBotSettings(settings) {
     const provider = normalizeProvider(settings?.provider || settings?.endpointMode);
+    const isEnabled = settings?.enabled === true;
+    const replyMentions = isEnabled && settings?.replyMentions !== false;
+    const replyComments = isEnabled && settings?.replyComments === true;
     return {
-      enabled: settings?.enabled === true,
+      enabled: replyMentions || replyComments,
       provider,
       endpointMode: provider,
       baseUrl: String(settings?.baseUrl || PROVIDER_DEFAULT_BASE_URLS[provider] || "").trim().replace(/\/+$/, ""),
@@ -345,8 +350,8 @@
       apiKey: String(settings?.apiKey || ""),
       pollMinutes: Math.max(1, Number.parseInt(settings?.pollMinutes, 10) || 1),
       messageFreshMinutes: Math.max(1, Number.parseInt(settings?.messageFreshMinutes, 10) || 5),
-      replyMentions: settings?.replyMentions !== false,
-      replyComments: settings?.replyComments === true,
+      replyMentions,
+      replyComments,
       whitelistUserIds: normalizeIdList(settings?.whitelistUserIds || settings?.whitelistText),
       commentPrompt: String(settings?.commentPrompt || "").trim() || AI_BOT_DEFAULT_PROMPT
     };
@@ -365,7 +370,7 @@
 
   function getAiBotFormSettings() {
     return normalizeAiBotSettings({
-      enabled: aiBotEnabledInput.checked,
+      enabled: aiBotReplyMentionsInput.checked || aiBotReplyCommentsInput.checked,
       provider: aiBotProviderInput.value,
       baseUrl: aiBotBaseUrlInput.value,
       model: aiBotModelInput.value,
@@ -379,6 +384,47 @@
     });
   }
 
+  function getConnectionFingerprint(settings) {
+    return [
+      settings?.provider || "",
+      settings?.baseUrl || "",
+      settings?.model || "",
+      settings?.apiKey || ""
+    ].join("\n");
+  }
+
+  function getConnectionSettings(scope) {
+    return scope === "aiBot" ? getAiBotFormSettings() : getFormSettings();
+  }
+
+  function syncConnectionDot(scope) {
+    const dot = document.querySelector(`[data-connection-status="${scope}"]`);
+    if (!dot) {
+      return;
+    }
+    const currentFingerprint = getConnectionFingerprint(getConnectionSettings(scope));
+    const state = connectionStatus[scope]?.fingerprint === currentFingerprint
+      ? connectionStatus[scope].state
+      : "idle";
+    dot.classList.toggle("is-ok", state === "ok");
+    dot.classList.toggle("is-error", state === "error");
+    dot.title = state === "ok"
+      ? "接入状态：连通"
+      : (state === "error" ? "接入状态：失败" : "接入状态：未测试");
+  }
+
+  function setConnectionStatus(scope, state) {
+    connectionStatus[scope] = {
+      state,
+      fingerprint: getConnectionFingerprint(getConnectionSettings(scope))
+    };
+    syncConnectionDot(scope);
+  }
+
+  function resetConnectionStatusIfChanged(scope) {
+    syncConnectionDot(scope);
+  }
+
   function setStatus(text, isError) {
     statusElement.textContent = text;
     statusElement.style.color = isError ? "#d33b4a" : "#68727d";
@@ -387,11 +433,6 @@
   function syncEnabledLabel() {
     enabledLabel.textContent = enabledInput.checked ? "已开启" : "未开启";
     enabledLabel.classList.toggle("is-on", enabledInput.checked);
-  }
-
-  function syncAiBotEnabledLabel() {
-    aiBotEnabledLabel.textContent = aiBotEnabledInput.checked ? "已开启" : "未开启";
-    aiBotEnabledLabel.classList.toggle("is-on", aiBotEnabledInput.checked);
   }
 
   function saveSettings() {
@@ -470,6 +511,7 @@
     syncSelectedModelOption();
     setModelMenuOpen(false);
     saveSettings();
+    resetConnectionStatusIfChanged("ai");
     setStatus(`已选择模型：${model}`, false);
   }
 
@@ -527,7 +569,28 @@
     syncSelectedAiBotModelOption();
     setAiBotModelMenuOpen(false);
     saveAiBotSettings();
+    resetConnectionStatusIfChanged("aiBot");
     setAiBotStatus(`已选择模型：${model}`, false);
+  }
+
+  function syncSecretToggle(input) {
+    const button = document.querySelector(`[data-secret-toggle="${input?.id || ""}"]`);
+    if (!button || !input) {
+      return;
+    }
+    const isVisible = input.type === "text";
+    button.textContent = isVisible ? "隐藏" : "显示";
+    button.setAttribute("aria-label", isVisible ? "隐藏 API Key" : "显示 API Key");
+    button.setAttribute("aria-pressed", isVisible ? "true" : "false");
+  }
+
+  function toggleSecretInput(inputId) {
+    const input = document.getElementById(inputId);
+    if (!input) {
+      return;
+    }
+    input.type = input.type === "password" ? "text" : "password";
+    syncSecretToggle(input);
   }
 
   function fillForm(settings) {
@@ -538,13 +601,14 @@
     modelInput.value = normalized.model;
     apiKeyInput.value = normalized.apiKey;
     summaryPromptInput.value = normalized.summaryPrompt;
+    syncSecretToggle(apiKeyInput);
     syncEnabledLabel();
+    syncConnectionDot("ai");
     loadCachedModelOptions();
   }
 
   function fillAiBotForm(settings) {
     const normalized = normalizeAiBotSettings(settings);
-    aiBotEnabledInput.checked = normalized.enabled;
     aiBotProviderInput.value = normalized.provider;
     aiBotBaseUrlInput.value = normalized.baseUrl;
     aiBotModelInput.value = normalized.model;
@@ -555,7 +619,8 @@
     aiBotReplyCommentsInput.checked = normalized.replyComments;
     aiBotWhitelistInput.value = normalized.whitelistUserIds.join("\n");
     aiBotCommentPromptInput.value = normalized.commentPrompt;
-    syncAiBotEnabledLabel();
+    syncSecretToggle(aiBotApiKeyInput);
+    syncConnectionDot("aiBot");
     loadCachedAiBotModelOptions();
   }
 
@@ -576,6 +641,7 @@
     const settings = getFormSettings();
     if (!settings.baseUrl || !settings.model) {
       setStatus("请先填写 Base URL 和模型", true);
+      setConnectionStatus("ai", "error");
       return;
     }
 
@@ -590,12 +656,15 @@
       });
       if (!response.ok) {
         setStatus(response.error || "连接失败", true);
+        setConnectionStatus("ai", "error");
         return;
       }
       setStatus("连接成功", false);
+      setConnectionStatus("ai", "ok");
       saveSettings();
     } catch (error) {
       setStatus(error?.message || "连接失败", true);
+      setConnectionStatus("ai", "error");
     } finally {
       testButton.disabled = false;
     }
@@ -627,6 +696,7 @@
     const settings = getAiBotFormSettings();
     if (!settings.baseUrl || !settings.model) {
       setAiBotStatus("请先填写 Base URL 和模型", true);
+      setConnectionStatus("aiBot", "error");
       return;
     }
 
@@ -641,12 +711,15 @@
       });
       if (!response.ok) {
         setAiBotStatus(response.error || "连接失败", true);
+        setConnectionStatus("aiBot", "error");
         return;
       }
       setAiBotStatus("连接成功", false);
+      setConnectionStatus("aiBot", "ok");
       saveAiBotSettings();
     } catch (error) {
       setAiBotStatus(error?.message || "连接失败", true);
+      setConnectionStatus("aiBot", "error");
     } finally {
       aiBotTestButton.disabled = false;
     }
@@ -662,7 +735,7 @@
         setAiBotStatus(response.error || "轮询失败", true);
         return;
       }
-      setAiBotStatus(`轮询完成：${response.count || 0} 条 @ 消息`, false);
+      setAiBotStatus(`轮询完成：${response.count || 0} 条消息`, false);
       renderAiBotLogsFromStorage();
     } catch (error) {
       setAiBotStatus(error?.message || "轮询失败", true);
@@ -678,7 +751,7 @@
         setAiBotStatus("正在运行", false);
         return;
       }
-      setAiBotStatus(response.enabled ? "等待下一次轮询" : "未开启", false);
+      setAiBotStatus(response.enabled ? "等待下一次轮询" : "回复开关未开启", false);
     } catch {
       setAiBotStatus("", false);
     }
@@ -1097,6 +1170,14 @@
     input.addEventListener("change", saveAiBotSettings);
     input.addEventListener("input", saveAiBotSettings);
   });
+  [providerInput, baseUrlInput, modelInput, apiKeyInput].forEach((input) => {
+    input.addEventListener("change", () => resetConnectionStatusIfChanged("ai"));
+    input.addEventListener("input", () => resetConnectionStatusIfChanged("ai"));
+  });
+  [aiBotProviderInput, aiBotBaseUrlInput, aiBotModelInput, aiBotApiKeyInput].forEach((input) => {
+    input.addEventListener("change", () => resetConnectionStatusIfChanged("aiBot"));
+    input.addEventListener("input", () => resetConnectionStatusIfChanged("aiBot"));
+  });
   tabButtons.forEach((button) => {
     button.addEventListener("click", () => setActiveTab(button.dataset.tab));
   });
@@ -1134,6 +1215,9 @@
       });
     });
   });
+  document.querySelectorAll("[data-secret-toggle]").forEach((button) => {
+    button.addEventListener("click", () => toggleSecretInput(button.dataset.secretToggle));
+  });
   modelInput.addEventListener("change", syncSelectedModelOption);
   modelInput.addEventListener("input", syncSelectedModelOption);
   aiBotModelInput.addEventListener("change", syncSelectedAiBotModelOption);
@@ -1168,15 +1252,13 @@
   fetchModelsButton.addEventListener("click", fetchModels);
   testButton.addEventListener("click", testConnection);
   aiBotProviderInput.addEventListener("change", syncAiBotProviderDefaults);
-  aiBotEnabledInput.addEventListener("change", () => {
-    syncAiBotEnabledLabel();
-    saveAiBotSettings();
-    refreshAiBotStatus();
-  });
   aiBotResetPromptButton.addEventListener("click", resetAiBotPrompt);
   aiBotPollMinutesInput.addEventListener("change", syncAiBotRuleInputs);
   aiBotMessageFreshMinutesInput.addEventListener("change", syncAiBotRuleInputs);
   aiBotWhitelistInput.addEventListener("change", syncAiBotRuleInputs);
+  [aiBotReplyMentionsInput, aiBotReplyCommentsInput].forEach((input) => {
+    input.addEventListener("change", refreshAiBotStatus);
+  });
   aiBotFetchModelsButton.addEventListener("click", fetchAiBotModels);
   aiBotTestButton.addEventListener("click", testAiBotConnection);
   aiBotRunNowButton.addEventListener("click", runAiBotNow);

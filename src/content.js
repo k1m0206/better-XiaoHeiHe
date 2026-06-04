@@ -150,6 +150,10 @@
   let aiBotLogRefreshTimer = null;
   let activeAiBotLogView = "runtime";
   const expandedAiBotLogIds = new Set();
+  const aiConnectionStatus = {
+    ai: { state: "idle", fingerprint: "" },
+    aiBot: { state: "idle", fingerprint: "" }
+  };
   let useLegacyLocalSettingsSync = true;
   const aiPendingRequests = new Map();
   let activeBlockedKeywordScope = BLOCKED_KEYWORD_SCOPES.FEED;
@@ -396,8 +400,11 @@
     const provider = Object.values(AI_PROVIDERS).includes(settings?.provider || settings?.endpointMode)
       ? (settings?.provider || settings?.endpointMode)
       : DEFAULT_AI_PROVIDER;
+    const isEnabled = settings?.enabled === true;
+    const replyMentions = isEnabled && settings?.replyMentions !== false;
+    const replyComments = isEnabled && settings?.replyComments === true;
     return {
-      enabled: settings?.enabled === true,
+      enabled: replyMentions || replyComments,
       provider,
       endpointMode: provider,
       baseUrl: String(settings?.baseUrl || AI_PROVIDER_DEFAULT_BASE_URLS[provider] || "").trim().replace(/\/+$/, ""),
@@ -405,8 +412,8 @@
       apiKey: String(settings?.apiKey || ""),
       pollMinutes: Math.max(1, Number.parseInt(settings?.pollMinutes, 10) || 1),
       messageFreshMinutes: Math.max(1, Number.parseInt(settings?.messageFreshMinutes, 10) || 5),
-      replyMentions: settings?.replyMentions !== false,
-      replyComments: settings?.replyComments === true,
+      replyMentions,
+      replyComments,
       whitelistUserIds: normalizeIdList(settings?.whitelistUserIds || settings?.whitelistText),
       commentPrompt: String(settings?.commentPrompt || "").trim() || AI_BOT_DEFAULT_PROMPT
     };
@@ -884,6 +891,128 @@
         line-height: 18px;
       }
 
+      .${SETTINGS_PANEL_CLASS} .better-settings__collapsible-section {
+        overflow: hidden;
+        margin-bottom: 12px;
+        padding: 0;
+        border: 1px solid #dfe7ef;
+        border-radius: 8px;
+        background: #fff;
+        box-shadow: 0 1px 2px rgba(20, 32, 44, 0.04);
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__collapsible-summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        min-height: 40px;
+        padding: 0 12px;
+        border-bottom: 1px solid transparent;
+        background: linear-gradient(180deg, #fbfdff, #f5f8fb);
+        color: #14191e;
+        cursor: pointer;
+        font-weight: 600;
+        line-height: 18px;
+        list-style: none;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__collapsible-summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__collapsible-summary:hover {
+        background: #eef5ff;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__connection-title {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__connection-dot {
+        width: 8px;
+        height: 8px;
+        flex: 0 0 auto;
+        border: 1px solid #c9d2dc;
+        border-radius: 50%;
+        background: #b8c1ca;
+        box-shadow: 0 0 0 3px rgba(184, 193, 202, 0.12);
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__connection-dot.is-ok {
+        border-color: #1f9d7a;
+        background: #13a97c;
+        box-shadow: 0 0 0 3px rgba(19, 169, 124, 0.15);
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__connection-dot.is-error {
+        border-color: #d33b4a;
+        background: #e54858;
+        box-shadow: 0 0 0 3px rgba(229, 72, 88, 0.14);
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__collapsible-indicator {
+        width: 24px;
+        height: 24px;
+        flex: 0 0 auto;
+        border-radius: 6px;
+        background: #edf3f8;
+        color: #59636e;
+        transition: background-color 0.16s ease, color 0.16s ease;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__collapsible-indicator::before {
+        content: "";
+        display: block;
+        width: 7px;
+        height: 7px;
+        margin: 7px auto 0;
+        border-right: 2px solid currentColor;
+        border-bottom: 2px solid currentColor;
+        transform: rotate(45deg);
+        transition: transform 0.16s ease, margin-top 0.16s ease;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__collapsible-summary:hover .better-settings__collapsible-indicator {
+        background: #dcecff;
+        color: #1f66b8;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__collapsible-section[open] .better-settings__collapsible-indicator {
+        background: #e7f5ee;
+        color: #0b806f;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__collapsible-section[open] .better-settings__collapsible-indicator::before {
+        margin-top: 9px;
+        transform: rotate(225deg);
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__collapsible-section[open] .better-settings__collapsible-summary {
+        border-bottom-color: #e8eef4;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__collapsible-section > .better-settings__field {
+        margin: 12px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__collapsible-section > .better-settings__field + .better-settings__field {
+        margin-top: 0;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__config-actions {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        align-items: center;
+        gap: 8px;
+        margin-top: 4px;
+        padding: 10px 12px;
+        border-top: 1px solid #e8eef4;
+        background: #f7fafc;
+      }
+
       .${SETTINGS_PANEL_CLASS} .better-settings__level-row {
         display: flex;
         align-items: center;
@@ -1096,19 +1225,107 @@
         max-width: 100%;
       }
 
-      .${SETTINGS_PANEL_CLASS} .better-settings__check-row {
-        display: flex;
-        align-items: center;
-        gap: 9px;
-        padding: 8px 0;
-        color: #26323c;
-        font-size: 13px;
+      .${SETTINGS_PANEL_CLASS} .better-settings__secret-input {
+        position: relative;
       }
 
-      .${SETTINGS_PANEL_CLASS} .better-settings__check-row input {
+      .${SETTINGS_PANEL_CLASS} .better-settings__secret-input .better-settings__text-input {
+        padding-right: 58px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__secret-toggle {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        height: 28px;
+        padding: 0 9px;
+        border: 0;
+        border-radius: 6px;
+        background: #edf5ff;
+        color: #1f66b8;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__secret-toggle:hover {
+        background: #dcecff;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__secret-toggle[aria-pressed="true"] {
+        background: #e7f5ee;
+        color: #0b806f;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__rule-toggle {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 40px;
+        margin-bottom: 8px;
+        padding: 8px 10px;
+        border: 1px solid #e1e8ef;
+        border-radius: 8px;
+        background: #fbfcfd;
+        color: #26323c;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__rule-toggle:hover {
+        border-color: #cbd9e6;
+        background: #f5f9fc;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__rule-toggle input {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__rule-toggle-switch {
+        position: relative;
+        width: 42px;
+        height: 22px;
+        flex: 0 0 auto;
+        border-radius: 999px;
+        background: #cfd6dd;
+        transition: background 0.18s ease;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__rule-toggle-switch::after {
+        content: "";
+        position: absolute;
+        top: 3px;
+        left: 3px;
         width: 16px;
         height: 16px;
-        accent-color: #1f66b8;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 1px 4px rgba(20, 25, 30, 0.22);
+        transition: transform 0.18s ease;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__rule-toggle input:checked + .better-settings__rule-toggle-switch {
+        background: #2775d1;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__rule-toggle input:checked + .better-settings__rule-toggle-switch::after {
+        transform: translateX(20px);
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__rule-toggle input:focus-visible + .better-settings__rule-toggle-switch {
+        outline: 2px solid rgba(39, 117, 209, 0.35);
+        outline-offset: 2px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__rule-toggle-text {
+        min-width: 0;
       }
 
       .${SETTINGS_PANEL_CLASS} .better-settings__text-input,
@@ -6420,6 +6637,7 @@
       const id = `better-ai-${Date.now()}-${Math.random().toString(16).slice(2)}`;
       const timeout = window.setTimeout(() => {
         aiPendingRequests.delete(id);
+        setAiConnectionStatus("ai", "error");
         reject(new Error("AI 请求超时"));
       }, 60000);
 
@@ -6449,8 +6667,10 @@
     window.clearTimeout(pending.timeout);
     aiPendingRequests.delete(detail.id);
     if (detail.ok) {
+      setAiConnectionStatus("ai", "ok");
       pending.resolve(detail.content || "");
     } else {
+      setAiConnectionStatus("ai", "error");
       pending.reject(new Error(detail.error || "AI 请求失败"));
     }
   }
@@ -7104,9 +7324,59 @@
     });
   }
 
+  function getAiConnectionFingerprint(settings) {
+    return [
+      settings?.provider || "",
+      settings?.baseUrl || "",
+      settings?.model || "",
+      settings?.apiKey || ""
+    ].join("\n");
+  }
+
+  function getAiConnectionState(scope, settings) {
+    const fingerprint = getAiConnectionFingerprint(settings);
+    const status = aiConnectionStatus[scope] || { state: "idle", fingerprint: "" };
+    return status.fingerprint === fingerprint ? status.state : "idle";
+  }
+
+  function renderAiConnectionDot(scope, settings) {
+    const state = getAiConnectionState(scope, settings);
+    const className = state === "ok"
+      ? "better-settings__connection-dot is-ok"
+      : (state === "error" ? "better-settings__connection-dot is-error" : "better-settings__connection-dot");
+    const title = state === "ok"
+      ? "接入状态：连通"
+      : (state === "error" ? "接入状态：失败" : "接入状态：未测试");
+    return `<span class="${className}" data-ai-connection-status="${escapeHtml(scope)}" title="${escapeHtml(title)}"></span>`;
+  }
+
+  function syncAiConnectionDot(scope, settings) {
+    const panel = document.querySelector(`.${SETTINGS_PANEL_CLASS}`);
+    const dot = panel?.querySelector(`[data-ai-connection-status="${scope}"]`);
+    if (!dot) {
+      return;
+    }
+    const state = getAiConnectionState(scope, settings || (scope === "aiBot" ? aiBotSettings : aiSettings));
+    dot.classList.toggle("is-ok", state === "ok");
+    dot.classList.toggle("is-error", state === "error");
+    dot.title = state === "ok"
+      ? "接入状态：连通"
+      : (state === "error" ? "接入状态：失败" : "接入状态：未测试");
+  }
+
+  function setAiConnectionStatus(scope, state, settings) {
+    const nextSettings = settings || (scope === "aiBot" ? aiBotSettings : aiSettings);
+    aiConnectionStatus[scope] = {
+      state,
+      fingerprint: getAiConnectionFingerprint(nextSettings)
+    };
+    syncAiConnectionDot(scope, nextSettings);
+  }
+
   function saveAiSettingsFromPanel(panel) {
     const nextSettings = getAiSettingsFormValues(panel);
     aiSettings = nextSettings;
+    syncAiConnectionDot("ai", nextSettings);
     aiSummaryCache.clear();
     window.dispatchEvent(new CustomEvent(AI_SETTINGS_SAVE_EVENT, {
       detail: JSON.stringify(nextSettings)
@@ -7165,32 +7435,45 @@
           </label>
         </div>
         <div class="better-settings__ai-body">
-          <label class="better-settings__field">
-            <span class="better-settings__field-title">服务商类型</span>
-            <select class="better-settings__select better-settings__ai-provider">
-              ${renderAiProviderOptions()}
-            </select>
-          </label>
-          <label class="better-settings__field">
-            <span class="better-settings__field-title">Base URL</span>
-            <input class="better-settings__text-input better-settings__ai-base-url" type="url" value="${escapeHtml(aiSettings.baseUrl)}" placeholder="https://api.openai.com/v1">
-          </label>
-          <label class="better-settings__field">
-            <span class="better-settings__field-title">
-              模型
-              <button class="better-settings__text-button better-settings__ai-fetch-models" type="button">拉取模型</button>
-            </span>
-            <div class="better-settings__ai-model-combobox">
-              <input class="better-settings__text-input better-settings__ai-model" list="better-xiaoheihe-ai-model-options" type="text" value="${escapeHtml(aiSettings.model)}" placeholder="gpt-4.1-mini">
-              <button class="better-settings__ai-model-dropdown" type="button" aria-label="选择已拉取模型" aria-expanded="false" disabled></button>
-              <div class="better-settings__ai-model-menu" role="listbox" hidden></div>
+          <details class="better-settings__collapsible-section" open>
+            <summary class="better-settings__collapsible-summary">
+              <span class="better-settings__connection-title">接入配置 ${renderAiConnectionDot("ai", aiSettings)}</span>
+              <span class="better-settings__collapsible-indicator" aria-hidden="true"></span>
+            </summary>
+            <label class="better-settings__field">
+              <span class="better-settings__field-title">服务商类型</span>
+              <select class="better-settings__select better-settings__ai-provider">
+                ${renderAiProviderOptions()}
+              </select>
+            </label>
+            <label class="better-settings__field">
+              <span class="better-settings__field-title">Base URL</span>
+              <input class="better-settings__text-input better-settings__ai-base-url" type="url" value="${escapeHtml(aiSettings.baseUrl)}" placeholder="https://api.openai.com/v1">
+            </label>
+            <label class="better-settings__field">
+              <span class="better-settings__field-title">
+                模型
+                <button class="better-settings__text-button better-settings__ai-fetch-models" type="button">拉取模型</button>
+              </span>
+              <div class="better-settings__ai-model-combobox">
+                <input class="better-settings__text-input better-settings__ai-model" list="better-xiaoheihe-ai-model-options" type="text" value="${escapeHtml(aiSettings.model)}" placeholder="gpt-4.1-mini">
+                <button class="better-settings__ai-model-dropdown" type="button" aria-label="选择已拉取模型" aria-expanded="false" disabled></button>
+                <div class="better-settings__ai-model-menu" role="listbox" hidden></div>
+              </div>
+              <datalist id="better-xiaoheihe-ai-model-options" class="better-settings__ai-model-options"></datalist>
+            </label>
+            <label class="better-settings__field">
+              <span class="better-settings__field-title">API Key</span>
+              <div class="better-settings__secret-input">
+                <input class="better-settings__text-input better-settings__ai-api-key" type="password" value="${escapeHtml(aiSettings.apiKey)}" autocomplete="off" placeholder="sk-...">
+                <button class="better-settings__secret-toggle" type="button" data-secret-input=".better-settings__ai-api-key" aria-label="显示 API Key" aria-pressed="false">显示</button>
+              </div>
+            </label>
+            <div class="better-settings__config-actions">
+              <button class="better-settings__primary better-settings__ai-test" type="button">测试连通</button>
+              <span class="better-settings__message" role="status">${isAiConfigured() ? "已配置" : "请填写 Base URL 和模型"}</span>
             </div>
-            <datalist id="better-xiaoheihe-ai-model-options" class="better-settings__ai-model-options"></datalist>
-          </label>
-          <label class="better-settings__field">
-            <span class="better-settings__field-title">API Key</span>
-            <input class="better-settings__text-input better-settings__ai-api-key" type="password" value="${escapeHtml(aiSettings.apiKey)}" autocomplete="off" placeholder="sk-...">
-          </label>
+          </details>
           <label class="better-settings__field">
             <span class="better-settings__field-title">
               总结提示词
@@ -7198,10 +7481,6 @@
             </span>
             <textarea class="better-settings__textarea better-settings__ai-summary-prompt">${escapeHtml(aiSettings.summaryPrompt)}</textarea>
           </label>
-          <div class="better-settings__actions">
-            <button class="better-settings__primary better-settings__ai-test" type="button">测试连通</button>
-            <span class="better-settings__message" role="status">${isAiConfigured() ? "已配置" : "请填写 Base URL 和模型"}</span>
-          </div>
         </div>
       </div>
     `;
@@ -7223,39 +7502,47 @@
             <div class="better-settings__ai-title">AI Bot</div>
             <div class="better-settings__ai-subtitle">自动回复 @、评论和回复消息</div>
           </div>
-          <span class="better-settings__ai-status${aiBotSettings.enabled ? " is-on" : ""}">${aiBotSettings.enabled ? "已开启" : "未开启"}</span>
-          <label class="better-settings__level-toggle">
-            <input class="better-settings__level-enabled better-settings__ai-bot-enabled" type="checkbox"${aiBotSettings.enabled ? " checked" : ""}>
-            <span class="better-settings__level-switch" aria-hidden="true"></span>
-          </label>
         </div>
         <div class="better-settings__ai-body">
-          <label class="better-settings__field">
-            <span class="better-settings__field-title">服务商类型</span>
-            <select class="better-settings__select better-settings__ai-bot-provider">
-              ${providerOptions}
-            </select>
-          </label>
-          <label class="better-settings__field">
-            <span class="better-settings__field-title">Base URL</span>
-            <input class="better-settings__text-input better-settings__ai-bot-base-url" type="url" value="${escapeHtml(aiBotSettings.baseUrl)}" placeholder="https://api.openai.com/v1">
-          </label>
-          <label class="better-settings__field">
-            <span class="better-settings__field-title">
-              模型
-              <button class="better-settings__text-button better-settings__ai-bot-fetch-models" type="button">拉取模型</button>
-            </span>
-            <div class="better-settings__ai-model-combobox">
-              <input class="better-settings__text-input better-settings__ai-bot-model" list="better-xiaoheihe-ai-bot-model-options" type="text" value="${escapeHtml(aiBotSettings.model)}" placeholder="gpt-4.1-mini">
-              <button class="better-settings__ai-model-dropdown better-settings__ai-bot-model-dropdown" type="button" aria-label="选择已拉取模型" aria-expanded="false" disabled></button>
-              <div class="better-settings__ai-model-menu better-settings__ai-bot-model-menu" role="listbox" hidden></div>
+          <details class="better-settings__collapsible-section" open>
+            <summary class="better-settings__collapsible-summary">
+              <span class="better-settings__connection-title">接入配置 ${renderAiConnectionDot("aiBot", aiBotSettings)}</span>
+              <span class="better-settings__collapsible-indicator" aria-hidden="true"></span>
+            </summary>
+            <label class="better-settings__field">
+              <span class="better-settings__field-title">服务商类型</span>
+              <select class="better-settings__select better-settings__ai-bot-provider">
+                ${providerOptions}
+              </select>
+            </label>
+            <label class="better-settings__field">
+              <span class="better-settings__field-title">Base URL</span>
+              <input class="better-settings__text-input better-settings__ai-bot-base-url" type="url" value="${escapeHtml(aiBotSettings.baseUrl)}" placeholder="https://api.openai.com/v1">
+            </label>
+            <label class="better-settings__field">
+              <span class="better-settings__field-title">
+                模型
+                <button class="better-settings__text-button better-settings__ai-bot-fetch-models" type="button">拉取模型</button>
+              </span>
+              <div class="better-settings__ai-model-combobox">
+                <input class="better-settings__text-input better-settings__ai-bot-model" list="better-xiaoheihe-ai-bot-model-options" type="text" value="${escapeHtml(aiBotSettings.model)}" placeholder="gpt-4.1-mini">
+                <button class="better-settings__ai-model-dropdown better-settings__ai-bot-model-dropdown" type="button" aria-label="选择已拉取模型" aria-expanded="false" disabled></button>
+                <div class="better-settings__ai-model-menu better-settings__ai-bot-model-menu" role="listbox" hidden></div>
+              </div>
+              <datalist id="better-xiaoheihe-ai-bot-model-options" class="better-settings__ai-bot-model-options"></datalist>
+            </label>
+            <label class="better-settings__field">
+              <span class="better-settings__field-title">API Key</span>
+              <div class="better-settings__secret-input">
+                <input class="better-settings__text-input better-settings__ai-bot-api-key" type="password" value="${escapeHtml(aiBotSettings.apiKey)}" autocomplete="off" placeholder="sk-...">
+                <button class="better-settings__secret-toggle" type="button" data-secret-input=".better-settings__ai-bot-api-key" aria-label="显示 API Key" aria-pressed="false">显示</button>
+              </div>
+            </label>
+            <div class="better-settings__config-actions">
+              <button class="better-settings__primary better-settings__ai-bot-test" type="button">测试连通</button>
+              <span class="better-settings__message" role="status">${aiBotSettings.baseUrl && aiBotSettings.model ? "已配置" : "请填写 Base URL 和模型"}</span>
             </div>
-            <datalist id="better-xiaoheihe-ai-bot-model-options" class="better-settings__ai-bot-model-options"></datalist>
-          </label>
-          <label class="better-settings__field">
-            <span class="better-settings__field-title">API Key</span>
-            <input class="better-settings__text-input better-settings__ai-bot-api-key" type="password" value="${escapeHtml(aiBotSettings.apiKey)}" autocomplete="off" placeholder="sk-...">
-          </label>
+          </details>
           <div class="better-settings__compact-number-grid">
             <label class="better-settings__field better-settings__field--compact-number">
               <span class="better-settings__field-title">轮询评论和@周期（分钟）</span>
@@ -7266,13 +7553,15 @@
               <input class="better-settings__text-input better-settings__ai-bot-fresh-minutes" type="number" min="1" step="1" value="${escapeHtml(aiBotSettings.messageFreshMinutes)}">
             </label>
           </div>
-          <label class="better-settings__check-row">
+          <label class="better-settings__rule-toggle">
             <input class="better-settings__ai-bot-reply-mentions" type="checkbox"${aiBotSettings.replyMentions ? " checked" : ""}>
-            <span>回复 @ 我的消息</span>
+            <span class="better-settings__rule-toggle-switch" aria-hidden="true"></span>
+            <span class="better-settings__rule-toggle-text">回复 @ 我的消息</span>
           </label>
-          <label class="better-settings__check-row">
+          <label class="better-settings__rule-toggle">
             <input class="better-settings__ai-bot-reply-comments" type="checkbox"${aiBotSettings.replyComments ? " checked" : ""}>
-            <span>回复评论 / 回复我的消息</span>
+            <span class="better-settings__rule-toggle-switch" aria-hidden="true"></span>
+            <span class="better-settings__rule-toggle-text">回复评论 / 回复我的消息</span>
           </label>
           <label class="better-settings__field">
             <span class="better-settings__field-title">白名单用户 ID</span>
@@ -7286,10 +7575,8 @@
             <textarea class="better-settings__textarea better-settings__ai-bot-comment-prompt">${escapeHtml(aiBotSettings.commentPrompt)}</textarea>
           </label>
           <div class="better-settings__actions">
-            <button class="better-settings__primary better-settings__ai-bot-test" type="button">测试连通</button>
             <button class="better-settings__primary better-settings__ai-bot-run-now" type="button">立即轮询</button>
             <button class="better-settings__primary better-settings__ai-bot-view-logs" type="button">查看运行日志</button>
-            <span class="better-settings__message" role="status">${aiBotSettings.baseUrl && aiBotSettings.model ? "已配置" : "请填写 Base URL 和模型"}</span>
           </div>
         </div>
       </div>
@@ -7526,6 +7813,7 @@
         status.textContent = "请先填写 Base URL 和模型";
         status.style.color = "#d33b4a";
       }
+      setAiConnectionStatus("ai", "error", settings);
       return;
     }
 
@@ -7543,11 +7831,13 @@
           status.textContent = "连接成功";
           status.style.color = "#0b806f";
         }
+        setAiConnectionStatus("ai", "ok", aiSettings);
       }).catch((error) => {
         if (status) {
           status.textContent = error?.message || "连接失败";
           status.style.color = "#d33b4a";
         }
+        setAiConnectionStatus("ai", "error", aiSettings);
       }).finally(() => {
         if (button) {
           button.disabled = false;
@@ -7814,16 +8104,18 @@
   }
 
   function getAiBotSettingsFormValues(panel) {
+    const replyMentions = panel.querySelector(".better-settings__ai-bot-reply-mentions")?.checked === true;
+    const replyComments = panel.querySelector(".better-settings__ai-bot-reply-comments")?.checked === true;
     return normalizeAiBotSettings({
-      enabled: panel.querySelector(".better-settings__ai-bot-enabled")?.checked === true,
+      enabled: replyMentions || replyComments,
       provider: panel.querySelector(".better-settings__ai-bot-provider")?.value,
       baseUrl: panel.querySelector(".better-settings__ai-bot-base-url")?.value,
       model: panel.querySelector(".better-settings__ai-bot-model")?.value,
       apiKey: panel.querySelector(".better-settings__ai-bot-api-key")?.value,
       pollMinutes: panel.querySelector(".better-settings__ai-bot-poll-minutes")?.value,
       messageFreshMinutes: panel.querySelector(".better-settings__ai-bot-fresh-minutes")?.value,
-      replyMentions: panel.querySelector(".better-settings__ai-bot-reply-mentions")?.checked !== false,
-      replyComments: panel.querySelector(".better-settings__ai-bot-reply-comments")?.checked === true,
+      replyMentions,
+      replyComments,
       whitelistText: panel.querySelector(".better-settings__ai-bot-whitelist")?.value,
       commentPrompt: panel.querySelector(".better-settings__ai-bot-comment-prompt")?.value
     });
@@ -7831,6 +8123,7 @@
 
   function saveAiBotSettingsFromPanel(panel, options = {}) {
     aiBotSettings = getAiBotSettingsFormValues(panel);
+    syncAiConnectionDot("aiBot", aiBotSettings);
     writeAiBotSettingsState(aiBotSettings);
     const status = panel.querySelector(".better-settings__message");
     if (status && !options.silentStatus) {
@@ -7899,6 +8192,7 @@
     saveAiBotSettingsFromPanel(panel, { silentStatus: true });
     if (!aiBotSettings.baseUrl || !aiBotSettings.model) {
       setAiBotPanelStatus(panel, "请先填写 Base URL 和模型", true);
+      setAiConnectionStatus("aiBot", "error", aiBotSettings);
       return;
     }
 
@@ -7907,11 +8201,14 @@
     sendAiBotRuntimeMessage("better-xiaoheihe-ai-bot-test", { settings: aiBotSettings }).then((response) => {
       if (!response.ok) {
         setAiBotPanelStatus(panel, response.error || "连接失败", true);
+        setAiConnectionStatus("aiBot", "error", aiBotSettings);
         return;
       }
       setAiBotPanelStatus(panel, "连接成功");
+      setAiConnectionStatus("aiBot", "ok", aiBotSettings);
     }).catch((error) => {
       setAiBotPanelStatus(panel, error?.message || "连接失败", true);
+      setAiConnectionStatus("aiBot", "error", aiBotSettings);
     }).finally(() => {
       button.disabled = false;
     });
@@ -7926,7 +8223,7 @@
         setAiBotPanelStatus(panel, response.error || "轮询失败", true);
         return;
       }
-      setAiBotPanelStatus(panel, `轮询完成：${response.count || 0} 条 @ 消息`);
+      setAiBotPanelStatus(panel, `轮询完成：${response.count || 0} 条消息`);
     }).catch((error) => {
       setAiBotPanelStatus(panel, error?.message || "轮询失败", true);
     }).finally(() => {
@@ -7966,6 +8263,18 @@
     } finally {
       textarea.remove();
     }
+  }
+
+  function toggleSecretInputFromPanel(panel, button) {
+    const input = button?.dataset?.secretInput ? panel.querySelector(button.dataset.secretInput) : null;
+    if (!input) {
+      return;
+    }
+    input.type = input.type === "password" ? "text" : "password";
+    const isVisible = input.type === "text";
+    button.textContent = isVisible ? "隐藏" : "显示";
+    button.setAttribute("aria-label", isVisible ? "隐藏 API Key" : "显示 API Key");
+    button.setAttribute("aria-pressed", isVisible ? "true" : "false");
   }
 
   function copyAiBotLogFromPanel(button) {
@@ -8063,6 +8372,12 @@
     panel.addEventListener("click", (event) => {
       event.stopPropagation();
       if (!(event.target instanceof Element)) {
+        return;
+      }
+
+      const secretToggleButton = event.target.closest(".better-settings__secret-toggle");
+      if (secretToggleButton && panel.contains(secretToggleButton)) {
+        toggleSecretInputFromPanel(panel, secretToggleButton);
         return;
       }
 
@@ -8185,6 +8500,7 @@
           syncAiModelSelect(panel);
           closeAiModelMenu(panel);
           saveAiSettingsFromPanel(panel);
+          syncAiConnectionDot("ai", getAiSettingsFormValues(panel));
         }
         return;
       }
@@ -8197,6 +8513,7 @@
           syncAiBotModelSelect(panel);
           closeAiBotModelMenu(panel);
           saveAiBotSettingsFromPanel(panel);
+          syncAiConnectionDot("aiBot", getAiBotSettingsFormValues(panel));
         }
         return;
       }
@@ -8272,11 +8589,6 @@
 
       if (event.target.matches(".better-settings__ai-provider")) {
         syncAiProviderDefaultBaseUrl(panel);
-        return;
-      }
-
-      if (event.target.matches(".better-settings__ai-bot-enabled")) {
-        saveAiBotSettingsFromPanel(panel);
         return;
       }
 

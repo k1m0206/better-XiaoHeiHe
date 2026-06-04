@@ -82,8 +82,11 @@
 
   function normalizeAiBotSettings(settings) {
     const provider = normalizeProvider(settings?.provider || settings?.endpointMode);
+    const isEnabled = settings?.enabled === true;
+    const replyMentions = isEnabled && settings?.replyMentions !== false;
+    const replyComments = isEnabled && settings?.replyComments === true;
     return {
-      enabled: settings?.enabled === true,
+      enabled: replyMentions || replyComments,
       provider,
       endpointMode: provider,
       baseUrl: normalizeBaseUrl(settings?.baseUrl, provider),
@@ -91,8 +94,8 @@
       apiKey: String(settings?.apiKey || ""),
       pollMinutes: Math.max(1, Number.parseInt(settings?.pollMinutes, 10) || 1),
       messageFreshMinutes: Math.max(1, Number.parseInt(settings?.messageFreshMinutes, 10) || 5),
-      replyMentions: settings?.replyMentions !== false,
-      replyComments: settings?.replyComments === true,
+      replyMentions,
+      replyComments,
       whitelistUserIds: normalizeIdList(settings?.whitelistUserIds || settings?.whitelistText),
       commentPrompt: String(settings?.commentPrompt || "").trim() || AI_BOT_DEFAULT_PROMPT
     };
@@ -2025,7 +2028,7 @@
         return { ok: false, error: "AI 参数未配置完整" };
       }
       if (!settings.replyMentions && !settings.replyComments) {
-        await appendAiBotLog("warn", "AI Bot 已开启，但回复 @ 和回复评论两个开关均未开启");
+        await appendAiBotLog("warn", "回复 @ 和回复评论两个开关均未开启");
         return { ok: true, disabledSources: true };
       }
 
@@ -2055,10 +2058,10 @@
         try {
           const latestSettings = await readAiBotSettings();
           if (!latestSettings.enabled) {
-            await appendAiBotLog("info", "AI Bot 开关已关闭，停止处理本次轮询消息");
+            await appendAiBotLog("info", "回复开关已全部关闭，停止处理本次轮询消息");
             sourceResults.push(createAiBotPollResultItem(item.message, item.source, {
               actionResult: "stopped",
-              actionLabel: "AI Bot 开关已关闭，停止处理",
+              actionLabel: "回复开关已全部关闭，停止处理",
               skipReason: "bot_disabled"
             }));
             break;
