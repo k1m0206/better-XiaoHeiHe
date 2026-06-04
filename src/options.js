@@ -168,6 +168,9 @@
           });
         });
       }
+      chrome.storage.local.get([AI_BOT_MESSAGE_LOGS_STORAGE_KEY], (result) => {
+        renderAiBotMessageLogs(result?.[AI_BOT_MESSAGE_LOGS_STORAGE_KEY]);
+      });
     }).catch(() => {});
   }
 
