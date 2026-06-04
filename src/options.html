@@ -244,17 +244,19 @@
               <textarea id="aiBotWhitelist" rows="4" placeholder="空白表示允许回复所有触发用户；多个 ID 可用逗号、空格或换行分隔"></textarea>
             </label>
 
-            <label class="field field--prompt">
-              <span class="field-title">
-                AI 评论提示词
-                <label class="prompt-toggle">
-                  <input id="aiBotAllowEmoji" type="checkbox" checked>
-                  <span>允许表情</span>
-                </label>
-                <button id="aiBotResetPrompt" class="text-button" type="button">恢复默认</button>
-              </span>
+            <div class="field field--prompt">
+              <div class="field-title">
+                <span>AI 评论提示词</span>
+                <div class="field-title-actions">
+                  <label class="prompt-toggle">
+                    <input id="aiBotAllowEmoji" type="checkbox" checked>
+                    <span>允许表情</span>
+                  </label>
+                  <button id="aiBotResetPrompt" class="text-button" type="button">恢复默认</button>
+                </div>
+              </div>
               <textarea id="aiBotCommentPrompt" rows="6"></textarea>
-            </label>
+            </div>
           </details>
 
           <details class="section collapsible-section" id="aiBotFeedPollGroup">
@@ -281,13 +283,13 @@
                 </select>
               </label>
             </div>
-            <label class="field field--prompt">
-              <span class="field-title">
-                暖贴提示词
+            <div class="field field--prompt">
+              <div class="field-title">
+                <span>暖贴提示词</span>
                 <button id="aiBotResetFeedPrompt" class="text-button" type="button">恢复默认</button>
-              </span>
+              </div>
               <textarea id="aiBotFeedCommentPrompt" rows="6"></textarea>
-            </label>
+            </div>
           </details>
 
           <div class="actions">

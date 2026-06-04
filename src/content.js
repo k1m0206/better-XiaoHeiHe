@@ -1265,6 +1265,13 @@
         line-height: 18px;
       }
 
+      .${SETTINGS_PANEL_CLASS} .better-settings__field-title-actions {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-shrink: 0;
+      }
+
       .${SETTINGS_PANEL_CLASS} .better-settings__prompt-toggle {
         display: inline-flex;
         height: 24px;
@@ -7789,17 +7796,19 @@
               <span class="better-settings__field-title">白名单用户 ID</span>
               <textarea class="better-settings__textarea better-settings__ai-bot-whitelist" placeholder="空白表示允许回复所有触发用户；多个 ID 可用逗号、空格或换行分隔">${escapeHtml(aiBotSettings.whitelistUserIds.join("\n"))}</textarea>
             </label>
-            <label class="better-settings__field">
-              <span class="better-settings__field-title">
-                AI 评论提示词
-                <label class="better-settings__prompt-toggle">
-                  <input class="better-settings__ai-bot-allow-emoji" type="checkbox"${aiBotSettings.allowEmoji ? " checked" : ""}>
-                  <span>允许表情</span>
-                </label>
-                <button class="better-settings__text-button better-settings__ai-bot-reset-prompt" type="button">恢复默认</button>
-              </span>
+            <div class="better-settings__field">
+              <div class="better-settings__field-title">
+                <span>AI 评论提示词</span>
+                <div class="better-settings__field-title-actions">
+                  <label class="better-settings__prompt-toggle">
+                    <input class="better-settings__ai-bot-allow-emoji" type="checkbox"${aiBotSettings.allowEmoji ? " checked" : ""}>
+                    <span>允许表情</span>
+                  </label>
+                  <button class="better-settings__text-button better-settings__ai-bot-reset-prompt" type="button">恢复默认</button>
+                </div>
+              </div>
               <textarea class="better-settings__textarea better-settings__ai-bot-comment-prompt">${escapeHtml(aiBotSettings.commentPrompt)}</textarea>
-            </label>
+            </div>
           </details>
           <details class="better-settings__section better-settings__collapsible-section better-settings__feed-poll-section" ${aiBotSettings.commentHomeFeed ? "open" : ""}>
             <summary class="better-settings__collapsible-summary">
@@ -7825,13 +7834,13 @@
                 </select>
               </label>
             </div>
-            <label class="better-settings__field">
-              <span class="better-settings__field-title">
-                暖贴提示词
+            <div class="better-settings__field">
+              <div class="better-settings__field-title">
+                <span>暖贴提示词</span>
                 <button class="better-settings__text-button better-settings__ai-bot-reset-feed-prompt" type="button">恢复默认</button>
-              </span>
+              </div>
               <textarea class="better-settings__textarea better-settings__ai-bot-feed-comment-prompt">${escapeHtml(aiBotSettings.feedCommentPrompt)}</textarea>
-            </label>
+            </div>
           </details>
           <div class="better-settings__actions">
             <button class="better-settings__primary better-settings__ai-bot-view-logs" type="button">查看运行日志</button>
