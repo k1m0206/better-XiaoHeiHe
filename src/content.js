@@ -493,6 +493,38 @@
       .sort((left, right) => Number(right.messageTimestamp || right.queuedAt) - Number(left.messageTimestamp || left.queuedAt));
   }
 
+  function getTodayStartTimestamp() {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  }
+
+  function getAiBotTodayStats() {
+    const todayStart = getTodayStartTimestamp();
+    const feedLinkIds = new Set();
+    let commentReplies = 0;
+    let mentionReplies = 0;
+
+    aiBotMessageLogs.forEach((log) => {
+      const sentTimestamp = Number(log?.sentTimestamp || log?.timestamp || 0);
+      if (!sentTimestamp || sentTimestamp < todayStart || log?.skipped) {
+        return;
+      }
+      if (log.messageSource === "feed") {
+        feedLinkIds.add(String(log.linkId || log.messageId || sentTimestamp));
+      } else if (log.messageSource === "comment") {
+        commentReplies += 1;
+      } else if (log.messageSource === "mention") {
+        mentionReplies += 1;
+      }
+    });
+
+    return {
+      feedComments: feedLinkIds.size,
+      commentReplies,
+      mentionReplies
+    };
+  }
+
   function persistAiBotSettingsState() {
     saveLocalSettings({
       [AI_BOT_SETTINGS_STORAGE_KEY]: aiBotSettings
@@ -1704,6 +1736,40 @@
         background: #fff;
         color: #1f66b8;
         box-shadow: 0 1px 3px rgba(20, 32, 44, 0.1);
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-stats {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+        margin: 2px 0 10px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-stat {
+        min-width: 0;
+        padding: 8px 10px;
+        border: 1px solid #e2e8ef;
+        border-radius: 8px;
+        background: #fbfcfd;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-stat-label {
+        display: block;
+        overflow: hidden;
+        color: #68727d;
+        font-size: 11px;
+        line-height: 16px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-stat-value {
+        display: block;
+        margin-top: 2px;
+        color: #18222c;
+        font-size: 18px;
+        font-weight: 800;
+        line-height: 24px;
       }
 
       .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-logs {
@@ -7980,6 +8046,33 @@
       : `<div class="better-settings__empty">暂无待处理消息</div>`;
   }
 
+  function renderAiBotTodayStatsHtml() {
+    const stats = getAiBotTodayStats();
+    return `
+      <div class="better-settings__ai-bot-stats" data-ai-bot-today-stats>
+        <div class="better-settings__ai-bot-stat">
+          <span class="better-settings__ai-bot-stat-label">今天评论帖子</span>
+          <span class="better-settings__ai-bot-stat-value">${escapeHtml(stats.feedComments)}</span>
+        </div>
+        <div class="better-settings__ai-bot-stat">
+          <span class="better-settings__ai-bot-stat-label">今天回复评论</span>
+          <span class="better-settings__ai-bot-stat-value">${escapeHtml(stats.commentReplies)}</span>
+        </div>
+        <div class="better-settings__ai-bot-stat">
+          <span class="better-settings__ai-bot-stat-label">今天回复 @</span>
+          <span class="better-settings__ai-bot-stat-value">${escapeHtml(stats.mentionReplies)}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  function refreshAiBotTodayStatsPanel() {
+    const statsPanel = document.querySelector(`.${SETTINGS_PANEL_CLASS} [data-ai-bot-today-stats]`);
+    if (statsPanel) {
+      statsPanel.outerHTML = renderAiBotTodayStatsHtml();
+    }
+  }
+
   function renderAiBotLogsPanelContent() {
     return `
       <div class="better-settings__section better-settings__ai-section">
@@ -7994,6 +8087,7 @@
             <button class="better-settings__text-button better-settings__ai-bot-back-settings" type="button">返回设置</button>
             <button class="better-settings__text-button better-settings__ai-bot-clear-logs" type="button">清空日志</button>
           </div>
+          ${renderAiBotTodayStatsHtml()}
           <div class="better-settings__log-switch" role="tablist" aria-label="AI Bot 日志类型">
             <button class="better-settings__log-switch-button${activeAiBotLogView === "runtime" ? " is-active" : ""}" type="button" data-ai-bot-log-view="runtime" role="tab" aria-selected="${activeAiBotLogView === "runtime" ? "true" : "false"}">运行日志</button>
             <button class="better-settings__log-switch-button${activeAiBotLogView === "message" ? " is-active" : ""}" type="button" data-ai-bot-log-view="message" role="tab" aria-selected="${activeAiBotLogView === "message" ? "true" : "false"}">消息日志</button>
@@ -8634,6 +8728,7 @@
         const nextLogList = document.querySelector(`.${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-logs`);
         const nextMessageLogList = document.querySelector(`.${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-message-logs`);
         const nextPendingLogList = document.querySelector(`.${SETTINGS_PANEL_CLASS} [data-ai-bot-log-panel="pending"]`);
+        refreshAiBotTodayStatsPanel();
         if (nextLogList) {
           nextLogList.innerHTML = renderAiBotLogItemsHtml();
           nextLogList.scrollTop = wasNearTop ? 0 : Math.min(previousScrollTop, nextLogList.scrollHeight);
@@ -9509,6 +9604,7 @@
       if (Object.prototype.hasOwnProperty.call(values, AI_BOT_MESSAGE_LOGS_STORAGE_KEY)) {
         aiBotMessageLogs = normalizeAiBotMessageLogs(values[AI_BOT_MESSAGE_LOGS_STORAGE_KEY]);
         if (activeSettingsTab === SETTINGS_TABS.AIBOT_LOGS) {
+          refreshAiBotTodayStatsPanel();
           loadEmojis().finally(() => {
             const messageLogList = document.querySelector(`.${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-message-logs`);
             if (messageLogList) {
