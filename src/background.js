@@ -20,6 +20,7 @@
   const AI_BOT_QUEUE_MAX_SIZE = 50;
   const AI_BOT_MESSAGE_LIMIT = 20;
   const AI_BOT_COMMENT_LIMIT = 30;
+  const AI_BOT_MIN_FEED_POLL_MINUTES = 5;
   const AI_BOT_DEFAULT_REPLY_LIMIT_PER_LINK_USER = 5;
   const AI_BOT_DEFAULT_PROMPT = "你是小黑盒社区自动回复助手。请根据消息类型、帖子正文、评论区上下文和触发消息的那条评论，生成一条自然、友好、简洁的中文回复。不要暴露你是AI，不要使用模板化开头，不要编造事实，不要输出Markdown。如果触发消息的评论内容只有表情（没有文字，表情数量可以是多个），那么你只回复一个表情，不要添加任何文字。";
   const AI_BOT_DEFAULT_FEED_PROMPT = "你是小黑盒社区暖贴助手。请根据帖子标题、正文和话题，生成一条自然、真实、简洁的中文评论，像普通用户浏览帖子后留下的感想。不要暴露你是AI，不要使用模板化开头，不要编造未提供的信息，不要输出Markdown。";
@@ -102,7 +103,7 @@
       model: String(settings?.model || "").trim(),
       apiKey: String(settings?.apiKey || ""),
       pollMinutes: Math.max(1, Number.parseInt(settings?.pollMinutes, 10) || 1),
-      feedPollMinutes: Math.max(2, Number.parseInt(settings?.feedPollMinutes, 10) || 5),
+      feedPollMinutes: Math.max(AI_BOT_MIN_FEED_POLL_MINUTES, Number.parseInt(settings?.feedPollMinutes, 10) || AI_BOT_MIN_FEED_POLL_MINUTES),
       messageFreshMinutes: Math.max(1, Number.parseInt(settings?.messageFreshMinutes, 10) || 5),
       replyLimitPerLinkUser: Math.max(1, Number.parseInt(settings?.replyLimitPerLinkUser, 10) || AI_BOT_DEFAULT_REPLY_LIMIT_PER_LINK_USER),
       replyMentions,
@@ -2780,7 +2781,7 @@
     if (settings.commentHomeFeed) {
       chrome.alarms.create(AI_BOT_FEED_ALARM_NAME, {
         delayInMinutes: 0.15,
-        periodInMinutes: Math.max(2, settings.feedPollMinutes)
+        periodInMinutes: Math.max(AI_BOT_MIN_FEED_POLL_MINUTES, settings.feedPollMinutes)
       });
     }
     chrome.alarms.create(AI_BOT_QUEUE_ALARM_NAME, {
