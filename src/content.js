@@ -57,7 +57,7 @@
   const AI_MODEL_LIST_RESPONSE_EVENT = "better-xiaoheihe-ai-model-list-response";
   const SANITIZED_COOKIE_RULE_REQUEST_EVENT = "better-xiaoheihe-sanitized-cookie-rule-request";
   const SANITIZED_COOKIE_RULE_RESPONSE_EVENT = "better-xiaoheihe-sanitized-cookie-rule-response";
-  const AI_BOT_MIN_FEED_POLL_MINUTES = 5;
+  const AI_BOT_MIN_FEED_POLL_MINUTES = 10;
   const DEFAULT_SUMMARY_PROMPT = "你是社区帖子总结助手，请用中文简洁输出：\n帖子总结\n一句话概括帖子核心内容。\n评论区信息\n提取评论区里有价值的观点、经验、补充或避坑信息，没有则跳过。\nAI简评\n像真实网友一样补充观点，避免AI味。\n返回md格式。";
   const AI_BOT_DEFAULT_PROMPT = "你是小黑盒社区自动回复助手。请根据消息类型、帖子正文、评论区上下文和触发消息的那条评论，生成一条自然、友好、简洁的中文回复。不要暴露你是AI，不要使用模板化开头，不要编造事实，不要输出Markdown。如果触发消息的评论内容只有表情（没有文字，表情数量可以是多个），那么你只回复一个表情，不要添加任何文字。";
   const AI_BOT_DEFAULT_FEED_PROMPT = "你是小黑盒社区暖贴助手。请根据帖子标题、正文和话题，生成一条自然、真实、简洁的中文评论，像普通用户浏览帖子后留下的感想。不要暴露你是AI，不要使用模板化开头，不要编造未提供的信息，不要输出Markdown。";
@@ -7915,7 +7915,7 @@
             </label>
             <div class="better-settings__compact-number-grid">
               <label class="better-settings__field better-settings__field--compact-number">
-                <span class="better-settings__field-title">评论周期（分钟，最低5）</span>
+                <span class="better-settings__field-title">评论周期（分钟，最低10）</span>
                 <input class="better-settings__text-input better-settings__ai-bot-feed-poll-minutes" type="number" min="${AI_BOT_MIN_FEED_POLL_MINUTES}" step="1" value="${escapeHtml(aiBotSettings.feedPollMinutes)}">
               </label>
               <label class="better-settings__field better-settings__field--compact-number better-settings__field--feed-strategy">
