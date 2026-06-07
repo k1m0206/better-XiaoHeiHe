@@ -1606,6 +1606,45 @@
     });
   }
 
+  function getAiBotFeedCommentIntervalMs(settings) {
+    return Math.max(AI_BOT_MIN_FEED_POLL_MINUTES, Number(settings?.feedPollMinutes || AI_BOT_MIN_FEED_POLL_MINUTES)) * 60 * 1000;
+  }
+
+  async function getAiBotFeedCommentCooldown(settings) {
+    const result = await storageGet(AI_BOT_RUNTIME_STORAGE_KEY);
+    const runtime = result[AI_BOT_RUNTIME_STORAGE_KEY] || {};
+    const lastFeedAt = Math.max(
+      Number(runtime.lastFeedCommentAt || 0),
+      Number(runtime.lastFeedCommentAttemptAt || 0)
+    );
+    const intervalMs = getAiBotFeedCommentIntervalMs(settings);
+    return {
+      lastFeedAt,
+      intervalMs,
+      waitMs: Math.max(0, intervalMs - (Date.now() - lastFeedAt))
+    };
+  }
+
+  async function markAiBotFeedCommentAttempt() {
+    const result = await storageGet(AI_BOT_RUNTIME_STORAGE_KEY);
+    await storageSet({
+      [AI_BOT_RUNTIME_STORAGE_KEY]: {
+        ...(result[AI_BOT_RUNTIME_STORAGE_KEY] || {}),
+        lastFeedCommentAttemptAt: Date.now()
+      }
+    });
+  }
+
+  async function markAiBotFeedCommentSent() {
+    const result = await storageGet(AI_BOT_RUNTIME_STORAGE_KEY);
+    await storageSet({
+      [AI_BOT_RUNTIME_STORAGE_KEY]: {
+        ...(result[AI_BOT_RUNTIME_STORAGE_KEY] || {}),
+        lastFeedCommentAt: Date.now()
+      }
+    });
+  }
+
   function queueAiBotCommentSubmission(task) {
     const next = aiBotCommentQueue.then(task, task);
     aiBotCommentQueue = next.catch(() => {});
@@ -2611,7 +2650,26 @@
         return { ok: false, error: "未登录" };
       }
 
+      const cooldown = await getAiBotFeedCommentCooldown(settings);
+      if (cooldown.waitMs > 0) {
+        await appendAiBotLog("info", "跳过首页推荐帖：未到自动暖贴间隔", {
+          waitSeconds: Math.ceil(cooldown.waitMs / 1000),
+          intervalMinutes: Math.floor(cooldown.intervalMs / 60000),
+          lastFeedTime: cooldown.lastFeedAt ? formatLogTime(cooldown.lastFeedAt) : ""
+        });
+        return {
+          ok: true,
+          skipped: true,
+          reason: "feed_cooldown",
+          waitMs: cooldown.waitMs
+        };
+      }
+      await markAiBotFeedCommentAttempt();
+
       const result = await processAiBotHomeFeedComment(settings, heyboxId, "feed-alarm");
+      if (result?.actionResult === "sent") {
+        await markAiBotFeedCommentSent();
+      }
       return { ok: true, result };
     } catch (error) {
       await appendAiBotLog("error", "首页推荐帖评论定时任务失败", {
@@ -2768,26 +2826,52 @@
     });
   }
 
-  async function syncAiBotAlarm() {
-    const settings = await readAiBotSettings();
-    await clearAiBotAlarm();
-    if (!settings.enabled || !chrome.alarms?.create) {
+  function getAiBotAlarm(name) {
+    return new Promise((resolve) => {
+      if (!chrome.alarms?.get) {
+        resolve(null);
+        return;
+      }
+      chrome.alarms.get(name, (alarm) => resolve(alarm || null));
+    });
+  }
+
+  async function createAiBotAlarm(name, alarmInfo, reset) {
+    if (!chrome.alarms?.create) {
       return;
     }
-    chrome.alarms.create(AI_BOT_ALARM_NAME, {
+    if (!reset && await getAiBotAlarm(name)) {
+      return;
+    }
+    chrome.alarms.create(name, alarmInfo);
+  }
+
+  async function syncAiBotAlarm(options = {}) {
+    const reset = options.reset === true;
+    const settings = await readAiBotSettings();
+    if (reset) {
+      await clearAiBotAlarm();
+    }
+    if (!settings.enabled || !chrome.alarms?.create) {
+      await clearAiBotAlarm();
+      return;
+    }
+    await createAiBotAlarm(AI_BOT_ALARM_NAME, {
       delayInMinutes: 0.1,
       periodInMinutes: Math.max(1, settings.pollMinutes)
-    });
+    }, reset);
     if (settings.commentHomeFeed) {
-      chrome.alarms.create(AI_BOT_FEED_ALARM_NAME, {
+      await createAiBotAlarm(AI_BOT_FEED_ALARM_NAME, {
         delayInMinutes: 0.15,
         periodInMinutes: Math.max(AI_BOT_MIN_FEED_POLL_MINUTES, settings.feedPollMinutes)
-      });
+      }, reset);
+    } else if (chrome.alarms?.clear) {
+      chrome.alarms.clear(AI_BOT_FEED_ALARM_NAME);
     }
-    chrome.alarms.create(AI_BOT_QUEUE_ALARM_NAME, {
+    await createAiBotAlarm(AI_BOT_QUEUE_ALARM_NAME, {
       delayInMinutes: 0.2,
       periodInMinutes: 0.5
-    });
+    }, reset);
   }
 
   async function getAiBotStatus() {
@@ -2978,7 +3062,7 @@
   });
 
   chrome.runtime.onInstalled?.addListener(() => {
-    syncAiBotAlarm();
+    syncAiBotAlarm({ reset: true });
   });
 
   chrome.runtime.onStartup?.addListener(() => {
@@ -2999,7 +3083,7 @@
 
   chrome.storage.onChanged?.addListener((changes, areaName) => {
     if (areaName === "local" && changes[AI_BOT_SETTINGS_STORAGE_KEY]) {
-      syncAiBotAlarm();
+      syncAiBotAlarm({ reset: true });
     }
     if (areaName === "local" && changes[API_PARAMS_STORAGE_KEY]) {
       cachedApiParams = normalizeCachedApiParams(changes[API_PARAMS_STORAGE_KEY].newValue);
