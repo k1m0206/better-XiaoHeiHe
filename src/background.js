@@ -1977,10 +1977,20 @@
 
   function getAiBotMessageDebugInfo(message) {
     const sender = message?.user_a || {};
+    const notificationText = stripHtml(String(message?.text || "")).trim();
+    const commentText = stripHtml(String(
+      message?.comment_a_text
+      || message?.comment_text
+      || message?.content
+      || ""
+    )).trim();
+    const repliedText = stripHtml(String(message?.comment_b_text || "")).trim();
     return {
       messageId: String(message?.message_id || ""),
       messageType: String(message?.message_type || ""),
-      messageText: String(message?.text || "").slice(0, 200),
+      messageText: (commentText || notificationText).slice(0, 500),
+      notificationText: notificationText.slice(0, 200),
+      repliedText: repliedText.slice(0, 500),
       linkId: getLinkIdFromMessage(message),
       replyCommentId: getReplyCommentIdFromMessage(message),
       rootCommentId: getRootCommentIdFromMessage(message),
@@ -2024,16 +2034,44 @@
 
   async function appendAiBotQuerySummaryLog(messageSource, enabled, messages, results, detail = {}) {
     const typeLabel = messageSource === AI_BOT_MESSAGE_TYPES.COMMENT ? "评论信息" : "@ 信息";
+    const resultsByMessageId = new Map(results.map((result) => [String(result?.messageId || ""), result]));
+    const messageDetails = messages
+      .map((message) => {
+        const timestampMs = getMessageTimestampMs(message);
+        const debugInfo = getAiBotMessageDebugInfo(message);
+        const result = resultsByMessageId.get(debugInfo.messageId) || {};
+        return {
+          messageTimestamp: timestampMs,
+          typeLabel: getAiBotMessageTypeLabel(messageSource),
+          senderName: debugInfo.senderName || "",
+          senderId: debugInfo.senderId || "",
+          messageTime: timestampMs ? formatLogTime(timestampMs) : "",
+          messageText: debugInfo.messageText || "",
+          notificationText: debugInfo.notificationText || "",
+          repliedText: debugInfo.repliedText || "",
+          linkTitle: debugInfo.linkTitle || "",
+          messageId: debugInfo.messageId || "",
+          linkId: debugInfo.linkId || "",
+          replyCommentId: debugInfo.replyCommentId || "",
+          rootCommentId: debugInfo.rootCommentId || "",
+          actionResult: result.actionResult || "",
+          actionLabel: result.actionLabel || "",
+          skipReason: result.skipReason || "",
+          error: result.error || ""
+        };
+      })
+      .sort((a, b) => Number(b.messageTimestamp || 0) - Number(a.messageTimestamp || 0))
+      .map(({ messageTimestamp, ...item }) => item);
     await appendAiBotLog("info", `查询${typeLabel}`, {
       enabled,
       count: messages.length,
       processedCount: results.length,
       ...detail,
-      results: results.slice(0, 20)
+      messages: messageDetails
     });
   }
 
-  async function skipStaleAiBotMessage(settings, message, records, messageSource, messageDebug) {
+  async function skipStaleAiBotMessage(settings, message, records, messageSource, messageDebug, options = {}) {
     const messageId = String(message?.message_id || "");
     if (!messageId) {
       return false;
@@ -2058,14 +2096,20 @@
       skippedAt: Date.now(),
       skipReason: "stale"
     };
-    await appendAiBotLog("info", "跳过过期 AI Bot 消息", {
+    const staleDetail = {
       ...messageDebug,
       messageSource,
+      typeLabel: getAiBotMessageTypeLabel(messageSource),
+      messageTimestamp: timestampMs,
       messageTime: formatLogTime(timestampMs),
       ageMinutes: Math.floor(ageMs / 60000),
-      freshMinutes: settings.messageFreshMinutes
-    });
-    return true;
+      freshMinutes: settings.messageFreshMinutes,
+      skipReason: "超过时间窗口，已跳过"
+    };
+    if (!options.collectOnly) {
+      await appendAiBotLog("info", "跳过过期 AI Bot 消息", staleDetail);
+    }
+    return staleDetail;
   }
 
   function createAiBotStageError(stage, error, detail = {}) {
@@ -2735,10 +2779,11 @@
             }));
             break;
           }
-          if (await skipStaleAiBotMessage(latestSettings, item.message, records, item.source, {
+          const staleDetail = await skipStaleAiBotMessage(latestSettings, item.message, records, item.source, {
             ...getAiBotMessageDebugInfo(item.message),
             messageSource: item.source
-          })) {
+          }, { collectOnly: true });
+          if (staleDetail) {
             sourceResults.push(createAiBotPollResultItem(item.message, item.source, {
               actionResult: "skipped",
               actionLabel: "超过时间窗口，已跳过",
