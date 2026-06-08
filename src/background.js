@@ -79,6 +79,7 @@
       model: String(settings?.model || "").trim(),
       apiKey: String(settings?.apiKey || ""),
       allowEmoji: settings?.allowEmoji !== false,
+      autoPopup: settings?.autoPopup !== false,
       summaryPrompt: String(settings?.summaryPrompt || "").trim() || DEFAULT_SUMMARY_PROMPT
     };
   }

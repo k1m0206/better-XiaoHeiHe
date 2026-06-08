@@ -382,7 +382,17 @@
       aiBotAutoFeedOpen: state?.aiBotAutoFeedOpen === true,
       aiBotMessageLogFilter: ["all", "mention", "comment", "feed"].includes(state?.aiBotMessageLogFilter)
         ? state.aiBotMessageLogFilter
-        : "all"
+        : "all",
+      aiSummaryWindowLeft: state?.aiSummaryWindowLeft !== null
+        && state?.aiSummaryWindowLeft !== undefined
+        && Number.isFinite(Number(state.aiSummaryWindowLeft))
+        ? Math.max(0, Number(state.aiSummaryWindowLeft))
+        : null,
+      aiSummaryWindowTop: state?.aiSummaryWindowTop !== null
+        && state?.aiSummaryWindowTop !== undefined
+        && Number.isFinite(Number(state.aiSummaryWindowTop))
+        ? Math.max(0, Number(state.aiSummaryWindowTop))
+        : null
     };
   }
 
@@ -434,6 +444,7 @@
       model: String(settings?.model || "").trim(),
       apiKey: String(settings?.apiKey || ""),
       allowEmoji: settings?.allowEmoji !== false,
+      autoPopup: settings?.autoPopup !== false,
       summaryPrompt: String(settings?.summaryPrompt || "").trim() || DEFAULT_SUMMARY_PROMPT
     };
   }
@@ -2491,6 +2502,63 @@
         animation: better-ai-summary-spin 0.8s linear infinite;
       }
 
+      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} .better-ai-summary-button.is-complete,
+      .${HOME_LAYOUT_CLASS} .link-comment .better-ai-summary-button.is-complete,
+      .${HOME_LAYOUT_CLASS} .hb-bbs-link__header .better-ai-summary-button.is-complete {
+        border-color: #78c7a5;
+        background: #eaf8f1;
+        color: #0b806f;
+        font-size: 0;
+        animation: better-ai-summary-complete-pop 0.52s cubic-bezier(0.22, 1.35, 0.36, 1) both;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} .better-ai-summary-button.is-complete::after,
+      .${HOME_LAYOUT_CLASS} .link-comment .better-ai-summary-button.is-complete::after,
+      .${HOME_LAYOUT_CLASS} .hb-bbs-link__header .better-ai-summary-button.is-complete::after {
+        content: "✓";
+        font-size: 16px;
+        font-weight: 800;
+        line-height: 1;
+        animation: better-ai-summary-check-in 0.42s 0.08s cubic-bezier(0.22, 1.35, 0.36, 1) both;
+      }
+
+      @keyframes better-ai-summary-complete-pop {
+        0% {
+          box-shadow: 0 0 0 0 rgba(11, 128, 111, 0);
+          transform: scale(0.82);
+        }
+        55% {
+          box-shadow: 0 0 0 7px rgba(11, 128, 111, 0.13);
+          transform: scale(1.12);
+        }
+        100% {
+          box-shadow: 0 0 0 0 rgba(11, 128, 111, 0);
+          transform: scale(1);
+        }
+      }
+
+      @keyframes better-ai-summary-check-in {
+        0% {
+          opacity: 0;
+          transform: scale(0.35) rotate(-22deg);
+        }
+        70% {
+          opacity: 1;
+          transform: scale(1.18) rotate(4deg);
+        }
+        100% {
+          opacity: 1;
+          transform: scale(1) rotate(0);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .${HOME_LAYOUT_CLASS} .better-ai-summary-button.is-complete,
+        .${HOME_LAYOUT_CLASS} .better-ai-summary-button.is-complete::after {
+          animation: none;
+        }
+      }
+
       @keyframes better-ai-summary-spin {
         to {
           transform: rotate(360deg);
@@ -3095,12 +3163,7 @@
         position: fixed;
         inset: 0;
         z-index: 2147483646;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 20px;
-        background: rgba(20, 25, 30, 0.46);
-        overscroll-behavior: contain;
+        pointer-events: none;
       }
 
       .${AI_SUMMARY_MODAL_CLASS}[hidden] {
@@ -3109,14 +3172,20 @@
 
       .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__dialog {
         box-sizing: border-box;
-        width: min(680px, 100%);
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: min(680px, calc(100vw - 32px));
         max-height: min(78vh, 720px);
         display: flex;
         overflow: hidden;
         flex-direction: column;
+        pointer-events: auto;
+        border: 1px solid rgba(20, 25, 30, 0.12);
         border-radius: 8px;
         background: #fff;
         box-shadow: 0 20px 60px rgba(20, 25, 30, 0.24);
+        transform: translate(-50%, -50%);
       }
 
       .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__header {
@@ -3126,6 +3195,28 @@
         gap: 12px;
         padding: 16px 18px;
         border-bottom: 1px solid #eef0f2;
+        cursor: move;
+        user-select: none;
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__actions {
+        cursor: default;
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__auto-popup {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        color: #68727d;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 500;
+        white-space: nowrap;
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__auto-popup input {
+        margin: 0;
+        accent-color: #2775d1;
       }
 
       .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__title {
@@ -6433,11 +6524,47 @@
       button.textContent = "AI";
       operationButton.insertAdjacentElement("beforebegin", button);
     }
+    const linkId = getLinkIdFromItem(item);
+    setAiButtonComplete(button, Boolean(linkId && aiSummaryCache.has(linkId)));
   }
 
   function syncAiSummaryButtons() {
     document.querySelectorAll(FEED_ITEM_SELECTOR).forEach(ensureAiSummaryButton);
     ensureLinkPageAiSummaryButton();
+  }
+
+  function positionAiSummaryDialog(dialog) {
+    if (!dialog) {
+      return;
+    }
+    const savedLeft = uiState.aiSummaryWindowLeft;
+    const savedTop = uiState.aiSummaryWindowTop;
+    if (!Number.isFinite(savedLeft) || !Number.isFinite(savedTop)) {
+      dialog.style.left = "50%";
+      dialog.style.top = "50%";
+      dialog.style.right = "auto";
+      dialog.style.transform = "translate(-50%, -50%)";
+      return;
+    }
+    dialog.style.transform = "none";
+    dialog.style.right = "auto";
+    const maxLeft = Math.max(0, window.innerWidth - dialog.offsetWidth);
+    const maxTop = Math.max(0, window.innerHeight - dialog.offsetHeight);
+    dialog.style.left = `${Math.min(maxLeft, Math.max(0, savedLeft))}px`;
+    dialog.style.top = `${Math.min(maxTop, Math.max(0, savedTop))}px`;
+  }
+
+  function persistAiSummaryDialogPosition(dialog) {
+    if (!dialog) {
+      return;
+    }
+    const rect = dialog.getBoundingClientRect();
+    uiState = normalizeUiState({
+      ...uiState,
+      aiSummaryWindowLeft: Math.round(rect.left),
+      aiSummaryWindowTop: Math.round(rect.top)
+    });
+    persistUiState();
   }
 
   function ensureAiSummaryModal() {
@@ -6450,11 +6577,15 @@
     modal.className = AI_SUMMARY_MODAL_CLASS;
     modal.hidden = true;
     modal.innerHTML = `
-      <div class="better-ai-summary__dialog" role="dialog" aria-modal="true" aria-labelledby="better-ai-summary-title">
+      <div class="better-ai-summary__dialog" role="dialog" aria-modal="false" aria-labelledby="better-ai-summary-title">
         <div class="better-ai-summary__header">
           <div class="better-ai-summary__title" id="better-ai-summary-title">AI 总结</div>
           <div class="better-ai-summary__meta"></div>
           <div class="better-ai-summary__actions">
+            <label class="better-ai-summary__auto-popup" title="总结完成后自动打开总结窗口">
+              <input type="checkbox"${aiSettings.autoPopup ? " checked" : ""}>
+              <span>自动弹出</span>
+            </label>
             <button class="better-ai-summary__regenerate" type="button">重新总结</button>
             <button class="better-ai-summary__close" type="button" aria-label="关闭">×</button>
           </div>
@@ -6517,6 +6648,58 @@
 
       event.preventDefault();
       submitAiSummaryChatQuestion(modal);
+    });
+    modal.addEventListener("change", (event) => {
+      const input = event.target instanceof Element ? event.target.closest(".better-ai-summary__auto-popup input") : null;
+      if (!input) {
+        return;
+      }
+      aiSettings = normalizeAiSettings({
+        ...aiSettings,
+        autoPopup: input.checked
+      });
+      window.dispatchEvent(new CustomEvent(AI_SETTINGS_SAVE_EVENT, {
+        detail: JSON.stringify(aiSettings)
+      }));
+    });
+    const dialog = modal.querySelector(".better-ai-summary__dialog");
+    const header = modal.querySelector(".better-ai-summary__header");
+    header?.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0 || event.target.closest(".better-ai-summary__actions")) {
+        return;
+      }
+      const rect = dialog.getBoundingClientRect();
+      const offsetX = event.clientX - rect.left;
+      const offsetY = event.clientY - rect.top;
+      dialog.style.left = `${rect.left}px`;
+      dialog.style.top = `${rect.top}px`;
+      dialog.style.right = "auto";
+      dialog.style.transform = "none";
+      header.setPointerCapture?.(event.pointerId);
+
+      const moveDialog = (moveEvent) => {
+        const maxLeft = Math.max(0, window.innerWidth - dialog.offsetWidth);
+        const maxTop = Math.max(0, window.innerHeight - dialog.offsetHeight);
+        const left = Math.min(maxLeft, Math.max(0, moveEvent.clientX - offsetX));
+        const top = Math.min(maxTop, Math.max(0, moveEvent.clientY - offsetY));
+        dialog.style.left = `${left}px`;
+        dialog.style.top = `${top}px`;
+      };
+      const stopDragging = () => {
+        persistAiSummaryDialogPosition(dialog);
+        header.removeEventListener("pointermove", moveDialog);
+        header.removeEventListener("pointerup", stopDragging);
+        header.removeEventListener("pointercancel", stopDragging);
+      };
+      header.addEventListener("pointermove", moveDialog);
+      header.addEventListener("pointerup", stopDragging);
+      header.addEventListener("pointercancel", stopDragging);
+      event.preventDefault();
+    });
+    window.addEventListener("resize", () => {
+      if (!modal.hidden) {
+        positionAiSummaryDialog(dialog);
+      }
     });
     document.body.appendChild(modal);
     return modal;
@@ -6745,8 +6928,12 @@
     if (body) {
       body.classList.toggle("is-muted", muted);
     }
-    lockAiSummaryPageScroll();
+    const autoPopupInput = modal.querySelector(".better-ai-summary__auto-popup input");
+    if (autoPopupInput) {
+      autoPopupInput.checked = aiSettings.autoPopup;
+    }
     modal.hidden = false;
+    positionAiSummaryDialog(modal.querySelector(".better-ai-summary__dialog"));
     syncAiSummaryChatPanel(modal, linkId);
   }
 
@@ -7124,9 +7311,22 @@
       return;
     }
 
+    if (isLoading) {
+      button.classList.remove("is-complete");
+    }
     button.classList.toggle("is-loading", isLoading);
     button.disabled = isLoading;
     button.setAttribute("aria-busy", String(isLoading));
+  }
+
+  function setAiButtonComplete(button, isComplete) {
+    if (!button) {
+      return;
+    }
+    button.classList.toggle("is-complete", isComplete);
+    button.textContent = isComplete ? "" : "AI";
+    button.title = isComplete ? "查看 AI 总结" : "AI 总结";
+    button.setAttribute("aria-label", button.title);
   }
 
   function summarizeFeedItem(item, linkId, button, options = {}) {
@@ -7137,6 +7337,7 @@
     const title = item.querySelector(".bbs-content__title")?.textContent?.trim() || "AI 总结";
     if (!options.force && aiSummaryCache.has(linkId)) {
       const cachedSummary = normalizeAiSummaryCacheEntry(aiSummaryCache.get(linkId));
+      setAiButtonComplete(button, true);
       setAiSummaryModal(title, cachedSummary.content, false, linkId, cachedSummary.elapsedMs);
       return;
     }
@@ -7164,8 +7365,12 @@
       const elapsedMs = performance.now() - summaryStartTime;
       const content = cleanAiSummaryContent(summary, aiSettings.allowEmoji) || "没有生成总结。";
       aiSummaryCache.set(linkId, { content, elapsedMs, payload, chatMessages: [] });
-      setAiSummaryModal(title, content, false, linkId, elapsedMs);
+      setAiButtonComplete(button, true);
+      if (aiSettings.autoPopup) {
+        setAiSummaryModal(title, content, false, linkId, elapsedMs);
+      }
     }).catch((error) => {
+      setAiButtonComplete(button, false);
       setAiSummaryModal(title, error?.message || "AI 总结失败", true, linkId, performance.now() - summaryStartTime);
     }).finally(() => {
       setAiButtonLoading(button, false);
@@ -7181,6 +7386,7 @@
     const title = getLinkPageTitle() || "AI 总结";
     if (!options.force && aiSummaryCache.has(linkId)) {
       const cachedSummary = normalizeAiSummaryCacheEntry(aiSummaryCache.get(linkId));
+      setAiButtonComplete(button, true);
       setAiSummaryModal(title, cachedSummary.content, false, linkId, cachedSummary.elapsedMs);
       return;
     }
@@ -7208,8 +7414,12 @@
       const elapsedMs = performance.now() - summaryStartTime;
       const content = cleanAiSummaryContent(summary, aiSettings.allowEmoji) || "没有生成总结。";
       aiSummaryCache.set(linkId, { content, elapsedMs, payload, chatMessages: [] });
-      setAiSummaryModal(title, content, false, linkId, elapsedMs);
+      setAiButtonComplete(button, true);
+      if (aiSettings.autoPopup) {
+        setAiSummaryModal(title, content, false, linkId, elapsedMs);
+      }
     }).catch((error) => {
+      setAiButtonComplete(button, false);
       setAiSummaryModal(title, error?.message || "AI 总结失败", true, linkId, performance.now() - summaryStartTime);
     }).finally(() => {
       setAiButtonLoading(button, false);
@@ -7736,6 +7946,7 @@
       model: panel.querySelector(".better-settings__ai-model")?.value,
       apiKey: panel.querySelector(".better-settings__ai-api-key")?.value,
       allowEmoji: panel.querySelector(".better-settings__ai-allow-emoji")?.checked !== false,
+      autoPopup: panel.querySelector(".better-settings__ai-auto-popup")?.checked !== false,
       summaryPrompt: panel.querySelector(".better-settings__ai-summary-prompt")?.value
     });
   }
@@ -7800,9 +8011,20 @@
 
   function saveAiSettingsFromPanel(panel) {
     const nextSettings = getAiSettingsFormValues(panel);
+    const shouldClearSummaryCache = [
+      "enabled",
+      "provider",
+      "baseUrl",
+      "model",
+      "apiKey",
+      "allowEmoji",
+      "summaryPrompt"
+    ].some((key) => nextSettings[key] !== aiSettings[key]);
     aiSettings = nextSettings;
     syncAiConnectionDot("ai", nextSettings);
-    aiSummaryCache.clear();
+    if (shouldClearSummaryCache) {
+      aiSummaryCache.clear();
+    }
     window.dispatchEvent(new CustomEvent(AI_SETTINGS_SAVE_EVENT, {
       detail: JSON.stringify(nextSettings)
     }));
@@ -7907,6 +8129,10 @@
               <label class="better-settings__prompt-toggle">
                 <input class="better-settings__ai-allow-emoji" type="checkbox"${aiSettings.allowEmoji ? " checked" : ""}>
                 <span>允许表情</span>
+              </label>
+              <label class="better-settings__prompt-toggle">
+                <input class="better-settings__ai-auto-popup" type="checkbox"${aiSettings.autoPopup ? " checked" : ""}>
+                <span>自动弹出</span>
               </label>
               <button class="better-settings__text-button better-settings__ai-reset-prompt" type="button">恢复默认</button>
             </span>
@@ -9474,7 +9700,7 @@
         return;
       }
 
-      if (event.target.matches(".better-settings__ai-enabled, .better-settings__ai-allow-emoji")) {
+      if (event.target.matches(".better-settings__ai-enabled, .better-settings__ai-allow-emoji, .better-settings__ai-auto-popup")) {
         saveAiSettingsFromPanel(panel);
         return;
       }
@@ -9865,6 +10091,8 @@
     if (button.parentElement !== mountPoint) {
       mountPoint.appendChild(button);
     }
+    const linkId = getCurrentLinkId();
+    setAiButtonComplete(button, Boolean(linkId && aiSummaryCache.has(linkId)));
   }
 
   function addFilterToBbsLink() {
@@ -10179,9 +10407,26 @@
       } catch {
         settingsDetail = {};
       }
-      const previousSettingsKey = JSON.stringify(aiSettings);
+      const previousSummaryConfigKey = JSON.stringify({
+        enabled: aiSettings.enabled,
+        provider: aiSettings.provider,
+        baseUrl: aiSettings.baseUrl,
+        model: aiSettings.model,
+        apiKey: aiSettings.apiKey,
+        allowEmoji: aiSettings.allowEmoji,
+        summaryPrompt: aiSettings.summaryPrompt
+      });
       aiSettings = normalizeAiSettings(settingsDetail);
-      if (JSON.stringify(aiSettings) !== previousSettingsKey) {
+      const nextSummaryConfigKey = JSON.stringify({
+        enabled: aiSettings.enabled,
+        provider: aiSettings.provider,
+        baseUrl: aiSettings.baseUrl,
+        model: aiSettings.model,
+        apiKey: aiSettings.apiKey,
+        allowEmoji: aiSettings.allowEmoji,
+        summaryPrompt: aiSettings.summaryPrompt
+      });
+      if (nextSummaryConfigKey !== previousSummaryConfigKey) {
         aiSummaryCache.clear();
       }
       const settingsPanel = document.querySelector(`.${SETTINGS_PANEL_CLASS}`);
