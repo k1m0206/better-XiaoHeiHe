@@ -76,7 +76,7 @@
   };
   const DEFAULT_USER_LEVEL = 6;
   const LEVEL_FILTER_MIN = 7;
-  const LEVEL_FILTER_MAX = 18;
+  const LEVEL_FILTER_MAX = 25;
   const BLOCKED_KEYWORD_SCOPES = {
     COMMENT: "comment",
     FEED: "feed"
@@ -550,7 +550,7 @@
     });
   }
 
-  function writeLevelFilterState(scope, nextFilter) {
+  function writeLevelFilterState(scope, nextFilter, options = {}) {
     const normalizedScope = normalizeBlockedKeywordScope(scope);
     levelFilters = normalizeLevelFilters({
       ...levelFilters,
@@ -559,7 +559,9 @@
         ...nextFilter
       }
     });
-    persistLevelFiltersState();
+    if (options.persist !== false) {
+      persistLevelFiltersState();
+    }
   }
 
   function syncLevelFiltersState(savedFilters) {
@@ -7563,7 +7565,9 @@
   function updateLevelFilter(scope, nextFilter, options = {}) {
     const shouldRender = options.render !== false;
     const shouldRefresh = options.refresh !== false;
-    writeLevelFilterState(scope, nextFilter);
+    writeLevelFilterState(scope, nextFilter, {
+      persist: options.persist
+    });
     if (shouldRender) {
       renderSettingsPanel();
     }
@@ -8974,7 +8978,8 @@
           maxLevel: event.target.value
         }, {
           render: false,
-          refresh: false
+          refresh: false,
+          persist: false
         });
         const scope = normalizeBlockedKeywordScope(event.target.dataset.scope);
         const valueLabel = panel.querySelector(".better-settings__level-value");
@@ -9076,6 +9081,12 @@
       }
 
       if (event.target.matches(".better-settings__level-range")) {
+        updateLevelFilter(event.target.dataset.scope, {
+          maxLevel: event.target.value
+        }, {
+          render: false,
+          refresh: false
+        });
         scheduleKeywordFiltersRefresh();
       }
     });
