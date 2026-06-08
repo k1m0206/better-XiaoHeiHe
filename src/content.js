@@ -3195,13 +3195,17 @@
 
       .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__body {
         flex: 1 1 auto;
+        min-width: 0;
         min-height: 120px;
         overflow-y: auto;
+        overflow-x: hidden;
         padding: 18px;
         color: #2f3842;
         font-size: 14px;
         line-height: 1.75;
         overscroll-behavior: contain;
+        overflow-wrap: anywhere;
+        word-break: break-word;
       }
 
       .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__body.is-muted {
@@ -3291,7 +3295,23 @@
       }
 
       .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__summary-content {
+        width: 100%;
+        min-width: 0;
         min-height: 0;
+        white-space: normal;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__summary-content > *,
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__chat-message > * {
+        max-width: 100%;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+
+      .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__body.is-muted .better-ai-summary__summary-content {
+        white-space: pre-wrap;
       }
 
       .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__chat {
