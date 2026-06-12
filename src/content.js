@@ -142,6 +142,7 @@
   const aiSummaryCache = new Map();
   const aiSummaryChatSending = new Set();
   const blockedKeywordHitKeys = new Set();
+  const linkPageCommentTimeCache = new WeakMap();
   const capturedApiParams = {};
   let lastSavedApiParamsText = "";
   let hideCyComments = false;
@@ -10078,22 +10079,80 @@
     return match ? Number.parseInt(match[0], 10) || 0 : 0;
   }
 
-  function getLinkPageCommentCreateTime(item) {
-    const text = item.querySelector('.info-box__time, .comment-item__time, [class*="time"]')?.textContent || '';
-    const dateMatch = text.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
-    if (dateMatch) {
-      return new Date(Number(dateMatch[1]), Number(dateMatch[2]) - 1, Number(dateMatch[3])).getTime() || 0;
+  function normalizeLinkPageCommentTimestamp(value) {
+    const text = String(value || '').trim();
+    if (!text) {
+      return 0;
     }
-    if (/\d+\s*分钟前/.test(text)) {
-      return Date.now() - (Number.parseInt(text, 10) || 0) * 60 * 1000;
+
+    const numericValue = Number(text);
+    if (Number.isFinite(numericValue) && numericValue > 0) {
+      return numericValue > 100000000000 ? numericValue : numericValue * 1000;
     }
-    if (/\d+\s*小时前/.test(text)) {
-      return Date.now() - (Number.parseInt(text, 10) || 0) * 60 * 60 * 1000;
+
+    const parsedValue = Date.parse(text.replace(/\//g, '-'));
+    return Number.isFinite(parsedValue) ? parsedValue : 0;
+  }
+
+  function getLinkPageCommentExactTime(timeElement) {
+    if (!timeElement) {
+      return 0;
     }
-    if (/\d+\s*天前/.test(text)) {
-      return Date.now() - (Number.parseInt(text, 10) || 0) * 24 * 60 * 60 * 1000;
+
+    const candidates = [
+      timeElement.getAttribute('datetime'),
+      timeElement.getAttribute('data-time'),
+      timeElement.getAttribute('data-timestamp'),
+      timeElement.getAttribute('data-create-at'),
+      timeElement.getAttribute('data-created-at'),
+      timeElement.getAttribute('title')
+    ];
+    for (const candidate of candidates) {
+      const timestamp = normalizeLinkPageCommentTimestamp(candidate);
+      if (timestamp) {
+        return timestamp;
+      }
     }
     return 0;
+  }
+
+  function getLinkPageCommentCreateTime(item, sortNow = Date.now()) {
+    const cachedTime = linkPageCommentTimeCache.get(item);
+    if (Number.isFinite(cachedTime)) {
+      return cachedTime;
+    }
+
+    const timeElement = item.querySelector('.info-box__time, .comment-item__time, time, [class*="time"]');
+    const exactTime = getLinkPageCommentExactTime(timeElement);
+    if (exactTime) {
+      linkPageCommentTimeCache.set(item, exactTime);
+      return exactTime;
+    }
+
+    const text = timeElement?.textContent?.trim() || '';
+    const dateTimeMatch = text.match(/(\d{4})[-/年](\d{1,2})[-/月](\d{1,2})(?:日)?(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+    let timestamp = 0;
+    if (dateTimeMatch) {
+      timestamp = new Date(
+        Number(dateTimeMatch[1]),
+        Number(dateTimeMatch[2]) - 1,
+        Number(dateTimeMatch[3]),
+        Number(dateTimeMatch[4] || 0),
+        Number(dateTimeMatch[5] || 0),
+        Number(dateTimeMatch[6] || 0)
+      ).getTime() || 0;
+    } else if (/\d+\s*分钟前/.test(text)) {
+      timestamp = sortNow - (Number.parseInt(text, 10) || 0) * 60 * 1000;
+    } else if (/\d+\s*小时前/.test(text)) {
+      timestamp = sortNow - (Number.parseInt(text, 10) || 0) * 60 * 60 * 1000;
+    } else if (/\d+\s*天前/.test(text)) {
+      timestamp = sortNow - (Number.parseInt(text, 10) || 0) * 24 * 60 * 60 * 1000;
+    }
+
+    if (timestamp) {
+      linkPageCommentTimeCache.set(item, timestamp);
+    }
+    return timestamp;
   }
 
   function isLinkPageOwnerComment(item) {
@@ -10101,13 +10160,13 @@
       || /作者/.test(item.querySelector('.info-box__username')?.parentElement?.textContent || '');
   }
 
-  function compareLinkPageCommentItems(left, right) {
+  function compareLinkPageCommentItems(left, right, sortNow) {
     if (commentPreviewSort === COMMENT_PREVIEW_SORTS.HOT) {
       const hotDiff = getLinkPageCommentUpCount(right) - getLinkPageCommentUpCount(left);
       return hotDiff || getLinkPageCommentOriginalIndex(left) - getLinkPageCommentOriginalIndex(right);
     }
     if (commentPreviewSort === COMMENT_PREVIEW_SORTS.NEWEST) {
-      const timeDiff = getLinkPageCommentCreateTime(right) - getLinkPageCommentCreateTime(left);
+      const timeDiff = getLinkPageCommentCreateTime(right, sortNow) - getLinkPageCommentCreateTime(left, sortNow);
       return timeDiff || getLinkPageCommentOriginalIndex(left) - getLinkPageCommentOriginalIndex(right);
     }
     if (commentPreviewSort === COMMENT_PREVIEW_SORTS.AUTHOR) {
@@ -10123,13 +10182,19 @@
 
     if (commentPreviewSort === COMMENT_PREVIEW_SORTS.DEFAULT) {
       items.forEach((item) => {
-        item.style.order = '';
+        if (item.style.order) {
+          item.style.order = '';
+        }
       });
       return;
     }
 
-    [...items].sort(compareLinkPageCommentItems).forEach((item, index) => {
-      item.style.order = String(index + 1);
+    const sortNow = Date.now();
+    [...items].sort((left, right) => compareLinkPageCommentItems(left, right, sortNow)).forEach((item, index) => {
+      const nextOrder = String(index + 1);
+      if (item.style.order !== nextOrder) {
+        item.style.order = nextOrder;
+      }
     });
   }
 
@@ -10313,8 +10378,37 @@
     });
   }
 
+  function mutationNodeMatches(node, selector) {
+    return node?.nodeType === Node.ELEMENT_NODE
+      && (node.matches(selector) || Boolean(node.querySelector(selector)));
+  }
+
+  function shouldRefreshLinkPageForMutations(mutations) {
+    const commentStructureSelector = [
+      '.link-comment',
+      '.link-comment__list',
+      '.link-comment__comment-item'
+    ].join(', ');
+    const setupStructureSelector = [
+      '.link-comment .hb-cpt__pagination-inner',
+      '.hb-bbs-link__header'
+    ].join(', ');
+
+    return mutations.some((mutation) => {
+      const changedNodes = [...mutation.addedNodes, ...mutation.removedNodes];
+      return changedNodes.some((node) => (
+        mutationNodeMatches(node, commentStructureSelector)
+        || mutationNodeMatches(node, setupStructureSelector)
+      ));
+    });
+  }
+
   function observePage() {
-    const observer = new MutationObserver(scheduleHandlePage);
+    const observer = new MutationObserver((mutations) => {
+      if (!isLinkPage() || shouldRefreshLinkPageForMutations(mutations)) {
+        scheduleHandlePage();
+      }
+    });
     observer.observe(document.documentElement, {
       childList: true,
       subtree: true
