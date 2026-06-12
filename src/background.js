@@ -1551,11 +1551,32 @@
 
   function cleanAiBotReply(content, emojiCodes = [], allowEmoji = true) {
     const raw = String(content || "").trim();
-    if (!raw || raw === AI_BOT_REFUSE_TAG || raw.startsWith(AI_BOT_REFUSE_TAG) || raw === "模型没有返回内容") {
-      return "";
+    if (!raw) {
+      return {
+        reply: "",
+        moderationReason: "empty_model_response",
+        moderationReasonDetail: "AI 接口返回内容为空"
+      };
     }
+    if (raw === AI_BOT_REFUSE_TAG || raw.startsWith(AI_BOT_REFUSE_TAG)) {
+      return {
+        reply: "",
+        moderationReason: "model_refused",
+        moderationReasonDetail: "模型根据内置审查规则返回了 [REFUSE]",
+        modelResponsePreview: raw.slice(0, 200)
+      };
+    }
+    if (raw === "模型没有返回内容") {
+      return {
+        reply: "",
+        moderationReason: "empty_model_content",
+        moderationReasonDetail: "AI 接口响应成功，但模型没有返回可用内容",
+        modelResponsePreview: raw
+      };
+    }
+    let reply;
     if (!allowEmoji) {
-      return raw
+      reply = raw
         .replace(/^```(?:\w+)?\s*/i, "")
         .replace(/```$/i, "")
         .replace(/^["“”]+|["“”]+$/g, "")
@@ -1563,15 +1584,27 @@
         .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, "")
         .trim()
         .slice(0, 1000);
+    } else {
+      const allowedEmojiCodes = new Set(emojiCodes);
+      reply = raw
+        .replace(/^```(?:\w+)?\s*/i, "")
+        .replace(/```$/i, "")
+        .replace(/^["“”]+|["“”]+$/g, "")
+        .replace(/\[([^\]\r\n]{1,40})\]/g, (matched) => allowedEmojiCodes.has(matched) ? matched : "")
+        .trim()
+        .slice(0, 1000);
     }
-    const allowedEmojiCodes = new Set(emojiCodes);
-    return raw
-      .replace(/^```(?:\w+)?\s*/i, "")
-      .replace(/```$/i, "")
-      .replace(/^["“”]+|["“”]+$/g, "")
-      .replace(/\[([^\]\r\n]{1,40})\]/g, (matched) => allowedEmojiCodes.has(matched) ? matched : "")
-      .trim()
-      .slice(0, 1000);
+    if (!reply) {
+      return {
+        reply: "",
+        moderationReason: "reply_removed_by_cleanup",
+        moderationReasonDetail: allowEmoji
+          ? "模型回复经格式和无效表情短码清理后为空"
+          : "模型回复仅包含已禁用的表情或方括号短码，清理后为空",
+        modelResponsePreview: raw.slice(0, 200)
+      };
+    }
+    return { reply };
   }
 
   async function createAiBotReply(settings, accountId, message, context, replyCommentId, messageSource, emojiCodes = []) {
@@ -1599,11 +1632,7 @@
     if (!response.ok) {
       throw new Error(response.error || "AI 回复生成失败");
     }
-    const reply = cleanAiBotReply(response.content, allowedEmojiCodes, settings.allowEmoji);
-    if (!reply) {
-      return null;
-    }
-    return reply;
+    return cleanAiBotReply(response.content, allowedEmojiCodes, settings.allowEmoji);
   }
 
   async function createAiBotFeedComment(settings, feedItem, context, emojiCodes = []) {
@@ -1629,11 +1658,7 @@
     if (!response.ok) {
       throw new Error(response.error || "AI 首页评论生成失败");
     }
-    const reply = cleanAiBotReply(response.content, allowedEmojiCodes, settings.allowEmoji);
-    if (!reply) {
-      return null;
-    }
-    return reply;
+    return cleanAiBotReply(response.content, allowedEmojiCodes, settings.allowEmoji);
   }
 
   async function waitForAiBotCommentCooldown() {
@@ -2412,14 +2437,20 @@
     const authorName = context.detail?.author || feedDetail.author || "";
 
     const emojiCodes = await loadAiBotEmojiCodes(heyboxId);
-    let reply;
+    let replyResult;
     try {
-      reply = await createAiBotFeedComment(settings, selected, context, emojiCodes);
+      replyResult = await createAiBotFeedComment(settings, selected, context, emojiCodes);
     } catch (error) {
       throw createAiBotStageError("生成首页推荐帖评论", error, debugInfo);
     }
+    const reply = replyResult?.reply || "";
     if (!reply) {
-      await appendAiBotLog("info", "跳过首页推荐帖：内容审查未通过", debugInfo);
+      await appendAiBotLog("info", "跳过首页推荐帖：内容审查未通过", {
+        ...debugInfo,
+        moderationReason: replyResult?.moderationReason || "unknown_empty_reply",
+        moderationReasonDetail: replyResult?.moderationReasonDetail || "AI 回复为空，但未识别到具体原因",
+        modelResponsePreview: replyResult?.modelResponsePreview || ""
+      });
       return {
         actionResult: "skipped",
         actionLabel: "内容审查未通过，已跳过",
@@ -2577,19 +2608,26 @@
     }
 
     await appendAiBotLog("info", `队列消息开始处理：${typeLabel}`, messageDebug);
-    let reply;
+    let replyResult;
     try {
-      reply = await createAiBotReply(settings, heyboxId, message, context, replyCommentId, item.messageSource, emojiCodes);
+      replyResult = await createAiBotReply(settings, heyboxId, message, context, replyCommentId, item.messageSource, emojiCodes);
     } catch (error) {
       throw createAiBotStageError("生成AI回复", error, messageDebug);
     }
+    const reply = replyResult?.reply || "";
     if (!reply) {
       await markMessageReplied(item.messageId, {
         skippedAt: Date.now(),
         skipReason: "content_moderation",
-        messageSource: item.messageSource
+        messageSource: item.messageSource,
+        moderationReason: replyResult?.moderationReason || "unknown_empty_reply"
       });
-      await appendAiBotLog("info", `队列消息跳过：内容审查未通过`, messageDebug);
+      await appendAiBotLog("info", `队列消息跳过：内容审查未通过`, {
+        ...messageDebug,
+        moderationReason: replyResult?.moderationReason || "unknown_empty_reply",
+        moderationReasonDetail: replyResult?.moderationReasonDetail || "AI 回复为空，但未识别到具体原因",
+        modelResponsePreview: replyResult?.modelResponsePreview || ""
+      });
       return;
     }
     await appendAiBotLog("info", "队列消息生成回复完成，准备发送", {
