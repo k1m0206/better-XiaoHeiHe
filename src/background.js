@@ -22,6 +22,8 @@
   const AI_BOT_COMMENT_LIMIT = 30;
   const AI_BOT_MIN_FEED_POLL_MINUTES = 10;
   const AI_BOT_DEFAULT_REPLY_LIMIT_PER_LINK_USER = 5;
+  const AI_BOT_DEFAULT_GLOBAL_HISTORY_LIMIT = 20;
+  const AI_BOT_MAX_GLOBAL_HISTORY_LIMIT = 100;
   const AI_BOT_DEFAULT_PROMPT = "你是小黑盒社区自动回复助手。请根据消息类型、帖子正文、评论区上下文和触发消息的那条评论，生成一条自然、友好、简洁的中文回复。不要暴露你是AI，不要使用模板化开头，不要编造事实，不要输出Markdown。如果触发消息的评论内容只有表情（没有文字，表情数量可以是多个），那么你只回复一个表情，不要添加任何文字。";
   const AI_BOT_DEFAULT_FEED_PROMPT = "你是小黑盒社区暖贴助手。请根据帖子标题、正文和话题，生成一条自然、真实、简洁的中文评论，像普通用户浏览帖子后留下的感想。不要暴露你是AI，不要使用模板化开头，不要编造未提供的信息，不要输出Markdown。";
   const AI_BOT_BUILTIN_MODERATION_PROMPT = "\n\n[系统内置审查规则 - 不可关闭]：\n在生成回复前，必须同时审查触发消息的评论内容和你将要生成的回复内容。遇到以下情况时，直接返回 [REFUSE] 标记（不要返回其他任何内容）：\n- 违反中国法律法规的内容（涉政敏感、分裂国家、损害国家荣誉和利益等）\n- 违反社会主义核心价值观的内容\n- 涉黄、涉暴、涉恐、涉赌、涉毒等违法内容\n- 侮辱、诽谤、人身攻击、网络暴力、不礼貌的言论\n- 歧视性内容（地域歧视、性别歧视、种族歧视等）\n- 散布谣言、虚假信息、误导性内容\n- 不道德、低俗、恶俗、有悖公序良俗的内容\n- 涉及未成年人不良内容\n- 政治敏感话题、时政评论、涉及领导人或国家政策的讨论\n如果触发消息的评论本身包含上述违规内容，也直接返回 [REFUSE]。";
@@ -107,6 +109,11 @@
       feedPollMinutes: Math.max(AI_BOT_MIN_FEED_POLL_MINUTES, Number.parseInt(settings?.feedPollMinutes, 10) || AI_BOT_MIN_FEED_POLL_MINUTES),
       messageFreshMinutes: Math.max(1, Number.parseInt(settings?.messageFreshMinutes, 10) || 5),
       replyLimitPerLinkUser: Math.max(1, Number.parseInt(settings?.replyLimitPerLinkUser, 10) || AI_BOT_DEFAULT_REPLY_LIMIT_PER_LINK_USER),
+      globalHistoryEnabled: settings?.globalHistoryEnabled !== false,
+      globalHistoryLimit: Math.min(
+        AI_BOT_MAX_GLOBAL_HISTORY_LIMIT,
+        Math.max(1, Number.parseInt(settings?.globalHistoryLimit, 10) || AI_BOT_DEFAULT_GLOBAL_HISTORY_LIMIT)
+      ),
       replyMentions,
       replyComments,
       commentHomeFeed,
@@ -1017,6 +1024,7 @@
   function getFeedItemDetail(link = {}) {
     return {
       title: String(link.title || "").trim(),
+      authorId: getUserId(link.user || {}),
       author: String(link.user?.username || link.user?.nickname || "").trim(),
       content: stripHtml(link.text || link.description || ""),
       topic: [
@@ -1158,6 +1166,7 @@
     const link = data?.result?.link || {};
     return {
       title: String(link.title || "").trim(),
+      authorId: getUserId(link.user || {}),
       author: String(link.user?.username || link.user?.nickname || "").trim(),
       content: stripHtml(link.text || link.description || ""),
       topic: [
@@ -1440,11 +1449,59 @@
       : settings.replyMentions !== false;
   }
 
-  function buildAiBotPromptPayload(message, context, replyCommentId, messageSource, emojiCodes = [], allowEmoji = true) {
+  function buildAiBotHistoryLines(history) {
+    return (Array.isArray(history) ? history : []).map((item, index) => {
+      const header = `${index + 1}. 时间：${item.timeText || "未知"}；帖子：${item.linkTitle || `帖子 ${item.linkId || "未知"}`}；互动类型：${item.typeLabel || "评论互动"}`;
+      if (item.messageSource === AI_BOT_MESSAGE_TYPES.FEED) {
+        return [header, `我方主动暖贴：${item.replyText || "无文本"}`].join("\n");
+      }
+      return [
+        header,
+        `对方：${item.messageText || "无文本"}`,
+        `我方：${item.replyText || "无文本"}`
+      ].join("\n");
+    });
+  }
+
+  async function readAiBotGlobalHistory(settings, accountId, senderId) {
+    if (!settings.globalHistoryEnabled || !accountId || !senderId) {
+      return [];
+    }
+    const result = await storageGet(AI_BOT_MESSAGE_LOGS_STORAGE_KEY);
+    const now = Date.now();
+    const logs = Array.isArray(result[AI_BOT_MESSAGE_LOGS_STORAGE_KEY])
+      ? result[AI_BOT_MESSAGE_LOGS_STORAGE_KEY]
+      : [];
+    return logs
+      .filter((item) => {
+        if (item?.skipped || ![AI_BOT_MESSAGE_TYPES.MENTION, AI_BOT_MESSAGE_TYPES.COMMENT, AI_BOT_MESSAGE_TYPES.FEED].includes(item?.messageSource)) {
+          return false;
+        }
+        return String(item?.accountId || "") === String(accountId)
+          && String(item?.senderId || "") === String(senderId)
+          && String(item?.replyText || "").trim();
+      })
+      .filter((item) => Number(item?.sentTimestamp || item?.timestamp || 0) >= now - AI_BOT_LOG_RETENTION_MS)
+      .sort((left, right) => Number(right?.sentTimestamp || right?.timestamp || 0) - Number(left?.sentTimestamp || left?.timestamp || 0))
+      .slice(0, settings.globalHistoryLimit)
+      .reverse()
+      .map((item) => ({
+        timeText: item.sentTimeText || item.timeText || formatLogTime(item.sentTimestamp || item.timestamp),
+        messageSource: item.messageSource,
+        typeLabel: item.typeLabel || getAiBotMessageTypeLabel(item.messageSource),
+        linkId: String(item.linkId || ""),
+        linkTitle: String(item.linkTitle || ""),
+        messageText: String(item.messageText || item.triggerText || "").trim(),
+        replyText: String(item.replyText || "").trim()
+      }));
+  }
+
+  function buildAiBotPromptPayload(message, context, replyCommentId, messageSource, emojiCodes = [], allowEmoji = true, history = []) {
     const triggerComment = findCommentById(context.groups, replyCommentId);
     const user = message?.user_a || {};
     const detail = context.detail || {};
     const typeLabel = getAiBotMessageTypeLabel(messageSource);
+    const historyLines = buildAiBotHistoryLines(history);
     return [
       `当前登录账号收到了一条${typeLabel}，消息ID：${message?.message_id || ""}`,
       `消息发起用户：${user.username || user.nickname || "未知用户"}（ID：${getUserId(user) || "未知"}）`,
@@ -1455,6 +1512,9 @@
       message?.comment_b_text ? `被回复的上一条评论：${stripHtml(String(message.comment_b_text || ""))}` : "",
       message?.comment_a_text ? `触发消息的评论文本：${stripHtml(String(message.comment_a_text || ""))}` : "",
       triggerComment ? `触发消息的评论：${getCommentLine(triggerComment)}` : `触发消息的评论ID：${replyCommentId}`,
+      historyLines.length
+        ? `与该用户最近的跨帖子历史对话（共${historyLines.length}组，按时间从早到晚；仅作为背景，不要逐条复述）：\n${historyLines.join("\n\n")}`
+        : "",
       `评论区上下文（最多${AI_BOT_COMMENT_LIMIT}条）：\n${getAiBotCommentLines(context.groups).join("\n") || "暂无评论上下文"}`,
       allowEmoji
         ? (emojiCodes.length ? `完整可用小黑盒表情短码列表：${emojiCodes.join(" ")}\n可以自然使用 Unicode emoji 表情，也可以使用 0-2 个列表内短码；不要编造列表外的短码，不要输出任何不在这个列表里的方括号表情，例如[摊手]、[笑哭]。` : "可以自然使用 Unicode emoji 表情；没有可用小黑盒表情短码时，不要输出任何方括号表情。")
@@ -1514,9 +1574,11 @@
       .slice(0, 1000);
   }
 
-  async function createAiBotReply(settings, message, context, replyCommentId, messageSource, emojiCodes = []) {
+  async function createAiBotReply(settings, accountId, message, context, replyCommentId, messageSource, emojiCodes = []) {
     const allowedEmojiCodes = settings.allowEmoji ? emojiCodes : [];
-    const payload = buildAiBotPromptPayload(message, context, replyCommentId, messageSource, allowedEmojiCodes, settings.allowEmoji);
+    const senderId = getUserId(message?.user_a || {});
+    const history = await readAiBotGlobalHistory(settings, accountId, senderId);
+    const payload = buildAiBotPromptPayload(message, context, replyCommentId, messageSource, allowedEmojiCodes, settings.allowEmoji, history);
     const emojiInstruction = settings.allowEmoji
       ? ""
       : "\n\n不要使用 Unicode emoji 表情，不要输出任何小黑盒表情短码或方括号表情。";
@@ -2346,6 +2408,8 @@
         linkId
       };
     }
+    const authorId = context.detail?.authorId || feedDetail.authorId || "";
+    const authorName = context.detail?.author || feedDetail.author || "";
 
     const emojiCodes = await loadAiBotEmojiCodes(heyboxId);
     let reply;
@@ -2385,6 +2449,8 @@
     await markFeedCommented(linkId, {
       linkId,
       linkTitle: context.detail?.title || feedDetail.title || "",
+      authorId,
+      authorName,
       commentId,
       replyPreview: String(reply || "").slice(0, 200),
       reason,
@@ -2398,6 +2464,10 @@
       linkTitle: context.detail?.title || feedDetail.title || "",
       linkUrl,
       commentId,
+      accountId: String(heyboxId),
+      targetId: authorId ? `id:${authorId}` : "",
+      senderId: authorId,
+      senderName: authorName,
       messageTimestamp: getFeedItemTimestampMs(selected) || sentTimestamp,
       sentTimestamp,
       sentTimeText: formatLogTime(sentTimestamp),
@@ -2509,7 +2579,7 @@
     await appendAiBotLog("info", `队列消息开始处理：${typeLabel}`, messageDebug);
     let reply;
     try {
-      reply = await createAiBotReply(settings, message, context, replyCommentId, item.messageSource, emojiCodes);
+      reply = await createAiBotReply(settings, heyboxId, message, context, replyCommentId, item.messageSource, emojiCodes);
     } catch (error) {
       throw createAiBotStageError("生成AI回复", error, messageDebug);
     }
@@ -2565,6 +2635,7 @@
       replyCommentId,
       rootCommentId: rootCommentId || replyCommentId,
       commentId: result?.commentid || result?.result?.commentid || "",
+      accountId: String(heyboxId),
       targetId,
       senderId: item.senderId,
       senderName: item.senderName,

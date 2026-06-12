@@ -58,6 +58,8 @@
   const SANITIZED_COOKIE_RULE_REQUEST_EVENT = "better-xiaoheihe-sanitized-cookie-rule-request";
   const SANITIZED_COOKIE_RULE_RESPONSE_EVENT = "better-xiaoheihe-sanitized-cookie-rule-response";
   const AI_BOT_MIN_FEED_POLL_MINUTES = 10;
+  const AI_BOT_DEFAULT_GLOBAL_HISTORY_LIMIT = 20;
+  const AI_BOT_MAX_GLOBAL_HISTORY_LIMIT = 100;
   const DEFAULT_SUMMARY_PROMPT = "你是社区帖子总结助手，请用中文简洁输出：\n帖子总结\n一句话概括帖子核心内容。\n评论区信息\n提取评论区里有价值的观点、经验、补充或避坑信息，没有则跳过。\nAI简评\n像真实网友一样补充观点，避免AI味。\n返回md格式。";
   const AI_BOT_DEFAULT_PROMPT = "你是小黑盒社区自动回复助手。请根据消息类型、帖子正文、评论区上下文和触发消息的那条评论，生成一条自然、友好、简洁的中文回复。不要暴露你是AI，不要使用模板化开头，不要编造事实，不要输出Markdown。如果触发消息的评论内容只有表情（没有文字，表情数量可以是多个），那么你只回复一个表情，不要添加任何文字。";
   const AI_BOT_DEFAULT_FEED_PROMPT = "你是小黑盒社区暖贴助手。请根据帖子标题、正文和话题，生成一条自然、真实、简洁的中文评论，像普通用户浏览帖子后留下的感想。不要暴露你是AI，不要使用模板化开头，不要编造未提供的信息，不要输出Markdown。";
@@ -475,6 +477,11 @@
       feedSelectStrategy: ["first", "latest", "hot"].includes(settings?.feedSelectStrategy) ? settings.feedSelectStrategy : "first",
       messageFreshMinutes: Math.max(1, Number.parseInt(settings?.messageFreshMinutes, 10) || 5),
       replyLimitPerLinkUser: Math.max(1, Number.parseInt(settings?.replyLimitPerLinkUser, 10) || 5),
+      globalHistoryEnabled: settings?.globalHistoryEnabled !== false,
+      globalHistoryLimit: Math.min(
+        AI_BOT_MAX_GLOBAL_HISTORY_LIMIT,
+        Math.max(1, Number.parseInt(settings?.globalHistoryLimit, 10) || AI_BOT_DEFAULT_GLOBAL_HISTORY_LIMIT)
+      ),
       replyMentions,
       replyComments,
       commentHomeFeed,
@@ -8242,7 +8249,16 @@
                 <span class="better-settings__field-title">每贴每人最多回复（次）</span>
                 <input class="better-settings__text-input better-settings__ai-bot-reply-limit" type="number" min="1" step="1" value="${escapeHtml(aiBotSettings.replyLimitPerLinkUser)}">
               </label>
+              <label class="better-settings__field better-settings__field--compact-number">
+                <span class="better-settings__field-title">最多历史对话（组）</span>
+                <input class="better-settings__text-input better-settings__ai-bot-history-limit" type="number" min="1" max="${AI_BOT_MAX_GLOBAL_HISTORY_LIMIT}" step="1" value="${escapeHtml(aiBotSettings.globalHistoryLimit)}">
+              </label>
             </div>
+            <label class="better-settings__rule-toggle">
+              <input class="better-settings__ai-bot-global-history" type="checkbox"${aiBotSettings.globalHistoryEnabled ? " checked" : ""}>
+              <span class="better-settings__rule-toggle-switch" aria-hidden="true"></span>
+              <span class="better-settings__rule-toggle-text">启用跨帖子历史对话（保留 7 天）</span>
+            </label>
             <label class="better-settings__rule-toggle">
               <input class="better-settings__ai-bot-reply-mentions" type="checkbox"${aiBotSettings.replyMentions ? " checked" : ""}>
               <span class="better-settings__rule-toggle-switch" aria-hidden="true"></span>
@@ -9212,6 +9228,8 @@
       feedSelectStrategy: panel.querySelector(".better-settings__ai-bot-feed-select-strategy")?.value,
       messageFreshMinutes: panel.querySelector(".better-settings__ai-bot-fresh-minutes")?.value,
       replyLimitPerLinkUser: panel.querySelector(".better-settings__ai-bot-reply-limit")?.value,
+      globalHistoryEnabled: panel.querySelector(".better-settings__ai-bot-global-history")?.checked !== false,
+      globalHistoryLimit: panel.querySelector(".better-settings__ai-bot-history-limit")?.value,
       replyMentions,
       replyComments,
       commentHomeFeed,
@@ -9755,7 +9773,7 @@
         saveAiSettingsFromPanel(panel);
       }
 
-      if (event.target.matches(".better-settings__ai-bot-base-url, .better-settings__ai-bot-model, .better-settings__ai-bot-api-key, .better-settings__ai-bot-poll-minutes, .better-settings__ai-bot-feed-poll-minutes, .better-settings__ai-bot-fresh-minutes, .better-settings__ai-bot-reply-limit, .better-settings__ai-bot-whitelist, .better-settings__ai-bot-comment-prompt, .better-settings__ai-bot-feed-comment-prompt")) {
+      if (event.target.matches(".better-settings__ai-bot-base-url, .better-settings__ai-bot-model, .better-settings__ai-bot-api-key, .better-settings__ai-bot-poll-minutes, .better-settings__ai-bot-feed-poll-minutes, .better-settings__ai-bot-fresh-minutes, .better-settings__ai-bot-reply-limit, .better-settings__ai-bot-history-limit, .better-settings__ai-bot-whitelist, .better-settings__ai-bot-comment-prompt, .better-settings__ai-bot-feed-comment-prompt")) {
         if (event.target.matches(".better-settings__ai-bot-whitelist, .better-settings__ai-bot-comment-prompt, .better-settings__ai-bot-feed-comment-prompt")) {
           syncAutoHeightTextarea(event.target);
           repositionSettingsPanelIfOpen();
@@ -9792,12 +9810,13 @@
         return;
       }
 
-      if (event.target.matches(".better-settings__ai-bot-poll-minutes, .better-settings__ai-bot-feed-poll-minutes, .better-settings__ai-bot-fresh-minutes, .better-settings__ai-bot-reply-limit, .better-settings__ai-bot-whitelist, .better-settings__ai-bot-reply-mentions, .better-settings__ai-bot-reply-comments, .better-settings__ai-bot-comment-home-feed, .better-settings__ai-bot-feed-select-strategy, .better-settings__ai-bot-allow-emoji")) {
+      if (event.target.matches(".better-settings__ai-bot-poll-minutes, .better-settings__ai-bot-feed-poll-minutes, .better-settings__ai-bot-fresh-minutes, .better-settings__ai-bot-reply-limit, .better-settings__ai-bot-history-limit, .better-settings__ai-bot-whitelist, .better-settings__ai-bot-reply-mentions, .better-settings__ai-bot-reply-comments, .better-settings__ai-bot-comment-home-feed, .better-settings__ai-bot-feed-select-strategy, .better-settings__ai-bot-allow-emoji, .better-settings__ai-bot-global-history")) {
         const normalized = getAiBotSettingsFormValues(panel);
         const pollInput = panel.querySelector(".better-settings__ai-bot-poll-minutes");
         const feedPollInput = panel.querySelector(".better-settings__ai-bot-feed-poll-minutes");
         const freshInput = panel.querySelector(".better-settings__ai-bot-fresh-minutes");
         const replyLimitInput = panel.querySelector(".better-settings__ai-bot-reply-limit");
+        const historyLimitInput = panel.querySelector(".better-settings__ai-bot-history-limit");
         const whitelistInput = panel.querySelector(".better-settings__ai-bot-whitelist");
         if (pollInput) {
           pollInput.value = normalized.pollMinutes;
@@ -9810,6 +9829,9 @@
         }
         if (replyLimitInput) {
           replyLimitInput.value = normalized.replyLimitPerLinkUser;
+        }
+        if (historyLimitInput) {
+          historyLimitInput.value = normalized.globalHistoryLimit;
         }
         if (whitelistInput) {
           whitelistInput.value = normalized.whitelistUserIds.join("\n");
