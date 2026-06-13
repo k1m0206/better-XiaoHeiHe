@@ -73,6 +73,8 @@
 
 ## 安装调试
 
+### Chrome / Edge
+
 1. 打开 Edge 或 Chrome 的扩展管理页面。
 2. 开启开发者模式。
 3. 选择“加载解压缩的扩展程序”。
@@ -81,26 +83,45 @@
 
 修改代码后，在扩展管理页面点击重新加载插件，再刷新小黑盒页面。
 
+### Firefox（140+）
+
+插件支持 Firefox 140 及以上版本（`world: "MAIN"` 最低要求为 128，但内置数据收集同意提示要求桌面版 140+，故取较高值）。
+
+1. 运行 `.\scripts\build-extension.ps1 -Target firefox` 生成 Firefox 专用包。
+2. 打开 `about:debugging#/runtime/this-firefox`。
+3. 选择“临时载入附加组件”，载入 `dist/better-XiaoHeiHe-firefox.zip`。
+
+Firefox 版与 Chrome 版共用全部业务代码，仅 manifest 的 `background`、`browser_specific_settings.gecko`（含扩展 ID、最低版本和 AMO 要求的 `data_collection_permissions`）由构建脚本自动注入，无需手动维护第二份 manifest。
+
 ## 打包上架
 
-用于 Chrome Web Store 上传的压缩包可以通过脚本生成：
+构建脚本支持按目标浏览器分别打包：
 
 ```powershell
+# 同时生成 Chrome 与 Firefox 包（默认）
 .\scripts\build-extension.ps1
+
+# 仅 Chrome
+.\scripts\build-extension.ps1 -Target chrome
+
+# 仅 Firefox
+.\scripts\build-extension.ps1 -Target firefox
 ```
 
 生成结果：
 
 ```text
-dist/better-XiaoHeiHe.zip
+dist/better-XiaoHeiHe-chrome.zip
+dist/better-XiaoHeiHe-firefox.zip
 ```
 
 上架资料可参考：
 
-- `CHROME_STORE.md`
+- `CHROME_STORE.md`（Chrome Web Store）
+- `FIREFOX_STORE.md`（Firefox AMO，含 gecko id、`data_collection_permissions` 与权限必要性说明）
 - `PRIVACY.md`
 
-上架前还需要准备至少 1 张商店截图，并把隐私政策发布到可公开访问的链接。
+上架前还需要准备至少 1 张商店截图，并把隐私政策发布到可公开访问的链接。Firefox 包提交 AMO 前建议先通过 `web-ext lint`。
 
 ## 项目结构
 
@@ -110,6 +131,7 @@ better-XiaoHeiHe/
     icons/
   manifest.json
   CHROME_STORE.md
+  FIREFOX_STORE.md
   PRIVACY.md
   README.md
   scripts/

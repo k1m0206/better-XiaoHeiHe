@@ -1,0 +1,21 @@
+{
+  "name": "better-XiaoHeiHe",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/build-extension.ps1 -Target all",
+    "build:chrome": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/build-extension.ps1 -Target chrome",
+    "build:firefox": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/build-extension.ps1 -Target firefox",
+    "lint:firefox": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/build-extension.ps1 -Target firefox -KeepStaging && web-ext lint --source-dir dist/firefox-staging",
+    "start:firefox": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/build-extension.ps1 -Target firefox -KeepStaging && web-ext run --source-dir dist/firefox-staging",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.17.1",
+  "devDependencies": {
+    "web-ext": "^10.4.0"
+  }
+}
