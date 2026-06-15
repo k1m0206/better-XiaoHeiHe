@@ -989,6 +989,57 @@
       .trim();
   }
 
+  function uniqueStrings(values) {
+    return [...new Set((values || []).map((value) => String(value || "").trim()).filter(Boolean))];
+  }
+
+  function getImageUrlsFromHtml(value) {
+    const urls = [];
+    String(value || "").replace(/<img\b[^>]*\b(?:data-original|src)=["']([^"']+)["'][^>]*>/gi, (_match, url) => {
+      urls.push(url);
+      return _match;
+    });
+    return urls;
+  }
+
+  function getImageUrlsFromRichText(value) {
+    if (!value) {
+      return [];
+    }
+
+    const urls = getImageUrlsFromHtml(value);
+    try {
+      const parts = JSON.parse(value);
+      const visit = (part) => {
+        if (Array.isArray(part)) {
+          part.forEach(visit);
+          return;
+        }
+        if (!part || typeof part !== "object") {
+          return;
+        }
+        if ((part.type === "img" || part.type === "image") && (part.url || part.image || part.src)) {
+          urls.push(part.url || part.image || part.src);
+        }
+        Object.values(part).forEach(visit);
+      };
+      visit(parts);
+    } catch {
+      // Plain HTML/text has already been handled above.
+    }
+    return urls;
+  }
+
+  function getLinkImageUrls(link = {}) {
+    const listImageUrls = Array.isArray(link.imgs) && link.imgs.length
+      ? link.imgs
+      : (Array.isArray(link.thumbs) ? link.thumbs : []);
+    return uniqueStrings([
+      ...listImageUrls,
+      ...getImageUrlsFromRichText(link.text)
+    ]).filter((url) => /^https?:\/\//i.test(url));
+  }
+
   function getCommentId(comment) {
     return comment?.comment_id || comment?.commentid || comment?.commentId || comment?.id || comment?.cid || "";
   }
@@ -1028,6 +1079,7 @@
       authorId: getUserId(link.user || {}),
       author: String(link.user?.username || link.user?.nickname || "").trim(),
       content: stripHtml(link.text || link.description || ""),
+      imageUrls: getLinkImageUrls(link),
       topic: [
         ...(Array.isArray(link.topics) ? link.topics.map((topic) => typeof topic === "string" ? topic : (topic?.name || topic?.text)) : []),
         ...(Array.isArray(link.tags) ? link.tags.map((tag) => typeof tag === "string" ? tag : (tag?.text || tag?.name)) : []),
@@ -1170,6 +1222,7 @@
       authorId: getUserId(link.user || {}),
       author: String(link.user?.username || link.user?.nickname || "").trim(),
       content: stripHtml(link.text || link.description || ""),
+      imageUrls: getLinkImageUrls(link),
       topic: [
         ...(Array.isArray(link.topics) ? link.topics.map((topic) => topic?.name) : []),
         ...(Array.isArray(link.tags) ? link.tags.map((tag) => tag?.text || tag?.name) : []),
@@ -1530,13 +1583,15 @@
       title: contextDetail.title || feedDetail.title,
       author: contextDetail.author || feedDetail.author,
       content: contextDetail.content || feedDetail.content,
-      topic: contextDetail.topic || feedDetail.topic
+      topic: contextDetail.topic || feedDetail.topic,
+      imageUrls: uniqueStrings([...(contextDetail.imageUrls || []), ...(feedDetail.imageUrls || [])])
     };
     return [
       "当前任务：对小黑盒首页推荐帖发表一条普通主评论，不是回复其他用户。",
       `帖子标题：${detail.title || "无标题"}`,
       detail.author ? `帖子作者：${detail.author}` : "",
       detail.content ? `帖子正文：${detail.content}` : "",
+      detail.imageUrls.length ? `帖子图片链接：\n${detail.imageUrls.join("\n")}` : "",
       detail.topic ? `话题：${detail.topic}` : "",
       feedDetail.commentNum ? `首页列表显示评论数：${feedDetail.commentNum}` : "",
       feedDetail.up ? `首页列表显示点赞数：${feedDetail.up}` : "",
