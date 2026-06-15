@@ -115,6 +115,7 @@
   const COMMENT_SUPPORT_API_PATH = "/bbs/app/comment/support";
   const LINK_AWARD_API_PATH = "/bbs/app/profile/award/link";
   const EMOJI_API_PATH = "/bbs/app/api/emojis/list";
+  const FEEDS_API_PATH = "/bbs/app/feeds";
   const SEARCH_WELCOME_API_PATH = "/bbs/app/api/search/welcome_page/v2";
   const API_ORIGIN = "https://api.xiaoheihe.cn";
   const COMMENT_PAGE_LIMIT = 20;
@@ -2468,6 +2469,129 @@
         max-width: 100% !important;
       }
 
+      .${HOME_LAYOUT_CLASS} .better-native-feed-images--row {
+        display: grid !important;
+        height: auto !important;
+        grid-template-columns: repeat(var(--better-native-image-count), minmax(0, 1fr));
+        gap: 4px;
+      }
+
+      .${HOME_LAYOUT_CLASS} .better-native-feed-images--row > .bbs-content__image {
+        width: auto !important;
+        height: auto !important;
+        aspect-ratio: 1;
+        position: relative !important;
+        top: auto !important;
+        left: auto !important;
+      }
+
+      .${HOME_LAYOUT_CLASS} .better-native-feed-images--row > .bbs-content__image > .hb-cpt__image-elem {
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover;
+      }
+
+      .${HOME_LAYOUT_CLASS} .better-native-feed-images--row > .bbs-content__image > .hb-cpt__image--default {
+        height: 100% !important;
+      }
+
+      .${HOME_LAYOUT_CLASS} .better-native-feed-images--feature {
+        display: grid !important;
+        height: 240px !important;
+        grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+        grid-template-rows: repeat(2, minmax(0, 1fr));
+        gap: 4px;
+      }
+
+      .${HOME_LAYOUT_CLASS} .better-native-feed-images--feature > .bbs-content__image {
+        width: auto !important;
+        height: auto !important;
+        position: relative !important;
+        top: auto !important;
+        left: auto !important;
+      }
+
+      .${HOME_LAYOUT_CLASS} .better-native-feed-images--feature > .bbs-content__image:first-child {
+        grid-row: 1 / -1;
+      }
+
+      .${HOME_LAYOUT_CLASS} .better-native-feed-images--feature > .bbs-content__image > .hb-cpt__image-elem {
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover;
+      }
+
+      .${HOME_LAYOUT_CLASS} .better-native-feed-images--feature > .bbs-content__image > .hb-cpt__image--default {
+        height: 100% !important;
+      }
+
+      .${HOME_LAYOUT_CLASS} .better-native-feed-images--feature > .bbs-content__image-cnt {
+        right: 0 !important;
+        bottom: 0 !important;
+        top: auto !important;
+        left: auto !important;
+        z-index: 1;
+      }
+
+      .${HOME_LAYOUT_CLASS} .better-feed-fallback-images {
+        display: grid;
+        height: 240px;
+        grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+        grid-template-rows: repeat(2, minmax(0, 1fr));
+        gap: 4px;
+        margin-top: 10px;
+        overflow: hidden;
+        border-radius: 6px;
+        background: #f3f4f5;
+      }
+
+      .${HOME_LAYOUT_CLASS} .better-feed-fallback-images[data-visible-count="1"] {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1fr);
+      }
+
+      .${HOME_LAYOUT_CLASS} .better-feed-fallback-images[data-visible-count="2"] {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-rows: minmax(0, 1fr);
+      }
+
+      .${HOME_LAYOUT_CLASS} .better-feed-fallback-image-wrap:first-child {
+        grid-row: 1 / -1;
+      }
+
+      .${HOME_LAYOUT_CLASS} .better-feed-fallback-images[data-visible-count="1"] .better-feed-fallback-image-wrap:first-child,
+      .${HOME_LAYOUT_CLASS} .better-feed-fallback-images[data-visible-count="2"] .better-feed-fallback-image-wrap:first-child {
+        grid-row: auto;
+      }
+
+      .${HOME_LAYOUT_CLASS} .better-feed-fallback-image {
+        display: block;
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        object-fit: cover;
+      }
+
+      .${HOME_LAYOUT_CLASS} .better-feed-fallback-image-wrap {
+        min-width: 0;
+        min-height: 0;
+        position: relative;
+        overflow: hidden;
+        background: #f3f4f5;
+      }
+
+      .${HOME_LAYOUT_CLASS} .better-feed-fallback-more {
+        display: flex;
+        position: absolute;
+        inset: 0;
+        align-items: center;
+        justify-content: center;
+        background: rgba(20, 25, 30, 0.52);
+        color: #fff;
+        font-size: 18px;
+        font-weight: 600;
+      }
+
       .${HOME_LAYOUT_CLASS} .${ROW_CLASS} .content-list__like {
         cursor: pointer;
       }
@@ -4244,12 +4368,68 @@
     return "";
   }
 
+  function isFeedApiUrl(url) {
+    try {
+      const parsed = new URL(url, window.location.href);
+      return parsed.origin === API_ORIGIN && parsed.pathname === FEEDS_API_PATH;
+    } catch {
+      return false;
+    }
+  }
+
+  function cacheFeedApiData(data) {
+    const links = Array.isArray(data?.result?.links) ? data.result.links : [];
+    links.forEach((link) => {
+      const linkId = String(link?.linkid || link?.link_id || "");
+      if (linkId) {
+        cacheLinkDetailFromApiData(linkId, { result: { link } });
+      }
+    });
+  }
+
+  function cacheFeedApiResponseText(text) {
+    try {
+      cacheFeedApiData(JSON.parse(text));
+    } catch {
+      // Ignore non-JSON or incomplete responses.
+    }
+  }
+
   function installApiParamCapture() {
     if (window.__betterXiaoHeiHeApiCaptureInstalled) {
       return;
     }
 
     window.__betterXiaoHeiHeApiCaptureInstalled = true;
+    const originalFetch = window.fetch;
+    window.fetch = function (...args) {
+      const url = getRequestUrl(args[0]);
+      captureApiParams(url);
+      const request = originalFetch.apply(this, args);
+      if (isFeedApiUrl(url)) {
+        request.then((response) => response.clone().json())
+          .then(cacheFeedApiData)
+          .catch(() => {});
+      }
+      return request;
+    };
+
+    const originalXhrOpen = XMLHttpRequest.prototype.open;
+    XMLHttpRequest.prototype.open = function (method, url, ...args) {
+      const requestUrl = getRequestUrl(url);
+      captureApiParams(requestUrl);
+      if (isFeedApiUrl(requestUrl)) {
+        this.addEventListener("load", () => {
+          if (this.responseType === "json") {
+            cacheFeedApiData(this.response);
+            return;
+          }
+          cacheFeedApiResponseText(this.responseText);
+        }, { once: true });
+      }
+      return originalXhrOpen.call(this, method, url, ...args);
+    };
+
     if (!window.PerformanceObserver) {
       return;
     }
@@ -5579,11 +5759,15 @@
     }
 
     const richText = parseLinkRichText(link.text);
+    const feedImageUrls = uniqueStrings(Array.isArray(link.imgs) ? link.imgs : []);
+    const feedThumbnailUrls = uniqueStrings(Array.isArray(link.thumbs) ? link.thumbs : []);
     return {
       title: String(link.title || "").trim(),
       author: String(link.user?.username || link.user?.nickname || "").trim(),
       content: richText.content || String(link.description || "").trim(),
-      imageUrls: uniqueStrings(richText.imageUrls),
+      imageUrls: uniqueStrings([...richText.imageUrls, ...feedImageUrls]),
+      feedImageUrls,
+      feedThumbnailUrls,
       topic: uniqueStrings([
         ...(Array.isArray(link.topics) ? link.topics.map((topic) => topic?.name) : []),
         ...(Array.isArray(link.tags) ? link.tags.map((tag) => tag?.text || tag?.name) : []),
@@ -5599,9 +5783,18 @@
     }
 
     const state = commentCache.get(linkId) || { commentGroups: [] };
-    state.linkDetail = detail;
+    const previousDetail = state.linkDetail || {};
+    state.linkDetail = {
+      ...previousDetail,
+      ...detail,
+      content: detail.content || previousDetail.content || "",
+      imageUrls: uniqueStrings([...(previousDetail.imageUrls || []), ...detail.imageUrls]),
+      feedImageUrls: detail.feedImageUrls.length ? detail.feedImageUrls : (previousDetail.feedImageUrls || []),
+      feedThumbnailUrls: detail.feedThumbnailUrls.length ? detail.feedThumbnailUrls : (previousDetail.feedThumbnailUrls || [])
+    };
     commentCache.set(linkId, state);
-    return detail;
+    updateFeedItemFallbackImages(linkId, state.linkDetail);
+    return state.linkDetail;
   }
 
   function cacheCommentPageFromApiData(linkId, page, data, options = {}) {
@@ -6247,11 +6440,13 @@
       return;
     }
 
+    const previousState = commentCache.get(linkId);
     const pending = {
       commentGroups: [],
       page: 0,
       hasMore: true,
-      loadingMore: true
+      loadingMore: true,
+      linkDetail: previousState?.linkDetail
     };
     commentCache.set(linkId, pending);
     renderLinkedPreviews(linkId);
@@ -6281,8 +6476,13 @@
       return;
     }
 
-    if (commentCache.has(linkId)) {
-      renderPreview(preview, commentCache.get(linkId));
+    const state = commentCache.get(linkId);
+    const hasCommentLoadState = Boolean(
+      state
+      && (Number(state.page) > 0 || state.loadingMore || state.failed)
+    );
+    if (hasCommentLoadState) {
+      renderPreview(preview, state);
       return;
     }
 
@@ -7658,8 +7858,102 @@
       || null;
   }
 
+  function hasNativeFeedImages(item) {
+    return Array.from(item?.querySelectorAll("img") || []).some((image) => (
+      !image.closest(".better-feed-fallback-images")
+      && !image.closest(".bbs-list-content__header")
+      && !image.closest(".bbs-content__bottom-line")
+    ));
+  }
+
+  function normalizeNativeFeedImageLayout(item) {
+    const wrapper = item?.querySelector(".bbs-content__imgs-wrapper");
+    const images = Array.from(wrapper?.querySelectorAll(":scope > .bbs-content__image") || []);
+    if (!wrapper || images.length < 2) {
+      wrapper?.classList.remove("better-native-feed-images--row");
+      wrapper?.classList.remove("better-native-feed-images--feature");
+      wrapper?.style.removeProperty("--better-native-image-count");
+      return;
+    }
+
+    const topPositions = images.map((image) => Number.parseFloat(image.style.top || "0"));
+    const isSingleRow = topPositions.every((top) => Number.isFinite(top) && Math.abs(top - topPositions[0]) < 1);
+    const leftPositions = images.map((image) => Number.parseFloat(image.style.left || "0"));
+    const isFeatureLayout = images.length === 3
+      && Math.abs(topPositions[0]) < 1
+      && Math.abs(topPositions[1]) < 1
+      && topPositions[2] > topPositions[1]
+      && leftPositions[1] > leftPositions[0]
+      && Math.abs(leftPositions[2] - leftPositions[1]) < 1;
+    wrapper.classList.toggle("better-native-feed-images--row", isSingleRow);
+    wrapper.classList.toggle("better-native-feed-images--feature", isFeatureLayout);
+    if (isSingleRow) {
+      wrapper.style.setProperty("--better-native-image-count", String(images.length));
+    } else {
+      wrapper.style.removeProperty("--better-native-image-count");
+    }
+  }
+
+  function ensureFeedItemFallbackImages(item, detail) {
+    const existing = item?.querySelector(".better-feed-fallback-images");
+    const imageUrls = Array.isArray(detail?.feedImageUrls) ? detail.feedImageUrls.filter(isSafeCommentImageUrl) : [];
+    if (!item || hasNativeFeedImages(item) || !imageUrls.length) {
+      existing?.remove();
+      return;
+    }
+
+    const thumbnailUrls = Array.isArray(detail?.feedThumbnailUrls) ? detail.feedThumbnailUrls : [];
+    const visibleImages = imageUrls.slice(0, 3);
+    const signature = JSON.stringify([imageUrls, thumbnailUrls]);
+    if (existing?.dataset.signature === signature) {
+      return;
+    }
+
+    const container = existing || document.createElement("div");
+    container.className = "better-feed-fallback-images";
+    container.dataset.signature = signature;
+    container.dataset.visibleCount = String(visibleImages.length);
+    container.innerHTML = visibleImages.map((url, index) => {
+      const thumbnailUrl = isSafeCommentImageUrl(thumbnailUrls[index]) ? thumbnailUrls[index] : url;
+      const remainingCount = index === visibleImages.length - 1 && imageUrls.length > visibleImages.length
+        ? imageUrls.length - visibleImages.length + 1
+        : 0;
+      return `
+        <span class="better-feed-fallback-image-wrap">
+          <img class="better-feed-fallback-image" src="${escapeHtml(thumbnailUrl)}" alt="帖子图片 ${escapeHtml(index + 1)}" loading="lazy">
+          ${remainingCount > 0 ? `<span class="better-feed-fallback-more">+${escapeHtml(remainingCount)}</span>` : ""}
+        </span>
+      `;
+    }).join("");
+
+    if (!existing) {
+      const bottomLine = item.querySelector(".bbs-content__bottom-line");
+      if (bottomLine) {
+        bottomLine.insertAdjacentElement("beforebegin", container);
+      } else {
+        item.appendChild(container);
+      }
+    }
+
+    container.querySelectorAll("img").forEach((image) => {
+      image.addEventListener("load", () => scheduleRowHeightSync(item.closest(`.${ROW_CLASS}`)), { once: true });
+      image.addEventListener("error", () => scheduleRowHeightSync(item.closest(`.${ROW_CLASS}`)), { once: true });
+    });
+    scheduleRowHeightSync(item.closest(`.${ROW_CLASS}`));
+  }
+
+  function updateFeedItemFallbackImages(linkId, detail) {
+    document.querySelectorAll(FEED_ITEM_SELECTOR).forEach((item) => {
+      if (getLinkIdFromItem(item) === String(linkId)) {
+        ensureFeedItemFallbackImages(item, detail);
+      }
+    });
+  }
+
   function enhanceFeedItem(item) {
     if (item.closest(`.${ROW_CLASS}`)) {
+      normalizeNativeFeedImageLayout(item);
+      ensureFeedItemFallbackImages(item, commentCache.get(getLinkIdFromItem(item))?.linkDetail);
       return;
     }
 
@@ -7691,8 +7985,10 @@
     row.appendChild(preview);
     applyFeedItemKeywordFilter(row, item);
     renderPreview(preview, null);
+    normalizeNativeFeedImageLayout(item);
     observeRowHeight(row, item);
     observePreview(preview);
+    ensureFeedItemFallbackImages(item, commentCache.get(linkId)?.linkDetail);
   }
 
   function enhanceFeed() {
