@@ -3774,6 +3774,13 @@
         max-width: 100% !important;
       }
 
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-bbs-post .post__container {
+        box-sizing: border-box;
+        width: min(100%, 960px) !important;
+        margin-right: auto !important;
+        margin-left: auto !important;
+      }
+
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-bbs-post .com-img-item {
         width: 100% !important;
       }
