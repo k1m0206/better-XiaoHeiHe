@@ -21,6 +21,7 @@
   const AI_BOT_MESSAGE_LIMIT = 20;
   const AI_BOT_COMMENT_LIMIT = 30;
   const AI_BOT_MIN_FEED_POLL_MINUTES = 10;
+  const AI_BOT_FEED_COOLDOWN_TOLERANCE_MS = 5000;
   const AI_BOT_DEFAULT_REPLY_LIMIT_PER_LINK_USER = 5;
   const AI_BOT_DEFAULT_GLOBAL_HISTORY_LIMIT = 20;
   const AI_BOT_MAX_GLOBAL_HISTORY_LIMIT = 100;
@@ -1701,15 +1702,13 @@
   async function getAiBotFeedCommentCooldown(settings) {
     const result = await storageGet(AI_BOT_RUNTIME_STORAGE_KEY);
     const runtime = result[AI_BOT_RUNTIME_STORAGE_KEY] || {};
-    const lastFeedAt = Math.max(
-      Number(runtime.lastFeedCommentAt || 0),
-      Number(runtime.lastFeedCommentAttemptAt || 0)
-    );
+    const lastFeedAt = Number(runtime.lastFeedCommentAttemptAt || runtime.lastFeedCommentAt || 0);
     const intervalMs = getAiBotFeedCommentIntervalMs(settings);
+    const remainingMs = intervalMs - (Date.now() - lastFeedAt);
     return {
       lastFeedAt,
       intervalMs,
-      waitMs: Math.max(0, intervalMs - (Date.now() - lastFeedAt))
+      waitMs: remainingMs > AI_BOT_FEED_COOLDOWN_TOLERANCE_MS ? remainingMs : 0
     };
   }
 
