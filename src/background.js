@@ -94,6 +94,20 @@
       .filter(Boolean))];
   }
 
+  function normalizeKeywordList(value) {
+    const seen = new Set();
+    return (Array.isArray(value) ? value : String(value || "").split(/[\r\n,，;；]+/))
+      .map((item) => String(item || "").trim())
+      .filter((item) => {
+        const normalized = item.toLocaleLowerCase();
+        if (!normalized || seen.has(normalized)) {
+          return false;
+        }
+        seen.add(normalized);
+        return true;
+      });
+  }
+
   function normalizeAiBotSettings(settings) {
     const provider = normalizeProvider(settings?.provider || settings?.endpointMode);
     const isEnabled = settings?.enabled === true;
@@ -121,6 +135,7 @@
       commentHomeFeed,
       feedSelectStrategy: ["first", "latest", "hot"].includes(settings?.feedSelectStrategy) ? settings.feedSelectStrategy : "first",
       whitelistUserIds: normalizeIdList(settings?.whitelistUserIds || settings?.whitelistText),
+      rejectedReplyKeywords: normalizeKeywordList(settings?.rejectedReplyKeywords || settings?.rejectedReplyKeywordsText),
       allowEmoji: settings?.allowEmoji !== false,
       commentPrompt: String(settings?.commentPrompt || "").trim() || AI_BOT_DEFAULT_PROMPT,
       feedCommentPrompt: String(settings?.feedCommentPrompt || "").trim() || AI_BOT_DEFAULT_FEED_PROMPT
@@ -2218,6 +2233,58 @@
     };
   }
 
+  function getAiBotIncomingMessageText(message) {
+    return stripHtml(String(
+      message?.comment_a_text
+      || message?.comment_text
+      || message?.content
+      || message?.text
+      || ""
+    )).trim();
+  }
+
+  function getRejectedReplyKeywordMatch(settings, message) {
+    const messageText = getAiBotIncomingMessageText(message).toLocaleLowerCase();
+    if (!messageText) {
+      return "";
+    }
+    return (settings.rejectedReplyKeywords || []).find((keyword) => (
+      messageText.includes(String(keyword || "").toLocaleLowerCase())
+    )) || "";
+  }
+
+  async function skipRejectedKeywordAiBotMessage(settings, message, records, messageSource, options = {}) {
+    const messageId = String(message?.message_id || "");
+    const matchedKeyword = getRejectedReplyKeywordMatch(settings, message);
+    if (!messageId || records[messageId] || !matchedKeyword) {
+      return false;
+    }
+
+    const skippedAt = Date.now();
+    await markMessageReplied(messageId, {
+      skippedAt,
+      skipReason: "rejected_keyword",
+      matchedKeyword,
+      messageSource
+    });
+    records[messageId] = {
+      skippedAt,
+      skipReason: "rejected_keyword",
+      matchedKeyword
+    };
+    const detail = {
+      ...getAiBotMessageDebugInfo(message),
+      messageSource,
+      typeLabel: getAiBotMessageTypeLabel(messageSource),
+      skipReason: "rejected_keyword",
+      matchedKeyword
+    };
+    if (!options.collectOnly) {
+      await appendAiBotLog("info", `命中拒绝回复关键词「${matchedKeyword}」，已跳过`, detail);
+    }
+    return detail;
+  }
+
   function getMessageTimestampMs(message) {
     const value = Number(message?.timestamp || message?.time || 0);
     if (!Number.isFinite(value) || value <= 0) {
@@ -2366,6 +2433,14 @@
         actionResult: "skipped",
         actionLabel: "超过时间窗口，已跳过",
         skipReason: "stale"
+      };
+    }
+    const rejectedKeywordDetail = await skipRejectedKeywordAiBotMessage(settings, message, records, messageSource);
+    if (rejectedKeywordDetail) {
+      return {
+        actionResult: "skipped",
+        actionLabel: `命中拒绝回复关键词「${rejectedKeywordDetail.matchedKeyword}」，已跳过`,
+        skipReason: "rejected_keyword"
       };
     }
     const precheckSkip = getAiBotMessagePrecheckSkipReason(settings, message, records);
@@ -2691,6 +2766,42 @@
       rootCommentId: rootCommentId || replyCommentId,
       messageText: item.messageText || ""
     };
+
+    const matchedKeyword = getRejectedReplyKeywordMatch(settings, message);
+    if (matchedKeyword) {
+      await markMessageReplied(item.messageId, {
+        skippedAt: Date.now(),
+        skipReason: "rejected_keyword",
+        matchedKeyword,
+        messageSource: item.messageSource
+      });
+      await appendAiBotMessageLog({
+        skipped: true,
+        skipReason: "rejected_keyword",
+        matchedKeyword,
+        messageId: item.messageId,
+        messageSource: item.messageSource,
+        typeLabel,
+        linkId: item.linkId,
+        linkTitle: context.detail?.title || "",
+        linkUrl: getLinkUrl(item.linkId),
+        replyCommentId,
+        rootCommentId: rootCommentId || replyCommentId,
+        targetId,
+        senderId: item.senderId,
+        senderName: item.senderName,
+        messageText: item.messageText || "",
+        messageTimestamp: getMessageTimestampMs(message),
+        triggerText: item.messageText || "",
+        replyText: `命中拒绝回复关键词「${matchedKeyword}」`
+      });
+      await appendAiBotLog("info", `队列消息命中拒绝回复关键词「${matchedKeyword}」，已跳过`, {
+        ...messageDebug,
+        skipReason: "rejected_keyword",
+        matchedKeyword
+      });
+      return;
+    }
 
     if (targetId) {
       const targetUsage = await getReplyTargetUsage(item.linkId, targetId, settings.replyLimitPerLinkUser);
@@ -3036,6 +3147,21 @@
               actionResult: "skipped",
               actionLabel: "超过时间窗口，已跳过",
               skipReason: "stale"
+            }));
+            continue;
+          }
+          const rejectedKeywordDetail = await skipRejectedKeywordAiBotMessage(
+            latestSettings,
+            item.message,
+            records,
+            item.source,
+            { collectOnly: true }
+          );
+          if (rejectedKeywordDetail) {
+            sourceResults.push(createAiBotPollResultItem(item.message, item.source, {
+              actionResult: "skipped",
+              actionLabel: `命中拒绝回复关键词「${rejectedKeywordDetail.matchedKeyword}」，已跳过`,
+              skipReason: "rejected_keyword"
             }));
             continue;
           }

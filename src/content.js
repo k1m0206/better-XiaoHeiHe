@@ -463,6 +463,20 @@
       .filter(Boolean))];
   }
 
+  function normalizeKeywordList(value) {
+    const seen = new Set();
+    return (Array.isArray(value) ? value : String(value || "").split(/[\r\n,，;；]+/))
+      .map((item) => String(item || "").trim())
+      .filter((item) => {
+        const normalized = item.toLocaleLowerCase();
+        if (!normalized || seen.has(normalized)) {
+          return false;
+        }
+        seen.add(normalized);
+        return true;
+      });
+  }
+
   function normalizeAiBotSettings(settings = {}) {
     const provider = Object.values(AI_PROVIDERS).includes(settings?.provider || settings?.endpointMode)
       ? (settings?.provider || settings?.endpointMode)
@@ -492,6 +506,7 @@
       replyComments,
       commentHomeFeed,
       whitelistUserIds: normalizeIdList(settings?.whitelistUserIds || settings?.whitelistText),
+      rejectedReplyKeywords: normalizeKeywordList(settings?.rejectedReplyKeywords || settings?.rejectedReplyKeywordsText),
       allowEmoji: settings?.allowEmoji !== false,
       commentPrompt: String(settings?.commentPrompt || "").trim() || AI_BOT_DEFAULT_PROMPT,
       feedCommentPrompt: String(settings?.feedCommentPrompt || "").trim() || AI_BOT_DEFAULT_FEED_PROMPT
@@ -8670,6 +8685,10 @@
               <span class="better-settings__field-title">白名单用户 ID</span>
               <textarea class="better-settings__textarea better-settings__ai-bot-whitelist" placeholder="空白表示允许回复所有触发用户；多个 ID 可用逗号、空格或换行分隔">${escapeHtml(aiBotSettings.whitelistUserIds.join("\n"))}</textarea>
             </label>
+            <label class="better-settings__field">
+              <span class="better-settings__field-title">拒绝回复关键词</span>
+              <textarea class="better-settings__textarea better-settings__ai-bot-rejected-keywords" placeholder="评论或回复命中任一关键词时直接跳过；多个关键词可用逗号、分号或换行分隔">${escapeHtml(aiBotSettings.rejectedReplyKeywords.join("\n"))}</textarea>
+            </label>
             <div class="better-settings__field">
               <div class="better-settings__field-title">
                 <span>AI 评论提示词</span>
@@ -8744,6 +8763,7 @@
     actionResult: "处理结果",
     actionLabel: "结果说明",
     skipReason: "跳过原因",
+    matchedKeyword: "命中的拒绝回复关键词",
     moderationReason: "内容审查具体原因",
     moderationReasonDetail: "内容审查原因说明",
     modelResponsePreview: "模型返回内容预览",
@@ -9037,7 +9057,7 @@
       ? visibleLogs.map((log) => `
         <div class="better-settings__ai-bot-message-log${log.skipped ? " better-settings__ai-bot-message-log--skipped" : ""}">
           <div class="better-settings__ai-bot-log-meta">
-            <span class="better-settings__ai-bot-log-level better-settings__ai-bot-log-level--${log.skipped ? "warn" : "success"}">${escapeHtml(log.skipped ? (log.skipReason === "content_moderation" ? "已跳过" : log.skipReason === "queue_expired" ? "队列超时" : log.skipReason === "send_failed" ? "发送失败" : log.skipReason === "source_disabled" ? "开关关闭" : log.skipReason === "stale" ? "已过期" : log.skipReason === "missing_target" ? "缺少目标" : log.skipReason === "reply_target_limit" ? "次数上限" : "跳过") : (log.typeLabel || (log.messageSource === "feed" ? "首页推荐帖" : (log.messageSource === "comment" ? "评论" : "@"))))}</span>
+            <span class="better-settings__ai-bot-log-level better-settings__ai-bot-log-level--${log.skipped ? "warn" : "success"}">${escapeHtml(log.skipped ? (log.skipReason === "content_moderation" ? "已跳过" : log.skipReason === "queue_expired" ? "队列超时" : log.skipReason === "send_failed" ? "发送失败" : log.skipReason === "source_disabled" ? "开关关闭" : log.skipReason === "stale" ? "已过期" : log.skipReason === "missing_target" ? "缺少目标" : log.skipReason === "reply_target_limit" ? "次数上限" : log.skipReason === "rejected_keyword" ? "关键词跳过" : "跳过") : (log.typeLabel || (log.messageSource === "feed" ? "首页推荐帖" : (log.messageSource === "comment" ? "评论" : "@"))))}</span>
             <span>${escapeHtml(log.timeText || new Date(log.timestamp || Date.now()).toLocaleString("zh-CN", { hour12: false }))}</span>
           </div>
           <div class="better-settings__ai-bot-message-title">${log.linkUrl ? `<a href="${escapeHtml(log.linkUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(log.linkTitle || `帖子 ${log.linkId || ""}`)}</a>` : escapeHtml(log.linkTitle || `帖子 ${log.linkId || ""}`)}${log.messageSource === "feed" && log.messageTimestamp ? `<span class="better-settings__ai-bot-post-time">${escapeHtml(new Date(log.messageTimestamp).toLocaleString("zh-CN", { hour12: false }))}</span>` : ""}</div>
@@ -9639,6 +9659,7 @@
       replyComments,
       commentHomeFeed,
       whitelistText: panel.querySelector(".better-settings__ai-bot-whitelist")?.value,
+      rejectedReplyKeywordsText: panel.querySelector(".better-settings__ai-bot-rejected-keywords")?.value,
       allowEmoji: panel.querySelector(".better-settings__ai-bot-allow-emoji")?.checked !== false,
       commentPrompt: panel.querySelector(".better-settings__ai-bot-comment-prompt")?.value,
       feedCommentPrompt: panel.querySelector(".better-settings__ai-bot-feed-comment-prompt")?.value
@@ -10192,8 +10213,8 @@
         saveAiSettingsFromPanel(panel);
       }
 
-      if (event.target.matches(".better-settings__ai-bot-base-url, .better-settings__ai-bot-model, .better-settings__ai-bot-api-key, .better-settings__ai-bot-poll-minutes, .better-settings__ai-bot-feed-poll-minutes, .better-settings__ai-bot-fresh-minutes, .better-settings__ai-bot-reply-limit, .better-settings__ai-bot-history-limit, .better-settings__ai-bot-whitelist, .better-settings__ai-bot-comment-prompt, .better-settings__ai-bot-feed-comment-prompt")) {
-        if (event.target.matches(".better-settings__ai-bot-whitelist, .better-settings__ai-bot-comment-prompt, .better-settings__ai-bot-feed-comment-prompt")) {
+      if (event.target.matches(".better-settings__ai-bot-base-url, .better-settings__ai-bot-model, .better-settings__ai-bot-api-key, .better-settings__ai-bot-poll-minutes, .better-settings__ai-bot-feed-poll-minutes, .better-settings__ai-bot-fresh-minutes, .better-settings__ai-bot-reply-limit, .better-settings__ai-bot-history-limit, .better-settings__ai-bot-whitelist, .better-settings__ai-bot-rejected-keywords, .better-settings__ai-bot-comment-prompt, .better-settings__ai-bot-feed-comment-prompt")) {
+        if (event.target.matches(".better-settings__ai-bot-whitelist, .better-settings__ai-bot-rejected-keywords, .better-settings__ai-bot-comment-prompt, .better-settings__ai-bot-feed-comment-prompt")) {
           syncAutoHeightTextarea(event.target);
           repositionSettingsPanelIfOpen();
         }
@@ -10237,7 +10258,7 @@
         return;
       }
 
-      if (event.target.matches(".better-settings__ai-bot-poll-minutes, .better-settings__ai-bot-feed-poll-minutes, .better-settings__ai-bot-fresh-minutes, .better-settings__ai-bot-reply-limit, .better-settings__ai-bot-history-limit, .better-settings__ai-bot-whitelist, .better-settings__ai-bot-reply-mentions, .better-settings__ai-bot-reply-comments, .better-settings__ai-bot-comment-home-feed, .better-settings__ai-bot-feed-select-strategy, .better-settings__ai-bot-allow-emoji, .better-settings__ai-bot-global-history")) {
+      if (event.target.matches(".better-settings__ai-bot-poll-minutes, .better-settings__ai-bot-feed-poll-minutes, .better-settings__ai-bot-fresh-minutes, .better-settings__ai-bot-reply-limit, .better-settings__ai-bot-history-limit, .better-settings__ai-bot-whitelist, .better-settings__ai-bot-rejected-keywords, .better-settings__ai-bot-reply-mentions, .better-settings__ai-bot-reply-comments, .better-settings__ai-bot-comment-home-feed, .better-settings__ai-bot-feed-select-strategy, .better-settings__ai-bot-allow-emoji, .better-settings__ai-bot-global-history")) {
         const normalized = getAiBotSettingsFormValues(panel);
         const pollInput = panel.querySelector(".better-settings__ai-bot-poll-minutes");
         const feedPollInput = panel.querySelector(".better-settings__ai-bot-feed-poll-minutes");
@@ -10245,6 +10266,7 @@
         const replyLimitInput = panel.querySelector(".better-settings__ai-bot-reply-limit");
         const historyLimitInput = panel.querySelector(".better-settings__ai-bot-history-limit");
         const whitelistInput = panel.querySelector(".better-settings__ai-bot-whitelist");
+        const rejectedKeywordsInput = panel.querySelector(".better-settings__ai-bot-rejected-keywords");
         if (pollInput) {
           pollInput.value = normalized.pollMinutes;
         }
@@ -10263,6 +10285,10 @@
         if (whitelistInput) {
           whitelistInput.value = normalized.whitelistUserIds.join("\n");
           syncAutoHeightTextarea(whitelistInput);
+        }
+        if (rejectedKeywordsInput) {
+          rejectedKeywordsInput.value = normalized.rejectedReplyKeywords.join("\n");
+          syncAutoHeightTextarea(rejectedKeywordsInput);
         }
         if (event.target.matches(".better-settings__ai-bot-comment-home-feed")) {
           const feedSection = panel.querySelector(".better-settings__feed-poll-section");
