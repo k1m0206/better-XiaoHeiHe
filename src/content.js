@@ -181,6 +181,7 @@
   let topMenuOutsideClickBound = false;
   let feedAiCaptureBound = false;
   let feedAwardCaptureBound = false;
+  let feedImageCaptureBound = false;
   let heyboxWebLinkCaptureBound = false;
   let topicBlockContextMenuBound = false;
   let imageViewerKeydownBound = false;
@@ -6346,6 +6347,33 @@
     showImageViewerAt(index);
   }
 
+  function openFeedFallbackImageViewer(imageWrap) {
+    const imageGroup = imageWrap.closest(".better-feed-fallback-images");
+    const visibleWraps = Array.from(imageGroup?.querySelectorAll(".better-feed-fallback-image-wrap") || []);
+    if (!imageGroup || !visibleWraps.length) {
+      return;
+    }
+
+    let imageUrls = [];
+    try {
+      const signature = JSON.parse(imageGroup.dataset.signature || "[]");
+      imageUrls = Array.isArray(signature?.[0]) ? signature[0].filter(isSafeCommentImageUrl) : [];
+    } catch {
+      imageUrls = [];
+    }
+    if (!imageUrls.length) {
+      imageUrls = visibleWraps
+        .map((wrap) => wrap.querySelector(".better-feed-fallback-image")?.src || "")
+        .filter(isSafeCommentImageUrl);
+    }
+    if (!imageUrls.length) {
+      return;
+    }
+
+    activeImageViewerImages = imageUrls;
+    showImageViewerAt(Math.max(0, visibleWraps.indexOf(imageWrap)));
+  }
+
   function bindPreviewActions(preview) {
     if (preview.dataset.actionsBound === "1") {
       return;
@@ -7676,6 +7704,15 @@
         return;
       }
 
+      const fallbackImageWrap = event.target.closest(".better-feed-fallback-image-wrap");
+      if (fallbackImageWrap && item.contains(fallbackImageWrap)) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        openFeedFallbackImageViewer(fallbackImageWrap);
+        return;
+      }
+
       const aiButton = event.target.closest(".better-ai-summary-button");
       if (aiButton && item.contains(aiButton)) {
         event.preventDefault();
@@ -7863,6 +7900,30 @@
     return row?.querySelector(":scope > .hb-cpt__bbs-list-content")
       || row?.querySelector(":scope > .hb-cpt__bbs-content")
       || null;
+  }
+
+  function bindFeedImageCapture() {
+    if (feedImageCaptureBound) {
+      return;
+    }
+
+    feedImageCaptureBound = true;
+    document.addEventListener("click", (event) => {
+      if (!(event.target instanceof Element)) {
+        return;
+      }
+
+      const fallbackImageWrap = event.target.closest(".better-feed-fallback-image-wrap");
+      const item = fallbackImageWrap?.closest(FEED_ITEM_SELECTOR);
+      if (!fallbackImageWrap || !item || !document.documentElement.classList.contains(HOME_LAYOUT_CLASS)) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      openFeedFallbackImageViewer(fallbackImageWrap);
+    }, true);
   }
 
   function hasNativeFeedImages(item) {
@@ -11000,6 +11061,7 @@
     captureExistingApiEntries();
     bindFeedAiCapture();
     bindFeedAwardCapture();
+    bindFeedImageCapture();
     bindHeyboxWebLinkCapture();
     bindTopicBlockContextMenu();
     installLocalSettingsStateSync();
