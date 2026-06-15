@@ -2,6 +2,7 @@
   const AI_SETTINGS_STORAGE_KEY = "better-xiaoheihe-ai-settings";
   const AI_MODEL_CACHE_STORAGE_KEY = "better-xiaoheihe-ai-model-cache";
   const AI_BOT_SETTINGS_STORAGE_KEY = "better-xiaoheihe-ai-bot-settings";
+  const AI_BOT_CONSENT_STORAGE_KEY = "better-xiaoheihe-ai-bot-consent";
   const AI_BOT_LOGS_STORAGE_KEY = "better-xiaoheihe-ai-bot-logs";
   const AI_BOT_MESSAGE_LOGS_STORAGE_KEY = "better-xiaoheihe-ai-bot-message-logs";
   const AI_BOT_EMOJI_CODES_STORAGE_KEY = "better-xiaoheihe-ai-bot-emoji-codes";
@@ -25,8 +26,8 @@
   const AI_BOT_DEFAULT_REPLY_LIMIT_PER_LINK_USER = 5;
   const AI_BOT_DEFAULT_GLOBAL_HISTORY_LIMIT = 20;
   const AI_BOT_MAX_GLOBAL_HISTORY_LIMIT = 100;
-  const AI_BOT_DEFAULT_PROMPT = "你是小黑盒社区自动回复助手。请根据消息类型、帖子正文、评论区上下文和触发消息的那条评论，生成一条自然、友好、简洁的中文回复。不要暴露你是AI，不要使用模板化开头，不要编造事实，不要输出Markdown。如果触发消息的评论内容只有表情（没有文字，表情数量可以是多个），那么你只回复一个表情，不要添加任何文字。";
-  const AI_BOT_DEFAULT_FEED_PROMPT = "你是小黑盒社区暖贴助手。请根据帖子标题、正文和话题，生成一条自然、真实、简洁的中文评论，像普通用户浏览帖子后留下的感想。不要暴露你是AI，不要使用模板化开头，不要编造未提供的信息，不要输出Markdown。";
+  const AI_BOT_DEFAULT_PROMPT = "你是小黑盒社区自动回复助手。请根据消息类型、帖子正文、评论区上下文和触发消息的那条评论，生成一条自然、友好、简洁的中文回复。不要使用模板化开头，不要编造事实，不要输出Markdown。如果触发消息的评论内容只有表情（没有文字，表情数量可以是多个），那么你只回复一个表情，不要添加任何文字。";
+  const AI_BOT_DEFAULT_FEED_PROMPT = "你是小黑盒社区暖贴助手。请根据帖子标题、正文和话题，生成一条自然、真实、简洁的中文评论，像普通用户浏览帖子后留下的感想。不要使用模板化开头，不要编造未提供的信息，不要输出Markdown。";
   const AI_BOT_BUILTIN_MODERATION_PROMPT = "\n\n[系统内置审查规则 - 不可关闭]：\n在生成回复前，必须同时审查触发消息的评论内容和你将要生成的回复内容。遇到以下情况时，直接返回 [REFUSE] 标记（不要返回其他任何内容）：\n- 违反中国法律法规的内容（涉政敏感、分裂国家、损害国家荣誉和利益等）\n- 违反社会主义核心价值观的内容\n- 涉黄、涉暴、涉恐、涉赌、涉毒等违法内容\n- 侮辱、诽谤、人身攻击、网络暴力、不礼貌的言论\n- 歧视性内容（地域歧视、性别歧视、种族歧视等）\n- 散布谣言、虚假信息、误导性内容\n- 不道德、低俗、恶俗、有悖公序良俗的内容\n- 涉及未成年人不良内容\n- 政治敏感话题、时政评论、涉及领导人或国家政策的讨论\n如果触发消息的评论本身包含上述违规内容，也直接返回 [REFUSE]。";
   const AI_BOT_MESSAGE_TYPES = {
     MENTION: "mention",
@@ -212,12 +213,44 @@
     });
   }
 
+  async function hasAiBotConsent() {
+    const result = await storageGet(AI_BOT_CONSENT_STORAGE_KEY);
+    return result[AI_BOT_CONSENT_STORAGE_KEY] === true;
+  }
+
+  function notifyAiBotCommentFailures() {
+    if (!chrome.notifications?.create) {
+      return;
+    }
+
+    chrome.notifications.create("better-xiaoheihe-ai-bot-comment-failures", {
+      type: "basic",
+      iconUrl: "assets/icons/icon128.png",
+      title: "AI Bot 已自动停止",
+      message: "自动评论连续发送失败 3 次，请检查小黑盒账号登录状态或账号限制后再重新开启。"
+    });
+  }
+
   async function stopAiBotForLoginExpired(reason) {
     const settings = await readAiBotSettings();
     await writeAiBotSettings({ ...settings, enabled: false });
     await clearAiBotAlarm();
     await appendAiBotLog("error", "登录状态过期，AI Bot 已停止", { reason });
     notifyAiBotLoginExpired();
+  }
+
+  async function stopAiBotForCommentFailures(reason) {
+    const settings = await readAiBotSettings();
+    await writeAiBotSettings({
+      ...settings,
+      enabled: false,
+      replyMentions: false,
+      replyComments: false,
+      commentHomeFeed: false
+    });
+    await clearAiBotAlarm();
+    await appendAiBotLog("error", "自动评论连续发送失败 3 次，AI 回复和暖贴已停止", { reason });
+    notifyAiBotCommentFailures();
   }
 
   function normalizeModelList(models) {
@@ -1596,7 +1629,7 @@
       feedDetail.commentNum ? `首页列表显示评论数：${feedDetail.commentNum}` : "",
       feedDetail.up ? `首页列表显示点赞数：${feedDetail.up}` : "",
       `评论区上下文（最多${AI_BOT_COMMENT_LIMIT}条）：\n${getAiBotCommentLines(context.groups).join("\n") || "暂无评论上下文"}`,
-      "请生成一条像真实用户看到该帖子后自然留下的中文主评论。不要声称自己已体验未提供的信息，不要提到你是 AI，不要输出 Markdown。",
+      "请生成一条像真实用户看到该帖子后自然留下的中文主评论。不要声称自己已体验未提供的信息，不要输出 Markdown。",
       allowEmoji
         ? (emojiCodes.length ? `完整可用小黑盒表情短码列表：${emojiCodes.join(" ")}\n可以自然使用 Unicode emoji 表情，也可以使用 0-2 个列表内短码；不要编造列表外的短码，不要输出任何不在这个列表里的方括号表情，例如[摊手]、[笑哭]。` : "可以自然使用 Unicode emoji 表情；没有可用小黑盒表情短码时，不要输出任何方括号表情。")
         : "不要使用 Unicode emoji 表情，不要输出任何小黑盒表情短码或方括号表情。"
@@ -1745,7 +1778,42 @@
     await storageSet({
       [AI_BOT_RUNTIME_STORAGE_KEY]: {
         ...(result[AI_BOT_RUNTIME_STORAGE_KEY] || {}),
-        lastCommentAt: Date.now()
+        lastCommentAt: Date.now(),
+        consecutiveCommentFailures: 0
+      }
+    });
+  }
+
+  async function markAiBotCommentFailed(error) {
+    const result = await storageGet(AI_BOT_RUNTIME_STORAGE_KEY);
+    const runtime = result[AI_BOT_RUNTIME_STORAGE_KEY] || {};
+    const consecutiveCommentFailures = Number(runtime.consecutiveCommentFailures || 0) + 1;
+    await storageSet({
+      [AI_BOT_RUNTIME_STORAGE_KEY]: {
+        ...runtime,
+        consecutiveCommentFailures,
+        lastCommentFailureAt: Date.now()
+      }
+    });
+    await appendAiBotLog("error", `自动评论发送失败（连续 ${consecutiveCommentFailures}/3 次）`, {
+      error: error?.message || "未知错误",
+      ...(error?.aiBotDetail || {})
+    });
+    if (consecutiveCommentFailures === 3) {
+      await stopAiBotForCommentFailures(error?.message || "评论发送失败");
+    }
+  }
+
+  async function resetAiBotCommentFailures() {
+    const result = await storageGet(AI_BOT_RUNTIME_STORAGE_KEY);
+    const runtime = result[AI_BOT_RUNTIME_STORAGE_KEY] || {};
+    if (!runtime.consecutiveCommentFailures) {
+      return;
+    }
+    await storageSet({
+      [AI_BOT_RUNTIME_STORAGE_KEY]: {
+        ...runtime,
+        consecutiveCommentFailures: 0
       }
     });
   }
@@ -1838,7 +1906,14 @@
   }
 
   async function submitAiBotComment(heyboxId, linkId, replyCommentId, rootCommentId, text) {
-    return queueAiBotCommentSubmission(() => submitAiBotCommentNow(heyboxId, linkId, replyCommentId, rootCommentId, text));
+    return queueAiBotCommentSubmission(async () => {
+      try {
+        return await submitAiBotCommentNow(heyboxId, linkId, replyCommentId, rootCommentId, text);
+      } catch (error) {
+        await markAiBotCommentFailed(error);
+        throw error;
+      }
+    });
   }
 
   async function readReplyQueue() {
@@ -2752,6 +2827,9 @@
     }
     aiBotQueueProcessing = true;
     try {
+      if (!await hasAiBotConsent()) {
+        return;
+      }
       const settings = await readAiBotSettings();
       if (!settings.enabled) {
         return;
@@ -2845,6 +2923,9 @@
 
     aiBotFeedRunning = true;
     try {
+      if (!await hasAiBotConsent()) {
+        return { ok: false, error: "尚未确认 AI Bot 风险授权" };
+      }
       const settings = await readAiBotSettings();
       if (!settings.enabled || !settings.commentHomeFeed) {
         return { ok: true, disabled: true };
@@ -2896,6 +2977,9 @@
 
     aiBotRunning = true;
     try {
+      if (!await hasAiBotConsent()) {
+        return { ok: false, error: "尚未确认 AI Bot 风险授权" };
+      }
       const settings = await readAiBotSettings();
       if (!settings.enabled) {
         return { ok: true, disabled: true };
@@ -3058,10 +3142,11 @@
   async function syncAiBotAlarm(options = {}) {
     const reset = options.reset === true;
     const settings = await readAiBotSettings();
+    const consentAccepted = await hasAiBotConsent();
     if (reset) {
       await clearAiBotAlarm();
     }
-    if (!settings.enabled || !chrome.alarms?.create) {
+    if (!consentAccepted || !settings.enabled || !chrome.alarms?.create) {
       await clearAiBotAlarm();
       return;
     }
@@ -3292,6 +3377,14 @@
 
   chrome.storage.onChanged?.addListener((changes, areaName) => {
     if (areaName === "local" && changes[AI_BOT_SETTINGS_STORAGE_KEY]) {
+      const wasEnabled = normalizeAiBotSettings(changes[AI_BOT_SETTINGS_STORAGE_KEY].oldValue).enabled;
+      const isEnabled = normalizeAiBotSettings(changes[AI_BOT_SETTINGS_STORAGE_KEY].newValue).enabled;
+      if (!wasEnabled && isEnabled) {
+        resetAiBotCommentFailures();
+      }
+      syncAiBotAlarm({ reset: true });
+    }
+    if (areaName === "local" && changes[AI_BOT_CONSENT_STORAGE_KEY]) {
       syncAiBotAlarm({ reset: true });
     }
     if (areaName === "local" && changes[API_PARAMS_STORAGE_KEY]) {

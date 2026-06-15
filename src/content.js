@@ -26,6 +26,7 @@
   const AI_BOT_LOGS_STORAGE_KEY = "better-xiaoheihe-ai-bot-logs";
   const AI_BOT_MESSAGE_LOGS_STORAGE_KEY = "better-xiaoheihe-ai-bot-message-logs";
   const AI_BOT_REPLY_QUEUE_STORAGE_KEY = "better-xiaoheihe-ai-bot-reply-queue";
+  const AI_BOT_CONSENT_STORAGE_KEY = "better-xiaoheihe-ai-bot-consent";
   const API_PARAMS_STORAGE_KEY = "better-xiaoheihe-api-params";
   const UI_STATE_STORAGE_KEY = "better-xiaoheihe-ui-state";
   const AI_BOT_LOG_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
@@ -38,6 +39,7 @@
     AI_BOT_LOGS_STORAGE_KEY,
     AI_BOT_MESSAGE_LOGS_STORAGE_KEY,
     AI_BOT_REPLY_QUEUE_STORAGE_KEY,
+    AI_BOT_CONSENT_STORAGE_KEY,
     API_PARAMS_STORAGE_KEY,
     UI_STATE_STORAGE_KEY
   ];
@@ -61,8 +63,8 @@
   const AI_BOT_DEFAULT_GLOBAL_HISTORY_LIMIT = 20;
   const AI_BOT_MAX_GLOBAL_HISTORY_LIMIT = 100;
   const DEFAULT_SUMMARY_PROMPT = "你是社区帖子总结助手，请用中文简洁输出：\n帖子总结\n一句话概括帖子核心内容。\n评论区信息\n提取评论区里有价值的观点、经验、补充或避坑信息，没有则跳过。\nAI简评\n像真实网友一样补充观点，避免AI味。\n返回md格式。";
-  const AI_BOT_DEFAULT_PROMPT = "你是小黑盒社区自动回复助手。请根据消息类型、帖子正文、评论区上下文和触发消息的那条评论，生成一条自然、友好、简洁的中文回复。不要暴露你是AI，不要使用模板化开头，不要编造事实，不要输出Markdown。如果触发消息的评论内容只有表情（没有文字，表情数量可以是多个），那么你只回复一个表情，不要添加任何文字。";
-  const AI_BOT_DEFAULT_FEED_PROMPT = "你是小黑盒社区暖贴助手。请根据帖子标题、正文和话题，生成一条自然、真实、简洁的中文评论，像普通用户浏览帖子后留下的感想。不要暴露你是AI，不要使用模板化开头，不要编造未提供的信息，不要输出Markdown。";
+  const AI_BOT_DEFAULT_PROMPT = "你是小黑盒社区自动回复助手。请根据消息类型、帖子正文、评论区上下文和触发消息的那条评论，生成一条自然、友好、简洁的中文回复。不要使用模板化开头，不要编造事实，不要输出Markdown。如果触发消息的评论内容只有表情（没有文字，表情数量可以是多个），那么你只回复一个表情，不要添加任何文字。";
+  const AI_BOT_DEFAULT_FEED_PROMPT = "你是小黑盒社区暖贴助手。请根据帖子标题、正文和话题，生成一条自然、真实、简洁的中文评论，像普通用户浏览帖子后留下的感想。不要使用模板化开头，不要编造未提供的信息，不要输出Markdown。";
   const AI_PROVIDERS = {
     OPENAI_COMPATIBLE: "openai-compatible",
     OPENAI_RESPONSES: "openai-responses",
@@ -156,6 +158,7 @@
   let aiBotLogs = [];
   let aiBotMessageLogs = [];
   let aiBotReplyQueue = [];
+  let aiBotConsentAccepted = false;
   let aiBotLogRefreshTimer = null;
   let aiBotLogRefreshRunning = false;
   let activeAiBotLogView = "runtime";
@@ -691,6 +694,7 @@
     aiBotLogs = normalizeAiBotLogs(values[AI_BOT_LOGS_STORAGE_KEY]);
     aiBotMessageLogs = normalizeAiBotMessageLogs(values[AI_BOT_MESSAGE_LOGS_STORAGE_KEY]);
     aiBotReplyQueue = normalizeAiBotReplyQueue(values[AI_BOT_REPLY_QUEUE_STORAGE_KEY]);
+    aiBotConsentAccepted = values[AI_BOT_CONSENT_STORAGE_KEY] === true;
   }
 
   async function loadLocalSettingsState() {
@@ -753,6 +757,9 @@
     nextValues[AI_BOT_REPLY_QUEUE_STORAGE_KEY] = keysPresent[AI_BOT_REPLY_QUEUE_STORAGE_KEY]
       ? normalizeAiBotReplyQueue(values[AI_BOT_REPLY_QUEUE_STORAGE_KEY])
       : [];
+    nextValues[AI_BOT_CONSENT_STORAGE_KEY] = keysPresent[AI_BOT_CONSENT_STORAGE_KEY]
+      ? values[AI_BOT_CONSENT_STORAGE_KEY] === true
+      : false;
     nextValues[UI_STATE_STORAGE_KEY] = keysPresent[UI_STATE_STORAGE_KEY]
       ? normalizeUiState(values[UI_STATE_STORAGE_KEY])
       : normalizeUiState();
@@ -8471,6 +8478,31 @@
   }
 
   function renderAiBotSettingsPanelContent() {
+    if (!aiBotConsentAccepted) {
+      return `
+        <div class="better-settings__section better-settings__ai-section">
+          <div class="better-settings__ai-header">
+            <div>
+              <div class="better-settings__ai-title">启用 AI Bot 前请确认</div>
+              <div class="better-settings__ai-subtitle">该功能会代表当前登录账号自动发表评论</div>
+            </div>
+          </div>
+          <div class="better-settings__ai-body">
+            <div class="better-settings__desc">
+              开启后，插件会读取相关帖子、评论、昵称或用户 ID，并把生成所需内容发送到你配置的第三方 AI 服务商。自动评论可能出现事实错误、不当表达、重复发送或触发平台风控，相关账号与内容责任由使用者承担。
+            </div>
+            <label class="better-settings__rule-toggle">
+              <input class="better-settings__ai-bot-consent-checkbox" type="checkbox">
+              <span class="better-settings__rule-toggle-switch" aria-hidden="true"></span>
+              <span class="better-settings__rule-toggle-text">我已阅读并理解上述风险，并明确授权插件按我的设置自动发表评论</span>
+            </label>
+            <div class="better-settings__actions">
+              <button class="better-settings__primary better-settings__ai-bot-consent-confirm" type="button" disabled>确认并进入设置</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
     const providerOptions = [
       [AI_PROVIDERS.OPENAI_COMPATIBLE, "OpenAI Compatible · Chat Completions"],
       [AI_PROVIDERS.OPENAI_RESPONSES, "OpenAI · Responses"],
@@ -9855,6 +9887,20 @@
         return;
       }
 
+      const consentConfirmButton = event.target.closest(".better-settings__ai-bot-consent-confirm");
+      if (consentConfirmButton && panel.contains(consentConfirmButton)) {
+        const consentCheckbox = panel.querySelector(".better-settings__ai-bot-consent-checkbox");
+        if (!consentCheckbox?.checked) {
+          return;
+        }
+        aiBotConsentAccepted = true;
+        saveLocalSettings({
+          [AI_BOT_CONSENT_STORAGE_KEY]: true
+        });
+        renderSettingsPanel();
+        return;
+      }
+
       const removeButton = event.target.closest(".better-settings__remove");
       if (removeButton && panel.contains(removeButton)) {
         removeBlockedKeyword(removeButton.dataset.keyword, removeButton.dataset.scope);
@@ -10102,6 +10148,14 @@
 
       if (event.target.matches(".better-settings__ai-provider")) {
         syncAiProviderDefaultBaseUrl(panel);
+        return;
+      }
+
+      if (event.target.matches(".better-settings__ai-bot-consent-checkbox")) {
+        const confirmButton = panel.querySelector(".better-settings__ai-bot-consent-confirm");
+        if (confirmButton) {
+          confirmButton.disabled = !event.target.checked;
+        }
         return;
       }
 
@@ -10776,6 +10830,12 @@
           && !settingsPanel.hidden
           && settingsPanel.contains(document.activeElement);
         if (!isEditingAiBotSettings) {
+          renderSettingsPanel();
+        }
+      }
+      if (Object.prototype.hasOwnProperty.call(values, AI_BOT_CONSENT_STORAGE_KEY)) {
+        aiBotConsentAccepted = values[AI_BOT_CONSENT_STORAGE_KEY] === true;
+        if (activeSettingsTab === SETTINGS_TABS.AIBOT) {
           renderSettingsPanel();
         }
       }

@@ -1,5 +1,6 @@
 (function () {
   const AI_SETTINGS_STORAGE_KEY = "better-xiaoheihe-ai-settings";
+  const AI_BOT_SETTINGS_STORAGE_KEY = "better-xiaoheihe-ai-bot-settings";
   const SETTINGS_EVENT = "better-xiaoheihe-ai-settings";
   const SETTINGS_REQUEST_EVENT = "better-xiaoheihe-ai-settings-request";
   const SETTINGS_SAVE_EVENT = "better-xiaoheihe-ai-settings-save";
@@ -21,10 +22,11 @@
     "better-xiaoheihe-blocked-keywords",
     "better-xiaoheihe-level-filters",
     "better-xiaoheihe-comment-preview-sort",
-    "better-xiaoheihe-ai-bot-settings",
+    AI_BOT_SETTINGS_STORAGE_KEY,
     "better-xiaoheihe-ai-bot-logs",
     "better-xiaoheihe-ai-bot-message-logs",
     "better-xiaoheihe-ai-bot-reply-queue",
+    "better-xiaoheihe-ai-bot-consent",
     "better-xiaoheihe-api-params",
     "better-xiaoheihe-ui-state"
   ];
