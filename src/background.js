@@ -1160,6 +1160,10 @@
     return linkId && targetId ? `${String(linkId)}::${String(targetId)}` : "";
   }
 
+  function getAiBotReplyCommentRecordKey(linkId, replyCommentId) {
+    return linkId && replyCommentId ? `${String(linkId)}::${String(replyCommentId)}` : "";
+  }
+
   function getFeedItemTimestampMs(link) {
     const rawTimestamp = Number(
       link?.create_at
@@ -2110,6 +2114,37 @@
     }).length;
   }
 
+  async function findSentReplyCommentMessageLog(linkId, replyCommentId) {
+    const recordKey = getAiBotReplyCommentRecordKey(linkId, replyCommentId);
+    if (!recordKey) {
+      return null;
+    }
+    const result = await storageGet(AI_BOT_MESSAGE_LOGS_STORAGE_KEY);
+    const logs = Array.isArray(result[AI_BOT_MESSAGE_LOGS_STORAGE_KEY]) ? result[AI_BOT_MESSAGE_LOGS_STORAGE_KEY] : [];
+    return logs.find((log) => {
+      if (log?.skipped || log?.messageSource === AI_BOT_MESSAGE_TYPES.FEED) {
+        return false;
+      }
+      return getAiBotReplyCommentRecordKey(log?.linkId, log?.replyCommentId) === recordKey;
+    }) || null;
+  }
+
+  async function findQueuedReplyCommentItem(linkId, replyCommentId) {
+    const recordKey = getAiBotReplyCommentRecordKey(linkId, replyCommentId);
+    if (!recordKey) {
+      return null;
+    }
+    const queue = await cleanupReplyQueue();
+    return queue.find((item) => getAiBotReplyCommentRecordKey(item?.linkId, item?.replyCommentId) === recordKey) || null;
+  }
+
+  async function getReplyCommentUsage(linkId, replyCommentId) {
+    return {
+      sentLog: await findSentReplyCommentMessageLog(linkId, replyCommentId),
+      queuedItem: await findQueuedReplyCommentItem(linkId, replyCommentId)
+    };
+  }
+
   async function markReplyTargetSent(linkId, targetId, data = {}) {
     const recordKey = getAiBotReplyTargetRecordKey(linkId, targetId);
     if (!recordKey) {
@@ -2515,6 +2550,35 @@
       }
     }
 
+    const replyCommentUsage = await getReplyCommentUsage(linkId, replyCommentId);
+    if (replyCommentUsage.sentLog || replyCommentUsage.queuedItem) {
+      const duplicateSource = replyCommentUsage.sentLog ? "sent" : "queued";
+      await markMessageReplied(messageId, {
+        skippedAt: Date.now(),
+        skipReason: "reply_comment_duplicate",
+        messageSource,
+        linkId,
+        replyCommentId,
+        duplicateSource,
+        duplicateMessageId: replyCommentUsage.sentLog?.messageId || replyCommentUsage.queuedItem?.messageId || ""
+      });
+      records[messageId] = {
+        skippedAt: Date.now(),
+        skipReason: "reply_comment_duplicate"
+      };
+      await appendAiBotPollDecisionLog("info", "同一条评论已处理或正在队列中，跳过重复回复", message, messageSource, {
+        ...messageDebug,
+        skipReason: "reply_comment_duplicate",
+        duplicateSource,
+        duplicateMessageId: replyCommentUsage.sentLog?.messageId || replyCommentUsage.queuedItem?.messageId || ""
+      });
+      return {
+        actionResult: "skipped",
+        actionLabel: "同一条评论已处理或正在队列中，已跳过",
+        skipReason: "reply_comment_duplicate"
+      };
+    }
+
     await appendAiBotLog("info", `开始处理${typeLabel}，获取帖子详情`, messageDebug);
     let context;
     try {
@@ -2845,6 +2909,44 @@
         });
         return;
       }
+    }
+
+    const duplicateSentLog = await findSentReplyCommentMessageLog(item.linkId, replyCommentId);
+    if (duplicateSentLog) {
+      await markMessageReplied(item.messageId, {
+        skippedAt: Date.now(),
+        skipReason: "reply_comment_duplicate",
+        messageSource: item.messageSource,
+        linkId: item.linkId,
+        replyCommentId,
+        duplicateSource: "sent",
+        duplicateMessageId: duplicateSentLog.messageId || ""
+      });
+      await appendAiBotMessageLog({
+        skipped: true,
+        skipReason: "reply_comment_duplicate",
+        messageId: item.messageId,
+        messageSource: item.messageSource,
+        typeLabel,
+        linkId: item.linkId,
+        linkTitle: context.detail?.title || "",
+        linkUrl: getLinkUrl(item.linkId),
+        replyCommentId,
+        rootCommentId: rootCommentId || replyCommentId,
+        targetId,
+        senderId: item.senderId,
+        senderName: item.senderName,
+        messageText: item.messageText || "",
+        messageTimestamp: getMessageTimestampMs(message),
+        triggerText: item.messageText || "",
+        replyText: "同一条评论已由另一条消息回复"
+      });
+      await appendAiBotLog("info", "队列消息跳过：同一条评论已回复过", {
+        ...messageDebug,
+        skipReason: "reply_comment_duplicate",
+        duplicateMessageId: duplicateSentLog.messageId || ""
+      });
+      return;
     }
 
     await appendAiBotLog("info", `队列消息开始处理：${typeLabel}`, messageDebug);
