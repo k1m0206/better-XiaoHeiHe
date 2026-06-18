@@ -4011,12 +4011,17 @@
         }
 
         .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment {
-          position: static;
-          height: auto;
-          max-height: none;
-          overflow: visible;
-          padding-left: 0;
-          border-left: 0;
+          position: static !important;
+          right: auto !important;
+          bottom: auto !important;
+          left: auto !important;
+          height: auto !important;
+          max-height: none !important;
+          width: 100% !important;
+          max-width: 100% !important;
+          overflow: visible !important;
+          padding-left: 0 !important;
+          border-left: 0 !important;
         }
 
         .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment .comment__comment-header {
@@ -4044,6 +4049,10 @@
         .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-reply {
           position: sticky !important;
           bottom: 0 !important;
+          right: auto !important;
+          left: auto !important;
+          width: 100% !important;
+          max-width: 100% !important;
           margin-top: 0;
           border-left: 0;
         }
