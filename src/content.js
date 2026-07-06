@@ -5456,7 +5456,9 @@
 
     const normalizedHref = normalizeCommentLinkHref(href);
     const renderType = getCommentLinkRenderType(normalizedHref);
-    return `<a href="${escapeHtml(normalizedHref)}" target="_blank" rel="noopener noreferrer"${linkType ? ` data-link-type="${escapeHtml(linkType)}"` : ""}${renderType ? ` data-better-link-type="${escapeHtml(renderType)}"` : ""}>${renderPlainCommentText(node.textContent || "")}</a>`;
+    const originalLinkTypeAttr = linkType && !renderType ? ` data-link-type="${escapeHtml(linkType)}"` : "";
+    const renderTypeAttr = renderType ? ` data-better-link-type="${escapeHtml(renderType)}"` : "";
+    return `<a href="${escapeHtml(normalizedHref)}" target="_blank" rel="noopener noreferrer"${originalLinkTypeAttr}${renderTypeAttr}>${renderPlainCommentText(node.textContent || "")}</a>`;
   }
 
   function renderCommentNode(node) {
