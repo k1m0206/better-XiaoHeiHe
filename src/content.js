@@ -3100,6 +3100,48 @@
         text-decoration: underline;
       }
 
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__text a[data-better-link-type],
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-text a[data-better-link-type] {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        margin: 0 1px;
+        padding: 0 4px;
+        border-radius: 4px;
+        line-height: 1.35;
+        vertical-align: -1px;
+        white-space: nowrap;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__text a[data-better-link-type]::before,
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-text a[data-better-link-type]::before {
+        flex: 0 0 auto;
+        font-size: 12px;
+        line-height: 1;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__text a[data-better-link-type="game"],
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-text a[data-better-link-type="game"] {
+        background: #eef6ff;
+        color: #1f6fc7;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__text a[data-better-link-type="game"]::before,
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-text a[data-better-link-type="game"]::before {
+        content: "\\1F3AE";
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__text a[data-better-link-type="user"],
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-text a[data-better-link-type="user"] {
+        background: #f3f6f8;
+        color: #59636e;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__text a[data-better-link-type="user"]::before,
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-text a[data-better-link-type="user"]::before {
+        content: "\\1F464";
+      }
+
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__time {
         display: flex;
         align-items: center;
@@ -5389,6 +5431,22 @@
     }
   }
 
+  function getCommentLinkRenderType(href) {
+    try {
+      const parsedUrl = new URL(href, window.location.origin);
+      if (parsedUrl.pathname.startsWith("/app/topic/game/")) {
+        return "game";
+      }
+      if (parsedUrl.pathname.startsWith("/app/user/profile/")) {
+        return "user";
+      }
+    } catch {
+      return "";
+    }
+
+    return "";
+  }
+
   function renderCommentLink(node) {
     const href = node.getAttribute("href") || "";
     const linkType = node.getAttribute("data-link-type") || "";
@@ -5396,7 +5454,9 @@
       return renderPlainCommentText(node.textContent || "");
     }
 
-    return `<a href="${escapeHtml(normalizeCommentLinkHref(href))}" target="_blank" rel="noopener noreferrer"${linkType ? ` data-link-type="${escapeHtml(linkType)}"` : ""}>${renderPlainCommentText(node.textContent || "")}</a>`;
+    const normalizedHref = normalizeCommentLinkHref(href);
+    const renderType = getCommentLinkRenderType(normalizedHref);
+    return `<a href="${escapeHtml(normalizedHref)}" target="_blank" rel="noopener noreferrer"${linkType ? ` data-link-type="${escapeHtml(linkType)}"` : ""}${renderType ? ` data-better-link-type="${escapeHtml(renderType)}"` : ""}>${renderPlainCommentText(node.textContent || "")}</a>`;
   }
 
   function renderCommentNode(node) {
