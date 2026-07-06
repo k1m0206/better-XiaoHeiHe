@@ -29,6 +29,7 @@
   const AI_BOT_CONSENT_STORAGE_KEY = "better-xiaoheihe-ai-bot-consent";
   const API_PARAMS_STORAGE_KEY = "better-xiaoheihe-api-params";
   const UI_STATE_STORAGE_KEY = "better-xiaoheihe-ui-state";
+  const COMMENT_EMOJI_USAGE_STORAGE_KEY = "better-xiaoheihe-comment-emoji-usage";
   const AI_BOT_LOG_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
   const LOCAL_SETTINGS_STORAGE_KEYS = [
     HIDE_CY_COMMENTS_STORAGE_KEY,
@@ -41,7 +42,8 @@
     AI_BOT_REPLY_QUEUE_STORAGE_KEY,
     AI_BOT_CONSENT_STORAGE_KEY,
     API_PARAMS_STORAGE_KEY,
-    UI_STATE_STORAGE_KEY
+    UI_STATE_STORAGE_KEY,
+    COMMENT_EMOJI_USAGE_STORAGE_KEY
   ];
   const LOCAL_SETTINGS_REQUEST_EVENT = "better-xiaoheihe-local-settings-request";
   const LOCAL_SETTINGS_RESPONSE_EVENT = "better-xiaoheihe-local-settings-response";
@@ -115,6 +117,7 @@
   const API_PATH = "/bbs/app/link/tree";
   const SUB_COMMENT_API_PATH = "/bbs/app/comment/sub/comments";
   const COMMENT_SUPPORT_API_PATH = "/bbs/app/comment/support";
+  const COMMENT_CREATE_API_PATH = "/bbs/app/comment/create";
   const LINK_AWARD_API_PATH = "/bbs/app/profile/award/link";
   const EMOJI_API_PATH = "/bbs/app/api/emojis/list";
   const FEEDS_API_PATH = "/bbs/app/feeds";
@@ -122,6 +125,8 @@
   const API_ORIGIN = "https://api.xiaoheihe.cn";
   const COMMENT_PAGE_LIMIT = 20;
   const SUB_COMMENT_PAGE_LIMIT = 20;
+  const COMMENT_REPLY_TEXT_MAX_LENGTH = 1000;
+  const POST_COMMENT_TARGET_ID = "__post__";
   const COMMENT_IDENTITY_RETRY_DELAY = 1000;
   const SUMMARY_COMMENT_LIMIT = 10;
   const IDENTITY_COOKIE_NAMES = ["heybox_id", "user_heybox_id"];
@@ -159,6 +164,7 @@
   let aiBotMessageLogs = [];
   let aiBotReplyQueue = [];
   let aiBotConsentAccepted = false;
+  let emojiUsageStats = normalizeEmojiUsageStats();
   let aiBotLogRefreshTimer = null;
   let aiBotLogRefreshRunning = false;
   let activeAiBotLogView = "runtime";
@@ -185,6 +191,7 @@
   let heyboxWebLinkCaptureBound = false;
   let topicBlockContextMenuBound = false;
   let imageViewerKeydownBound = false;
+  let replyEmojiOutsideClickBound = false;
   let aiSummaryScrollLocked = false;
   let aiSummaryPreviousBodyOverflow = "";
   let aiSummaryPreviousDocumentOverflow = "";
@@ -294,6 +301,31 @@
     commentPreviewSort = normalizedSort;
     syncCommentSortControls();
     refreshAllCommentFilters();
+  }
+
+  function normalizeEmojiUsageStats(value) {
+    if (!value || typeof value !== "object") {
+      return {};
+    }
+
+    return Object.entries(value).reduce((result, [token, count]) => {
+      const normalizedToken = String(token || "").trim();
+      const normalizedCount = Math.max(0, Number.parseInt(count, 10) || 0);
+      if (normalizedToken && normalizedCount) {
+        result[normalizedToken] = normalizedCount;
+      }
+      return result;
+    }, {});
+  }
+
+  function persistEmojiUsageStats() {
+    saveLocalSettings({
+      [COMMENT_EMOJI_USAGE_STORAGE_KEY]: normalizeEmojiUsageStats(emojiUsageStats)
+    });
+  }
+
+  function syncEmojiUsageStats(savedStats) {
+    emojiUsageStats = normalizeEmojiUsageStats(savedStats);
   }
 
   function normalizeBlockedKeyword(keyword) {
@@ -711,6 +743,7 @@
     aiBotMessageLogs = normalizeAiBotMessageLogs(values[AI_BOT_MESSAGE_LOGS_STORAGE_KEY]);
     aiBotReplyQueue = normalizeAiBotReplyQueue(values[AI_BOT_REPLY_QUEUE_STORAGE_KEY]);
     aiBotConsentAccepted = values[AI_BOT_CONSENT_STORAGE_KEY] === true;
+    emojiUsageStats = normalizeEmojiUsageStats(values[COMMENT_EMOJI_USAGE_STORAGE_KEY]);
   }
 
   async function loadLocalSettingsState() {
@@ -2919,6 +2952,7 @@
 
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__item {
         min-width: 0;
+        cursor: pointer;
       }
 
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__text-row {
@@ -3067,6 +3101,9 @@
       }
 
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__time {
+        display: flex;
+        align-items: center;
+        gap: 6px;
         margin-top: 4px;
         color: #a8afb7;
         font-size: 12px;
@@ -3115,6 +3152,7 @@
         border-radius: 6px;
         background: #f7f8f9;
         color: #59636e;
+        cursor: pointer;
         font-size: 12px;
         line-height: 1.45;
       }
@@ -3156,8 +3194,263 @@
         color: #a8afb7;
       }
 
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-footer {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 4px;
+      }
+
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-footer .better-comment-preview__reply-meta {
         min-width: 0;
+        margin-top: 0;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-action {
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: #8a9299;
+        cursor: pointer;
+        font-size: 12px;
+        line-height: 18px;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-action:hover {
+        color: #2775d1;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-form {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin: 8px 0 0 32px;
+        padding: 8px;
+        border: 1px solid #e2e8ee;
+        border-radius: 8px;
+        background: #fff;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} > .better-comment-preview__reply-form {
+        margin: 8px 0 0;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-form[data-submitting="true"] {
+        opacity: 0.82;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-form:focus-within {
+        border-color: #2775d1;
+        box-shadow: 0 0 0 2px rgba(39, 117, 209, 0.08);
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-input {
+        box-sizing: border-box;
+        width: 100%;
+        min-height: 34px;
+        max-height: 96px;
+        overflow-y: auto;
+        padding: 3px 2px;
+        border: 0;
+        border-radius: 0;
+        outline: none;
+        background: transparent;
+        color: #1f252b;
+        cursor: text;
+        font: inherit;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-input:focus {
+        border-color: transparent;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-input:empty::before {
+        content: attr(data-placeholder);
+        color: #a8afb7;
+        pointer-events: none;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-input-emoji {
+        display: inline-block;
+        width: 1.55em;
+        height: 1.55em;
+        margin: 0 1px;
+        object-fit: contain;
+        vertical-align: -0.34em;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-tools {
+        position: relative;
+        display: flex;
+        align-items: center;
+        flex: 1 1 auto;
+        min-width: 0;
+        gap: 6px;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__emoji-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        height: 28px;
+        min-width: 58px;
+        justify-content: center;
+        padding: 0 9px;
+        border: 1px solid #dfe5eb;
+        border-radius: 5px;
+        background: #fff;
+        color: #66717c;
+        cursor: pointer;
+        font-size: 12px;
+        line-height: 26px;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__emoji-toggle-icon {
+        font-size: 14px;
+        line-height: 1;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__emoji-toggle:hover,
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__emoji-toggle[aria-expanded="true"] {
+        border-color: #2775d1;
+        color: #2775d1;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__emoji-panel {
+        position: fixed;
+        left: var(--better-emoji-panel-left, 0);
+        top: var(--better-emoji-panel-top, 0);
+        z-index: 2147483647;
+        width: min(280px, calc(100vw - 48px));
+        max-height: 220px;
+        overflow: auto;
+        padding: 8px;
+        border: 1px solid #dfe5eb;
+        border-radius: 8px;
+        background: #fff;
+        box-shadow: 0 10px 24px rgba(20, 25, 30, 0.12);
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__emoji-panel[hidden] {
+        display: none;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__emoji-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(30px, 1fr));
+        gap: 4px;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__emoji-section + .better-comment-preview__emoji-section {
+        margin-top: 8px;
+        padding-top: 8px;
+        border-top: 1px solid #eef1f4;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__emoji-section-title {
+        margin-bottom: 5px;
+        color: #8a9299;
+        font-size: 12px;
+        line-height: 16px;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__emoji-common-row {
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 4px;
+        overflow-x: auto;
+        padding-bottom: 2px;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__emoji-option {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        padding: 0;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        cursor: pointer;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__emoji-option:hover {
+        background: #f0f4f8;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__emoji-option-image {
+        width: 24px;
+        height: 24px;
+        object-fit: contain;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__emoji-panel-state {
+        color: #a8afb7;
+        font-size: 12px;
+        line-height: 18px;
+        text-align: center;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-form-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 28px;
+        gap: 10px;
+        padding-top: 2px;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-status {
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow: hidden;
+        color: #a8afb7;
+        font-size: 12px;
+        line-height: 18px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-status.is-error {
+        color: #d64242;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-actions {
+        display: inline-flex;
+        flex: 0 0 auto;
+        gap: 8px;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-cancel,
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-submit {
+        min-width: 52px;
+        height: 28px;
+        padding: 0 12px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 12px;
+        line-height: 26px;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-cancel {
+        border: 1px solid #dfe5eb;
+        background: #fff;
+        color: #66717c;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-submit {
+        border: 1px solid #2775d1;
+        background: #2775d1;
+        color: #fff;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-submit:disabled {
+        cursor: default;
+        opacity: 0.62;
       }
 
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-more {
@@ -3235,10 +3528,42 @@
         line-height: 1;
       }
 
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__footer {
+        display: flex;
+        flex: 0 0 auto;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-top: 12px;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__post-comment {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        height: 26px;
+        padding: 0 10px;
+        border: 1px solid #d9e5f2;
+        border-radius: 6px;
+        background: #f7fbff;
+        color: #2775d1;
+        cursor: pointer;
+        font-size: 12px;
+        line-height: 24px;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__post-comment:hover {
+        border-color: #2775d1;
+        background: #eef6ff;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__post-comment-icon {
+        font-size: 13px;
+        line-height: 1;
+      }
+
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__open {
         display: block;
-        flex: 0 0 auto;
-        margin-top: 12px;
         color: #8a9299;
         text-align: center;
         text-decoration: none;
@@ -4817,6 +5142,15 @@
     return `https://api.xiaoheihe.cn${COMMENT_SUPPORT_API_PATH}?${params.toString()}`;
   }
 
+  function buildCommentCreateApiUrl() {
+    const params = new URLSearchParams({
+      ...getBaseApiParams(),
+      ...createSignedParams(COMMENT_CREATE_API_PATH)
+    });
+
+    return `https://api.xiaoheihe.cn${COMMENT_CREATE_API_PATH}?${params.toString()}`;
+  }
+
   function buildLinkAwardApiUrl() {
     const params = new URLSearchParams({
       ...getBaseApiParams(),
@@ -4860,6 +5194,7 @@
     emojiCache.set(key, {
       img: emoji.img,
       code: emoji.code || emoji.name || key,
+      token: emoji.token || normalizeEmojiToken(emoji.code || emoji.name || key),
       type: emoji.type
     });
   }
@@ -4874,12 +5209,24 @@
           return;
         }
 
-        const code = emoji.code || emoji.name;
+        const code = String(emoji.code || emoji.name || "").trim();
+        const normalizedCode = normalizeEmojiToken(code);
         const imageKey = getEmojiImageKey(emoji.img);
-        addEmojiMapEntry(code, emoji);
-        addEmojiMapEntry(`${groupCode}_${code}`, emoji);
-        addEmojiMapEntry(imageKey, emoji);
-        addEmojiMapEntry(`${groupCode}_${imageKey}`, emoji);
+        const token = groupCode && normalizedCode ? `${groupCode}_${normalizedCode}` : (code || imageKey);
+        const emojiEntry = {
+          ...emoji,
+          code: code || token,
+          token
+        };
+        addEmojiMapEntry(code, emojiEntry);
+        addEmojiMapEntry(normalizedCode, emojiEntry);
+        addEmojiMapEntry(token, emojiEntry);
+        addEmojiMapEntry(`${groupCode}_${code}`, emojiEntry);
+        addEmojiMapEntry(imageKey, emojiEntry);
+        addEmojiMapEntry(`${groupCode}_${imageKey}`, {
+          ...emojiEntry,
+          token: groupCode && imageKey ? `${groupCode}_${imageKey}` : token
+        });
       });
     });
   }
@@ -4913,7 +5260,8 @@
     const className = emoji.type === 2
       ? "better-comment-preview__emoji better-comment-preview__emoji--big"
       : "better-comment-preview__emoji";
-    return `<img class="${className}" src="${escapeHtml(emoji.img)}" alt="[${escapeHtml(emoji.code)}]" title="${escapeHtml(emoji.code)}" loading="lazy">`;
+    const label = emoji.token || emoji.code;
+    return `<img class="${className}" src="${escapeHtml(emoji.img)}" alt="[${escapeHtml(label)}]" title="${escapeHtml(label)}" loading="lazy">`;
   }
 
   function renderPlainCommentText(text) {
@@ -5356,6 +5704,70 @@
       || "";
   }
 
+  function getCommentUserName(comment) {
+    return comment?.user?.username || comment?.user?.nickname || "匿名用户";
+  }
+
+  function renderCommentReplyDataset(comment, rootCommentId) {
+    const commentId = getCommentId(comment);
+    return [
+      `data-comment-id="${escapeHtml(commentId)}"`,
+      `data-root-comment-id="${escapeHtml(rootCommentId || commentId)}"`,
+      `data-comment-username="${escapeHtml(getCommentUserName(comment))}"`
+    ].join(" ");
+  }
+
+  function isActivePreviewReplyTarget(activeReplyTarget, commentId) {
+    return Boolean(activeReplyTarget?.commentId)
+      && String(activeReplyTarget.commentId) === String(commentId);
+  }
+
+  function renderCommentReplyAction(commentId, rootCommentId) {
+    if (!commentId) {
+      return "";
+    }
+
+    return `
+      <button class="better-comment-preview__reply-action" type="button" data-comment-id="${escapeHtml(commentId)}" data-root-comment-id="${escapeHtml(rootCommentId || commentId)}">
+        回复
+      </button>
+    `;
+  }
+
+  function renderPreviewReplyForm(commentId, rootCommentId, placeholder) {
+    return `
+      <form class="better-comment-preview__reply-form" data-comment-id="${escapeHtml(commentId)}" data-root-comment-id="${escapeHtml(rootCommentId || commentId)}">
+        <div class="better-comment-preview__reply-input" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="${escapeHtml(placeholder || "写下回复")}"></div>
+        <div class="better-comment-preview__reply-form-footer">
+          <div class="better-comment-preview__reply-tools">
+            <button class="better-comment-preview__emoji-toggle" type="button" aria-expanded="false">
+              <span class="better-comment-preview__emoji-toggle-icon" aria-hidden="true">☻</span>
+              <span>表情</span>
+            </button>
+            <div class="better-comment-preview__reply-status"></div>
+            <div class="better-comment-preview__emoji-panel" hidden>
+              <div class="better-comment-preview__emoji-panel-state">表情加载中</div>
+            </div>
+          </div>
+          <div class="better-comment-preview__reply-actions">
+            <button class="better-comment-preview__reply-cancel" type="button">取消</button>
+            <button class="better-comment-preview__reply-submit" type="submit">发送</button>
+          </div>
+        </div>
+      </form>
+    `;
+  }
+
+  function renderCommentReplyForm(comment, rootCommentId, activeReplyTarget) {
+    const commentId = getCommentId(comment);
+    if (!isActivePreviewReplyTarget(activeReplyTarget, commentId)) {
+      return "";
+    }
+
+    const username = activeReplyTarget.username || getCommentUserName(comment);
+    return renderPreviewReplyForm(commentId, rootCommentId || commentId, username ? `回复 ${username}` : "写下回复");
+  }
+
   function getCommentUpCount(comment) {
     return pickFirstNumber(
       comment?.up,
@@ -5398,10 +5810,11 @@
     return `${previewClass} comment-item__content${isCyComment(comment) ? " cy" : ""}`;
   }
 
-  function renderRootComment(comment) {
+  function renderRootComment(comment, activeReplyTarget) {
     const user = comment.user || {};
+    const commentId = getCommentId(comment);
     return `
-      <div class="better-comment-preview__item">
+      <div class="better-comment-preview__item" ${renderCommentReplyDataset(comment, commentId)} title="点击回复">
         <div class="better-comment-preview__body">
           <div>${renderCommentUser(user, comment.is_link_owner === 1)}</div>
           <div class="better-comment-preview__text-row">
@@ -5412,18 +5825,23 @@
             ${renderCommentSupportButton(comment)}
           </div>
           ${renderCommentImages(comment)}
-          <div class="better-comment-preview__time">${renderCommentMeta(comment)}</div>
+          <div class="better-comment-preview__time">
+            ${renderCommentMeta(comment)}
+            ${renderCommentReplyAction(commentId, commentId)}
+          </div>
         </div>
       </div>
+      ${renderCommentReplyForm(comment, commentId, activeReplyTarget)}
     `;
   }
 
-  function renderReplyComment(comment) {
+  function renderReplyComment(comment, rootCommentId, activeReplyTarget) {
     const user = comment.user || {};
     const replyUser = comment.replyuser || {};
+    const commentId = getCommentId(comment);
     const replyTo = replyUser.username ? `回复 ${replyUser.username}` : "";
     return `
-      <div class="better-comment-preview__reply">
+      <div class="better-comment-preview__reply" ${renderCommentReplyDataset(comment, rootCommentId)} title="点击回复">
         <div>
           ${renderCommentUser(user, comment.is_link_owner === 1)}
           ${replyTo ? `<span class="better-comment-preview__reply-meta">${escapeHtml(replyTo)}</span>` : ""}
@@ -5438,8 +5856,10 @@
         ${renderCommentImages(comment)}
         <div class="better-comment-preview__reply-footer">
           <div class="better-comment-preview__reply-meta">${renderCommentMeta(comment)}</div>
+          ${renderCommentReplyAction(commentId, rootCommentId)}
         </div>
       </div>
+      ${renderCommentReplyForm(comment, rootCommentId, activeReplyTarget)}
     `;
   }
 
@@ -5467,11 +5887,12 @@
     `;
   }
 
-  function renderCommentGroup(group) {
+  function renderCommentGroup(group, activeReplyTarget) {
+    const rootCommentId = getCommentId(group.root);
     return `
       <div class="better-comment-preview__group">
-        ${renderRootComment(group.root)}
-        ${group.replies.map(renderReplyComment).join("")}
+        ${renderRootComment(group.root, activeReplyTarget)}
+        ${group.replies.map((reply) => renderReplyComment(reply, rootCommentId, activeReplyTarget)).join("")}
         ${renderReplyMoreButton(group)}
       </div>
     `;
@@ -5671,7 +6092,29 @@
     if (!commentGroups.length) {
       return '<div class="better-comment-preview__empty">暂无评论</div>';
     }
-    return `${commentGroups.map(renderCommentGroup).join("")}${renderCommentListFooter(state)}`;
+    return `${commentGroups.map((group) => renderCommentGroup(group, state?.activeReplyTarget)).join("")}${renderCommentListFooter(state)}`;
+  }
+
+  function isActivePostCommentTarget(state) {
+    return state?.activeReplyTarget?.commentId === POST_COMMENT_TARGET_ID;
+  }
+
+  function renderPostCommentForm(state) {
+    return isActivePostCommentTarget(state)
+      ? renderPreviewReplyForm(POST_COMMENT_TARGET_ID, POST_COMMENT_TARGET_ID, "评论帖子正文")
+      : "";
+  }
+
+  function renderPreviewFooter(linkId, count) {
+    return `
+      <div class="better-comment-preview__footer">
+        <button class="better-comment-preview__post-comment" type="button">
+          <span class="better-comment-preview__post-comment-icon" aria-hidden="true">✎</span>
+          <span>评论</span>
+        </button>
+        <a class="better-comment-preview__open" href="/app/bbs/link/${escapeHtml(linkId)}">查看全部 ${escapeHtml(count)} 条评论 ›</a>
+      </div>
+    `;
   }
 
   function renderPreview(preview, state) {
@@ -5709,7 +6152,8 @@
       <div class="better-comment-preview__list">
         ${renderCommentListContent(state, commentGroups, totalHiddenCount)}
       </div>
-      <a class="better-comment-preview__open" href="/app/bbs/link/${escapeHtml(linkId)}">查看全部 ${escapeHtml(count)} 条评论 ›</a>
+      ${renderPreviewFooter(linkId, count)}
+      ${renderPostCommentForm(state)}
     `;
     preview.querySelectorAll(".better-comment-preview__text, .better-comment-preview__reply-text").forEach(updateExpandButton);
     syncCyToggleControls();
@@ -6405,15 +6849,586 @@
     showImageViewerAt(Math.max(0, visibleWraps.indexOf(imageWrap)));
   }
 
+  function findCachedComment(linkId, commentId) {
+    const state = commentCache.get(linkId);
+    if (!state?.commentGroups?.length || !commentId) {
+      return { state, group: null, comment: null };
+    }
+
+    for (const group of state.commentGroups) {
+      if (String(getCommentId(group.root)) === String(commentId)) {
+        return { state, group, comment: group.root };
+      }
+
+      const reply = (group.replies || []).find((item) => String(getCommentId(item)) === String(commentId));
+      if (reply) {
+        return { state, group, comment: reply };
+      }
+    }
+
+    return { state, group: null, comment: null };
+  }
+
+  function getPreviewReplyTargetFromElement(element) {
+    if (!element) {
+      return null;
+    }
+
+    const commentId = element.dataset.commentId || "";
+    if (!commentId) {
+      return null;
+    }
+
+    return {
+      commentId,
+      rootCommentId: element.dataset.rootCommentId || commentId,
+      username: element.dataset.commentUsername || ""
+    };
+  }
+
+  function openPreviewReplyForm(preview, target) {
+    const linkId = preview.dataset.linkId || "";
+    if (!linkId || !target?.commentId) {
+      return;
+    }
+
+    const state = commentCache.get(linkId);
+    if (!state) {
+      return;
+    }
+
+    const { comment } = target.commentId === POST_COMMENT_TARGET_ID
+      ? { comment: null }
+      : findCachedComment(linkId, target.commentId);
+    state.activeReplyTarget = {
+      commentId: String(target.commentId),
+      rootCommentId: String(target.rootCommentId || target.commentId),
+      username: target.username || getCommentUserName(comment)
+    };
+    commentCache.set(linkId, state);
+    renderLinkedPreviews(linkId);
+
+    window.requestAnimationFrame(() => {
+      const form = preview.querySelector(".better-comment-preview__reply-form");
+      form?.querySelector(".better-comment-preview__reply-input")?.focus();
+      scheduleRowHeightSync(preview.closest(`.${ROW_CLASS}`));
+    });
+  }
+
+  function closePreviewReplyForm(preview) {
+    const linkId = preview.dataset.linkId || "";
+    const state = commentCache.get(linkId);
+    if (!state?.activeReplyTarget) {
+      return;
+    }
+
+    delete state.activeReplyTarget;
+    commentCache.set(linkId, state);
+    renderLinkedPreviews(linkId);
+  }
+
+  function getPreviewReplyClickTarget(event, preview) {
+    if (!(event.target instanceof Element)) {
+      return null;
+    }
+
+    if (event.target.closest("a, button, input, textarea, select, label, .better-comment-preview__reply-form, .better-comment-preview__images")) {
+      return null;
+    }
+
+    const targetElement = event.target.closest(".better-comment-preview__item[data-comment-id], .better-comment-preview__reply[data-comment-id]");
+    if (!targetElement || !preview.contains(targetElement)) {
+      return null;
+    }
+
+    return getPreviewReplyTargetFromElement(targetElement);
+  }
+
+  function getCreatedCommentFromResponse(data) {
+    const candidates = [
+      data?.result?.comment?.comment?.[0],
+      data?.result?.comment?.[0],
+      data?.result?.comment,
+      data?.comment,
+      data?.result
+    ];
+
+    return candidates.find((item) => item && typeof item === "object" && !Array.isArray(item)) || {};
+  }
+
+  function normalizeCreatedReplyComment(data, text, targetComment) {
+    const created = { ...getCreatedCommentFromResponse(data) };
+    if (!getCommentId(created)) {
+      created.commentid = data?.commentid || data?.comment_id || Date.now();
+    }
+    if (!created.text) {
+      created.text = text;
+    }
+    if (!created.create_at) {
+      created.create_at = Math.floor(Date.now() / 1000);
+    }
+    if (!created.user || typeof created.user !== "object") {
+      created.user = { username: "我" };
+    }
+    if ((!created.replyuser || typeof created.replyuser !== "object") && targetComment?.user) {
+      created.replyuser = targetComment.user;
+    }
+    rememberCommentUserLevels(created);
+    return created;
+  }
+
+  function prependCreatedPostComment(linkId, data, text) {
+    const state = commentCache.get(linkId);
+    if (!state) {
+      return;
+    }
+
+    const createdComment = normalizeCreatedReplyComment(data, text, null);
+    const createdCommentId = String(getCommentId(createdComment));
+    const existingIds = new Set((state.commentGroups || []).map((group) => String(getCommentId(group.root))));
+    if (!existingIds.has(createdCommentId)) {
+      state.commentGroups = [{
+        root: createdComment,
+        replies: [],
+        originalIndex: -1,
+        replyCount: 0,
+        repliesHasMore: false,
+        repliesLoading: false,
+        repliesFailed: false
+      }].concat(state.commentGroups || []);
+    }
+    delete state.activeReplyTarget;
+    state.commentCount = String((Number.parseInt(state.commentCount, 10) || 0) + 1);
+    commentCache.set(linkId, state);
+    renderLinkedPreviews(linkId);
+  }
+
+  function appendCreatedReplyComment(linkId, rootCommentId, replyCommentId, data, text) {
+    const { state, group } = findCommentGroup(linkId, rootCommentId);
+    if (!state || !group) {
+      return;
+    }
+
+    const targetComment = findCachedComment(linkId, replyCommentId).comment || group.root;
+    const createdComment = normalizeCreatedReplyComment(data, text, targetComment);
+    const createdCommentId = String(getCommentId(createdComment));
+    const existingIds = new Set((group.replies || []).map((reply) => String(getCommentId(reply))));
+    if (!existingIds.has(createdCommentId)) {
+      group.replies = (group.replies || []).concat(createdComment);
+    }
+    group.replyCount = Math.max(Number(group.replyCount) || 0, group.replies.length);
+    delete state.activeReplyTarget;
+    state.commentCount = String((Number.parseInt(state.commentCount, 10) || 0) + 1);
+    commentCache.set(linkId, state);
+    renderLinkedPreviews(linkId);
+  }
+
+  function setReplyFormSending(form, isSending) {
+    form.dataset.submitting = isSending ? "true" : "false";
+    const editor = form.querySelector(".better-comment-preview__reply-input");
+    if (editor) {
+      editor.setAttribute("contenteditable", isSending ? "false" : "true");
+    }
+    form.querySelectorAll("button").forEach((element) => {
+      element.disabled = isSending;
+    });
+  }
+
+  function setReplyFormStatus(form, message, isError = false) {
+    const status = form.querySelector(".better-comment-preview__reply-status");
+    if (!status) {
+      return;
+    }
+
+    status.textContent = message;
+    status.classList.toggle("is-error", isError);
+  }
+
+  function getEmojiShortcode(emoji) {
+    const token = String(emoji?.token || emoji?.code || "").trim().replace(/^\[/, "").replace(/\]$/, "");
+    return token ? `[${token}]` : "";
+  }
+
+  function getEmojiByShortcode(shortcode) {
+    const token = String(shortcode || "").trim().replace(/^\[/, "").replace(/\]$/, "");
+    return emojiCache.get(token) || emojiCache.get(normalizeEmojiToken(token)) || null;
+  }
+
+  function recordEmojiUsage(shortcode) {
+    const token = String(shortcode || "").trim();
+    if (!token) {
+      return;
+    }
+
+    emojiUsageStats = normalizeEmojiUsageStats({
+      ...emojiUsageStats,
+      [token]: (Number.parseInt(emojiUsageStats[token], 10) || 0) + 1
+    });
+    persistEmojiUsageStats();
+  }
+
+  function getEmojiPickerItems() {
+    const seen = new Set();
+    return Array.from(emojiCache.values()).filter((emoji) => {
+      const shortcode = getEmojiShortcode(emoji);
+      const key = emoji?.img || shortcode;
+      if (!shortcode || !emoji?.img || seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
+  }
+
+  function getCommonEmojiPickerItems(allEmojis) {
+    return [...allEmojis]
+      .filter((emoji) => (emojiUsageStats[getEmojiShortcode(emoji)] || 0) > 0)
+      .sort((left, right) => {
+        const countDiff = (emojiUsageStats[getEmojiShortcode(right)] || 0) - (emojiUsageStats[getEmojiShortcode(left)] || 0);
+        return countDiff || getEmojiShortcode(left).localeCompare(getEmojiShortcode(right), "zh-CN");
+      })
+      .slice(0, 12);
+  }
+
+  function renderEmojiOption(emoji) {
+    const shortcode = getEmojiShortcode(emoji);
+    return `
+      <button class="better-comment-preview__emoji-option" type="button" data-emoji-text="${escapeHtml(shortcode)}" title="${escapeHtml(shortcode)}">
+        <img class="better-comment-preview__emoji-option-image" src="${escapeHtml(emoji.img)}" alt="${escapeHtml(shortcode)}" loading="lazy">
+      </button>
+    `;
+  }
+
+  function renderReplyEmojiPanel(panel) {
+    const emojis = getEmojiPickerItems();
+    const commonEmojis = getCommonEmojiPickerItems(emojis);
+    panel.dataset.loaded = "1";
+    if (!emojis.length) {
+      panel.innerHTML = '<div class="better-comment-preview__emoji-panel-state">暂无可用表情</div>';
+      return;
+    }
+
+    panel.innerHTML = `
+      ${commonEmojis.length ? `
+        <div class="better-comment-preview__emoji-section">
+          <div class="better-comment-preview__emoji-section-title">常用</div>
+          <div class="better-comment-preview__emoji-common-row">
+            ${commonEmojis.map(renderEmojiOption).join("")}
+          </div>
+        </div>
+      ` : ""}
+      <div class="better-comment-preview__emoji-section">
+        <div class="better-comment-preview__emoji-section-title">全部</div>
+        <div class="better-comment-preview__emoji-grid">
+          ${emojis.map(renderEmojiOption).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  function closeReplyEmojiPanel(form) {
+    const toggle = form.querySelector(".better-comment-preview__emoji-toggle");
+    const panel = form.querySelector(".better-comment-preview__emoji-panel");
+    if (!toggle || !panel) {
+      return;
+    }
+
+    panel.hidden = true;
+    toggle.setAttribute("aria-expanded", "false");
+  }
+
+  function closeOtherReplyEmojiPanels(activeForm = null) {
+    document.querySelectorAll(`.${PREVIEW_CLASS} .better-comment-preview__reply-form`).forEach((form) => {
+      if (form !== activeForm) {
+        closeReplyEmojiPanel(form);
+      }
+    });
+  }
+
+  function getOpenReplyEmojiForm() {
+    return Array.from(document.querySelectorAll(`.${PREVIEW_CLASS} .better-comment-preview__reply-form`))
+      .find((form) => form.querySelector(".better-comment-preview__emoji-panel:not([hidden])")) || null;
+  }
+
+  function positionReplyEmojiPanel(form) {
+    const toggle = form.querySelector(".better-comment-preview__emoji-toggle");
+    const panel = form.querySelector(".better-comment-preview__emoji-panel");
+    if (!toggle || !panel || panel.hidden) {
+      return;
+    }
+
+    const buttonRect = toggle.getBoundingClientRect();
+    const panelWidth = Math.min(280, Math.max(180, window.innerWidth - 48));
+    const left = Math.min(
+      Math.max(12, buttonRect.left),
+      Math.max(12, window.innerWidth - panelWidth - 12)
+    );
+    const top = Math.min(
+      buttonRect.bottom + 6,
+      Math.max(12, window.innerHeight - Math.min(220, panel.scrollHeight || 220) - 12)
+    );
+
+    panel.style.setProperty("--better-emoji-panel-left", `${left}px`);
+    panel.style.setProperty("--better-emoji-panel-top", `${top}px`);
+  }
+
+  function toggleReplyEmojiPanel(form) {
+    const toggle = form.querySelector(".better-comment-preview__emoji-toggle");
+    const panel = form.querySelector(".better-comment-preview__emoji-panel");
+    if (!toggle || !panel) {
+      return;
+    }
+
+    const shouldOpen = panel.hidden;
+    closeOtherReplyEmojiPanels(form);
+    panel.hidden = !shouldOpen;
+    toggle.setAttribute("aria-expanded", String(shouldOpen));
+    positionReplyEmojiPanel(form);
+    if (!shouldOpen) {
+      return;
+    }
+    if (panel.dataset.loaded === "1") {
+      renderReplyEmojiPanel(panel);
+      positionReplyEmojiPanel(form);
+      return;
+    }
+
+    panel.innerHTML = '<div class="better-comment-preview__emoji-panel-state">表情加载中</div>';
+    loadEmojis().then(() => {
+      renderReplyEmojiPanel(panel);
+      positionReplyEmojiPanel(form);
+    });
+  }
+
+  function saveReplyEditorSelection(form) {
+    const editor = form.querySelector(".better-comment-preview__reply-input");
+    const selection = window.getSelection();
+    if (!editor || !selection?.rangeCount) {
+      return;
+    }
+
+    const range = selection.getRangeAt(0);
+    if (editor.contains(range.commonAncestorContainer)) {
+      form._betterReplyRange = range.cloneRange();
+    }
+  }
+
+  function moveReplyEditorCaretToEnd(editor) {
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    range.collapse(false);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+
+  function restoreReplyEditorSelection(form) {
+    const editor = form.querySelector(".better-comment-preview__reply-input");
+    if (!editor) {
+      return;
+    }
+
+    editor.focus();
+    const selection = window.getSelection();
+    if (form._betterReplyRange && editor.contains(form._betterReplyRange.commonAncestorContainer)) {
+      selection.removeAllRanges();
+      selection.addRange(form._betterReplyRange);
+      return;
+    }
+
+    moveReplyEditorCaretToEnd(editor);
+  }
+
+  function serializeReplyEditorNode(node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      return node.textContent || "";
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) {
+      return "";
+    }
+
+    const element = node;
+    if (element.matches(".better-comment-preview__reply-input-emoji")) {
+      return element.dataset.emojiText || element.getAttribute("alt") || "";
+    }
+    if (element.tagName === "BR") {
+      return "\n";
+    }
+
+    const text = Array.from(element.childNodes).map(serializeReplyEditorNode).join("");
+    return /^(DIV|P)$/i.test(element.tagName) ? `${text}\n` : text;
+  }
+
+  function serializeReplyEditor(editor) {
+    return Array.from(editor?.childNodes || [])
+      .map(serializeReplyEditorNode)
+      .join("")
+      .replace(/\u00a0/g, " ")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+  }
+
+  function insertEmojiIntoReplyForm(form, emojiText) {
+    const editor = form.querySelector(".better-comment-preview__reply-input");
+    if (!editor || !emojiText) {
+      return;
+    }
+
+    const emoji = getEmojiByShortcode(emojiText);
+    restoreReplyEditorSelection(form);
+
+    const selection = window.getSelection();
+    if (!selection?.rangeCount) {
+      return;
+    }
+
+    const range = selection.getRangeAt(0);
+    range.deleteContents();
+
+    const insertedNode = emoji?.img
+      ? document.createElement("img")
+      : document.createTextNode(emojiText);
+    if (insertedNode instanceof HTMLImageElement) {
+      insertedNode.className = "better-comment-preview__reply-input-emoji";
+      insertedNode.src = emoji.img;
+      insertedNode.alt = emojiText;
+      insertedNode.title = emojiText;
+      insertedNode.dataset.emojiText = emojiText;
+      insertedNode.contentEditable = "false";
+      insertedNode.draggable = false;
+    }
+
+    range.insertNode(insertedNode);
+    range.setStartAfter(insertedNode);
+    range.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    saveReplyEditorSelection(form);
+    recordEmojiUsage(emojiText);
+  }
+
+  function submitPreviewReplyForm(preview, form) {
+    const linkId = preview.dataset.linkId || "";
+    const replyCommentId = form.dataset.commentId || "";
+    const rootCommentId = form.dataset.rootCommentId || replyCommentId;
+    const isPostComment = replyCommentId === POST_COMMENT_TARGET_ID;
+    const submitReplyCommentId = isPostComment ? "-1" : replyCommentId;
+    const submitRootCommentId = isPostComment ? "-1" : rootCommentId;
+    const editor = form.querySelector(".better-comment-preview__reply-input");
+    const text = serializeReplyEditor(editor);
+    if (!linkId || !submitReplyCommentId || !submitRootCommentId) {
+      setReplyFormStatus(form, "缺少评论目标", true);
+      return;
+    }
+    if (!text) {
+      setReplyFormStatus(form, "先写点内容吧", true);
+      editor?.focus();
+      return;
+    }
+    if (text.length > COMMENT_REPLY_TEXT_MAX_LENGTH) {
+      setReplyFormStatus(form, `最多 ${COMMENT_REPLY_TEXT_MAX_LENGTH} 字`, true);
+      editor?.focus();
+      return;
+    }
+
+    setReplyFormSending(form, true);
+    setReplyFormStatus(form, "发送中");
+
+    runAfterIdentityCookiesRestored(() => fetch(buildCommentCreateApiUrl(), {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        accept: "application/json",
+        "content-type": "application/x-www-form-urlencoded;charset=utf-8"
+      },
+      body: new URLSearchParams({
+        is_cy: "0",
+        link_id: linkId,
+        reply_id: submitReplyCommentId,
+        root_id: submitRootCommentId,
+        text
+      }).toString()
+    })).then((response) => response.json()).then((data) => {
+      if (data?.status !== "ok") {
+        throw new Error(data?.message || data?.msg || data?.error || "发送失败");
+      }
+
+      if (isPostComment) {
+        prependCreatedPostComment(linkId, data, text);
+      } else {
+        appendCreatedReplyComment(linkId, rootCommentId, replyCommentId, data, text);
+      }
+    }).catch((error) => {
+      setReplyFormSending(form, false);
+      setReplyFormStatus(form, error?.message || "发送失败", true);
+      editor?.focus();
+    });
+  }
+
   function bindPreviewActions(preview) {
     if (preview.dataset.actionsBound === "1") {
       return;
     }
 
     preview.dataset.actionsBound = "1";
+    ["keyup", "mouseup", "input", "focusin"].forEach((eventName) => {
+      preview.addEventListener(eventName, (event) => {
+        const editor = event.target instanceof Element
+          ? event.target.closest(".better-comment-preview__reply-input")
+          : null;
+        const form = editor?.closest(".better-comment-preview__reply-form");
+        if (editor && form && preview.contains(editor)) {
+          saveReplyEditorSelection(form);
+        }
+      });
+    });
+
+    preview.addEventListener("submit", (event) => {
+      const form = event.target instanceof Element
+        ? event.target.closest(".better-comment-preview__reply-form")
+        : null;
+      if (!form || !preview.contains(form)) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      submitPreviewReplyForm(preview, form);
+    });
+
     preview.addEventListener("click", (event) => {
       if (!(event.target instanceof Element)) {
         return;
+      }
+
+      const cancelButton = event.target.closest(".better-comment-preview__reply-cancel");
+      if (cancelButton && preview.contains(cancelButton)) {
+        event.preventDefault();
+        event.stopPropagation();
+        closePreviewReplyForm(preview);
+        return;
+      }
+
+      const emojiToggle = event.target.closest(".better-comment-preview__emoji-toggle");
+      if (emojiToggle && preview.contains(emojiToggle)) {
+        const form = emojiToggle.closest(".better-comment-preview__reply-form");
+        if (form) {
+          event.preventDefault();
+          event.stopPropagation();
+          toggleReplyEmojiPanel(form);
+          return;
+        }
+      }
+
+      const emojiOption = event.target.closest(".better-comment-preview__emoji-option");
+      if (emojiOption && preview.contains(emojiOption)) {
+        const form = emojiOption.closest(".better-comment-preview__reply-form");
+        if (form) {
+          event.preventDefault();
+          event.stopPropagation();
+          insertEmojiIntoReplyForm(form, emojiOption.dataset.emojiText || "");
+          return;
+        }
       }
 
       const imageLink = event.target.closest(".better-comment-preview__image-link");
@@ -6476,13 +7491,39 @@
       }
 
       const supportButton = event.target.closest(".better-comment-preview__up");
-      if (!supportButton || !preview.contains(supportButton)) {
+      if (supportButton && preview.contains(supportButton)) {
+        event.preventDefault();
+        event.stopPropagation();
+        supportComment(supportButton.dataset.commentId, supportButton);
         return;
       }
 
-      event.preventDefault();
-      event.stopPropagation();
-      supportComment(supportButton.dataset.commentId, supportButton);
+      const postCommentButton = event.target.closest(".better-comment-preview__post-comment");
+      if (postCommentButton && preview.contains(postCommentButton)) {
+        event.preventDefault();
+        event.stopPropagation();
+        openPreviewReplyForm(preview, {
+          commentId: POST_COMMENT_TARGET_ID,
+          rootCommentId: POST_COMMENT_TARGET_ID,
+          username: "帖子正文"
+        });
+        return;
+      }
+
+      const replyButton = event.target.closest(".better-comment-preview__reply-action");
+      if (replyButton && preview.contains(replyButton)) {
+        event.preventDefault();
+        event.stopPropagation();
+        openPreviewReplyForm(preview, getPreviewReplyTargetFromElement(replyButton));
+        return;
+      }
+
+      const replyTarget = getPreviewReplyClickTarget(event, preview);
+      if (replyTarget) {
+        event.preventDefault();
+        event.stopPropagation();
+        openPreviewReplyForm(preview, replyTarget);
+      }
     });
 
   }
@@ -10926,6 +11967,9 @@
       if (Object.prototype.hasOwnProperty.call(values, UI_STATE_STORAGE_KEY)) {
         syncUiState(values[UI_STATE_STORAGE_KEY]);
       }
+      if (Object.prototype.hasOwnProperty.call(values, COMMENT_EMOJI_USAGE_STORAGE_KEY)) {
+        syncEmojiUsageStats(values[COMMENT_EMOJI_USAGE_STORAGE_KEY]);
+      }
       if (Object.prototype.hasOwnProperty.call(values, AI_BOT_SETTINGS_STORAGE_KEY)) {
         aiBotSettings = normalizeAiBotSettings(values[AI_BOT_SETTINGS_STORAGE_KEY]);
         const settingsPanel = document.querySelector(`.${SETTINGS_PANEL_CLASS}`);
@@ -11054,6 +12098,42 @@
     }, true);
   }
 
+  function bindReplyEmojiOutsideClick() {
+    if (replyEmojiOutsideClickBound) {
+      return;
+    }
+
+    replyEmojiOutsideClickBound = true;
+    document.addEventListener("click", (event) => {
+      if (!(event.target instanceof Element)) {
+        closeOtherReplyEmojiPanels();
+        return;
+      }
+
+      if (event.target.closest(".better-comment-preview__emoji-panel, .better-comment-preview__emoji-toggle")) {
+        return;
+      }
+
+      closeOtherReplyEmojiPanels();
+    });
+    window.addEventListener("resize", () => {
+      const form = getOpenReplyEmojiForm();
+      if (form) {
+        positionReplyEmojiPanel(form);
+      }
+    });
+    window.addEventListener("scroll", (event) => {
+      if (event.target instanceof Element && event.target.closest(".better-comment-preview__emoji-panel")) {
+        return;
+      }
+
+      const form = getOpenReplyEmojiForm();
+      if (form) {
+        positionReplyEmojiPanel(form);
+      }
+    }, true);
+  }
+
   function installAiSettingsSync() {
     window.addEventListener(OPEN_PAGE_SETTINGS_EVENT, handleOpenPageSettings);
     window.addEventListener(AI_SETTINGS_EVENT, (event) => {
@@ -11107,6 +12187,7 @@
     bindFeedImageCapture();
     bindHeyboxWebLinkCapture();
     bindTopicBlockContextMenu();
+    bindReplyEmojiOutsideClick();
     installLocalSettingsStateSync();
     await loadLocalSettingsState();
     installAiSettingsSync();
