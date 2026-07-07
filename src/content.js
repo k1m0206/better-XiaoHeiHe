@@ -182,6 +182,7 @@
   let leftMenuOriginalPosition = null;
   let emojiPromise = null;
   let scheduled = false;
+  let linkPageFilterRefreshTimer = null;
   let previewObserver = null;
   let rowResizeObserver = null;
   let topMenuOutsideClickBound = false;
@@ -11928,23 +11929,56 @@
     });
   }
 
+  function scheduleLinkPageFilterRefresh() {
+    if (!isLinkPage()) {
+      return;
+    }
+
+    if (linkPageFilterRefreshTimer) {
+      window.clearTimeout(linkPageFilterRefreshTimer);
+    }
+    window.requestAnimationFrame(updateLinkPageFilterControls);
+    linkPageFilterRefreshTimer = window.setTimeout(() => {
+      linkPageFilterRefreshTimer = null;
+      updateLinkPageFilterControls();
+    }, 160);
+  }
+
   function mutationNodeMatches(node, selector) {
     return node?.nodeType === Node.ELEMENT_NODE
       && (node.matches(selector) || Boolean(node.querySelector(selector)));
+  }
+
+  function mutationTargetMatches(mutation, selector) {
+    const target = mutation.target?.nodeType === Node.ELEMENT_NODE
+      ? mutation.target
+      : mutation.target?.parentElement;
+    return mutationNodeMatches(target, selector);
   }
 
   function shouldRefreshLinkPageForMutations(mutations) {
     const commentStructureSelector = [
       '.link-comment',
       '.link-comment__list',
-      '.link-comment__comment-item'
+      '.link-comment__comment-item',
+      '.comment-children-item',
+      '.comment-item__content',
+      '.children-item__comment-content'
     ].join(', ');
     const setupStructureSelector = [
       '.link-comment .hb-cpt__pagination-inner',
-      '.hb-bbs-link__header'
+      '.hb-bbs-link__header',
+      '.scroll-list__no-more-desc'
     ].join(', ');
 
     return mutations.some((mutation) => {
+      if (
+        mutationTargetMatches(mutation, commentStructureSelector)
+        || mutationTargetMatches(mutation, setupStructureSelector)
+      ) {
+        return true;
+      }
+
       const changedNodes = [...mutation.addedNodes, ...mutation.removedNodes];
       return changedNodes.some((node) => (
         mutationNodeMatches(node, commentStructureSelector)
@@ -11957,10 +11991,12 @@
     const observer = new MutationObserver((mutations) => {
       if (!isLinkPage() || shouldRefreshLinkPageForMutations(mutations)) {
         scheduleHandlePage();
+        scheduleLinkPageFilterRefresh();
       }
     });
     observer.observe(document.documentElement, {
       childList: true,
+      characterData: true,
       subtree: true
     });
   }
