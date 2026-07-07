@@ -4311,11 +4311,6 @@
         padding: 88px 0 !important;
       }
 
-      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment > .scroll-list__no-more-desc {
-        flex: 0 0 auto;
-        padding: 16px 0 4px !important;
-      }
-
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment::-webkit-scrollbar {
         width: 6px;
       }
@@ -4349,7 +4344,6 @@
         width: 100% !important;
       }
 
-      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .scroll-list__no-more-desc,
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-cpt__empty,
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .scroll-list__button-group {
         grid-column: 2;
@@ -7795,10 +7789,9 @@
       commentPanel.appendChild(emptyState);
     }
 
-    const noMoreDesc = document.querySelector(".hb-bbs-link__container > .scroll-list__no-more-desc");
-    if (noMoreDesc) {
-      commentPanel.appendChild(noMoreDesc);
-    }
+    document.querySelectorAll(".hb-bbs-link .scroll-list__no-more-desc").forEach((noMoreDesc) => {
+      noMoreDesc.remove();
+    });
   }
 
   function getTopicTextFromContextTarget(target) {
