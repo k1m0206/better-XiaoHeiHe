@@ -118,6 +118,9 @@
   const SUB_COMMENT_API_PATH = "/bbs/app/comment/sub/comments";
   const COMMENT_SUPPORT_API_PATH = "/bbs/app/comment/support";
   const COMMENT_CREATE_API_PATH = "/bbs/app/comment/create";
+  const COMMENT_UPLOAD_INFO_API_PATH = "/bbs/app/api/qcloud/cos/upload/info/v2";
+  const COMMENT_UPLOAD_TOKEN_API_PATH = "/bbs/app/api/qcloud/cos/upload/token/v2";
+  const COMMENT_UPLOAD_CALLBACK_API_PATH = "/bbs/app/api/qcloud/cos/upload/callback/v2";
   const LINK_AWARD_API_PATH = "/bbs/app/profile/award/link";
   const EMOJI_API_PATH = "/bbs/app/api/emojis/list";
   const FEEDS_API_PATH = "/bbs/app/feeds";
@@ -126,6 +129,7 @@
   const COMMENT_PAGE_LIMIT = 20;
   const SUB_COMMENT_PAGE_LIMIT = 20;
   const COMMENT_REPLY_TEXT_MAX_LENGTH = 1000;
+  const COMMENT_REPLY_IMAGE_MAX_COUNT = 9;
   const POST_COMMENT_TARGET_ID = "__post__";
   const COMMENT_IDENTITY_RETRY_DELAY = 1000;
   const SUMMARY_COMMENT_LIMIT = 10;
@@ -3266,12 +3270,12 @@
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-form {
         display: flex;
         flex-direction: column;
-        gap: 6px;
+        gap: 0;
         margin: 8px 0 0 32px;
-        padding: 8px;
-        border: 1px solid #e2e8ee;
-        border-radius: 8px;
-        background: #fff;
+        padding: 8px 16px;
+        border: 1px solid #eef0f2;
+        border-radius: 0 0 8px 8px;
+        background: var(--color-background-2, #fff);
       }
 
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} > .better-comment-preview__reply-form {
@@ -3283,25 +3287,25 @@
       }
 
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-form:focus-within {
-        border-color: #2775d1;
-        box-shadow: 0 0 0 2px rgba(39, 117, 209, 0.08);
+        border-color: #dce2e8;
+        box-shadow: 0 6px 18px rgba(20, 25, 30, 0.06);
       }
 
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-input {
         box-sizing: border-box;
         width: 100%;
-        min-height: 34px;
+        min-height: 40px;
         max-height: 96px;
         overflow-y: auto;
-        padding: 3px 2px;
+        padding: 4px 0 8px;
         border: 0;
         border-radius: 0;
         outline: none;
         background: transparent;
-        color: #1f252b;
+        color: var(--color-font-1, #14191e);
         cursor: text;
         font: inherit;
-        line-height: 1.5;
+        line-height: 1.45;
         white-space: pre-wrap;
         word-break: break-word;
       }
@@ -3314,6 +3318,52 @@
         content: attr(data-placeholder);
         color: #a8afb7;
         pointer-events: none;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-attachments {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-bottom: 6px;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-attachment {
+        position: relative;
+        width: 54px;
+        height: 54px;
+        overflow: hidden;
+        border-radius: 6px;
+        background: var(--color-background-1, #f3f4f5);
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-attachment-image {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-attachment-remove {
+        display: inline-flex;
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        width: 18px;
+        height: 18px;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        border: 0;
+        border-radius: 50%;
+        background: rgba(20, 25, 30, 0.66);
+        color: #fff;
+        cursor: pointer;
+        font-size: 14px;
+        line-height: 1;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-file-input {
+        display: none;
       }
 
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-input-emoji {
@@ -3331,35 +3381,38 @@
         align-items: center;
         flex: 1 1 auto;
         min-width: 0;
-        gap: 6px;
+        gap: 8px;
       }
 
-      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__emoji-toggle {
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__emoji-toggle,
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__image-upload {
         display: inline-flex;
         align-items: center;
-        gap: 4px;
-        height: 28px;
-        min-width: 58px;
         justify-content: center;
-        padding: 0 9px;
-        border: 1px solid #dfe5eb;
-        border-radius: 5px;
-        background: #fff;
-        color: #66717c;
+        width: 28px;
+        height: 28px;
+        flex: 0 0 auto;
+        padding: 0;
+        border: 0;
+        border-radius: 50%;
+        background: transparent;
+        color: var(--color-font-3, #8c9199);
         cursor: pointer;
-        font-size: 12px;
-        line-height: 26px;
+        font-size: 20px;
+        line-height: 1;
       }
 
-      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__emoji-toggle-icon {
-        font-size: 14px;
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__emoji-toggle-icon,
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__image-upload-icon {
+        font-size: 20px;
         line-height: 1;
       }
 
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__emoji-toggle:hover,
-      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__emoji-toggle[aria-expanded="true"] {
-        border-color: #2775d1;
-        color: #2775d1;
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__emoji-toggle[aria-expanded="true"],
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__image-upload:hover {
+        background: var(--color-background-hover, rgba(20, 25, 30, 0.04));
+        color: var(--color-font-2, #64696e);
       }
 
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__emoji-panel {
@@ -3443,8 +3496,8 @@
         align-items: center;
         justify-content: space-between;
         min-height: 28px;
-        gap: 10px;
-        padding-top: 2px;
+        gap: 12px;
+        padding-top: 4px;
       }
 
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-status {
@@ -3465,7 +3518,7 @@
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-actions {
         display: inline-flex;
         flex: 0 0 auto;
-        gap: 8px;
+        gap: 10px;
       }
 
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-cancel,
@@ -3473,22 +3526,22 @@
         min-width: 52px;
         height: 28px;
         padding: 0 12px;
-        border-radius: 5px;
+        border-radius: 4px;
         cursor: pointer;
         font-size: 12px;
-        line-height: 26px;
+        line-height: 28px;
       }
 
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-cancel {
-        border: 1px solid #dfe5eb;
-        background: #fff;
-        color: #66717c;
+        border: 0;
+        background: transparent;
+        color: var(--color-font-3, #8c9199);
       }
 
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-submit {
-        border: 1px solid #2775d1;
-        background: #2775d1;
-        color: #fff;
+        border: 0;
+        background: var(--color-primary-blue, #006ef4);
+        color: var(--color-primary-white, #fff);
       }
 
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-submit:disabled {
@@ -5188,6 +5241,34 @@
     return `https://api.xiaoheihe.cn${COMMENT_CREATE_API_PATH}?${params.toString()}`;
   }
 
+  function buildCommentUploadInfoApiUrl() {
+    const params = new URLSearchParams({
+      ...getBaseApiParams(),
+      ...createSignedParams(COMMENT_UPLOAD_INFO_API_PATH)
+    });
+
+    return `https://api.xiaoheihe.cn${COMMENT_UPLOAD_INFO_API_PATH}?${params.toString()}`;
+  }
+
+  function buildCommentUploadTokenApiUrl() {
+    const params = new URLSearchParams({
+      ...getBaseApiParams(),
+      ...createSignedParams(COMMENT_UPLOAD_TOKEN_API_PATH)
+    });
+
+    return `https://api.xiaoheihe.cn${COMMENT_UPLOAD_TOKEN_API_PATH}?${params.toString()}`;
+  }
+
+  function buildCommentUploadCallbackApiUrl() {
+    const params = new URLSearchParams({
+      ...getBaseApiParams(),
+      ...createSignedParams(COMMENT_UPLOAD_CALLBACK_API_PATH),
+      is_finished: "true"
+    });
+
+    return `https://api.xiaoheihe.cn${COMMENT_UPLOAD_CALLBACK_API_PATH}?${params.toString()}`;
+  }
+
   function buildLinkAwardApiUrl() {
     const params = new URLSearchParams({
       ...getBaseApiParams(),
@@ -5795,11 +5876,15 @@
     return `
       <form class="better-comment-preview__reply-form" data-comment-id="${escapeHtml(commentId)}" data-root-comment-id="${escapeHtml(rootCommentId || commentId)}">
         <div class="better-comment-preview__reply-input" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="${escapeHtml(placeholder || "写下回复")}"></div>
+        <div class="better-comment-preview__reply-attachments" hidden></div>
+        <input class="better-comment-preview__reply-file-input" type="file" accept="image/*" multiple>
         <div class="better-comment-preview__reply-form-footer">
           <div class="better-comment-preview__reply-tools">
-            <button class="better-comment-preview__emoji-toggle" type="button" aria-expanded="false">
-              <span class="better-comment-preview__emoji-toggle-icon" aria-hidden="true">☻</span>
-              <span>表情</span>
+            <button class="better-comment-preview__emoji-toggle" type="button" aria-expanded="false" aria-label="表情" title="表情">
+              <i class="hb-icon heybox-bbs_emoji_filled_24x24 better-comment-preview__emoji-toggle-icon" aria-hidden="true"></i>
+            </button>
+            <button class="better-comment-preview__image-upload" type="button" aria-label="上传图片" title="上传图片">
+              <i class="hb-icon heybox-bbs_pic_filled_24x24 better-comment-preview__image-upload-icon" aria-hidden="true"></i>
             </button>
             <div class="better-comment-preview__reply-status"></div>
             <div class="better-comment-preview__emoji-panel" hidden>
@@ -7364,7 +7449,238 @@
     recordEmojiUsage(emojiText);
   }
 
-  function submitPreviewReplyForm(preview, form) {
+  function getReplyFormImages(form) {
+    return Array.isArray(form._betterReplyImages) ? form._betterReplyImages : [];
+  }
+
+  function setReplyFormImages(form, images) {
+    getReplyFormImages(form).forEach((image) => {
+      if (!images.includes(image) && image.previewUrl) {
+        URL.revokeObjectURL(image.previewUrl);
+      }
+    });
+    form._betterReplyImages = images;
+    renderReplyFormImages(form);
+  }
+
+  function renderReplyFormImages(form) {
+    const container = form.querySelector(".better-comment-preview__reply-attachments");
+    if (!container) {
+      return;
+    }
+
+    const images = getReplyFormImages(form);
+    container.hidden = !images.length;
+    container.innerHTML = images.map((image, index) => `
+      <span class="better-comment-preview__reply-attachment">
+        <img class="better-comment-preview__reply-attachment-image" src="${escapeHtml(image.previewUrl)}" alt="待上传图片 ${escapeHtml(index + 1)}">
+        <button class="better-comment-preview__reply-attachment-remove" type="button" data-image-index="${escapeHtml(index)}" aria-label="移除图片" title="移除图片">×</button>
+      </span>
+    `).join("");
+    scheduleRowHeightSync(form.closest(`.${ROW_CLASS}`));
+  }
+
+  function getImageFileSize(file) {
+    return new Promise((resolve) => {
+      const url = URL.createObjectURL(file);
+      const image = new Image();
+      image.onload = () => {
+        const size = {
+          width: image.naturalWidth || image.width || 0,
+          height: image.naturalHeight || image.height || 0
+        };
+        URL.revokeObjectURL(url);
+        resolve(size);
+      };
+      image.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve({ width: 0, height: 0 });
+      };
+      image.src = url;
+    });
+  }
+
+  function addReplyFormImageFiles(form, files) {
+    const imageFiles = Array.from(files || []).filter((file) => file?.type?.startsWith("image/"));
+    if (!imageFiles.length) {
+      return;
+    }
+
+    const existingImages = getReplyFormImages(form);
+    const availableCount = Math.max(0, COMMENT_REPLY_IMAGE_MAX_COUNT - existingImages.length);
+    const nextFiles = imageFiles.slice(0, availableCount);
+    if (!nextFiles.length) {
+      setReplyFormStatus(form, `最多上传 ${COMMENT_REPLY_IMAGE_MAX_COUNT} 张图片`, true);
+      return;
+    }
+
+    Promise.all(nextFiles.map(async (file) => ({
+      file,
+      previewUrl: URL.createObjectURL(file),
+      ...(await getImageFileSize(file))
+    }))).then((items) => {
+      setReplyFormImages(form, existingImages.concat(items));
+      setReplyFormStatus(form, imageFiles.length > availableCount ? `最多上传 ${COMMENT_REPLY_IMAGE_MAX_COUNT} 张图片` : "");
+    });
+  }
+
+  function removeReplyFormImage(form, index) {
+    const images = getReplyFormImages(form);
+    const nextImages = images.filter((_, imageIndex) => imageIndex !== index);
+    setReplyFormImages(form, nextImages);
+    setReplyFormStatus(form, "");
+  }
+
+  function encodeCosComponent(value) {
+    return encodeURIComponent(String(value))
+      .replace(/[!'()*]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
+  }
+
+  function encodeCosPath(path) {
+    return `/${String(path || "").replace(/^\/+/, "").split("/").map(encodeCosComponent).join("/")}`;
+  }
+
+  function bytesToHex(bytes) {
+    return Array.from(bytes)
+      .map((byte) => byte.toString(16).padStart(2, "0"))
+      .join("");
+  }
+
+  function sha1Hex(input) {
+    return crypto.subtle.digest("SHA-1", new TextEncoder().encode(input))
+      .then((buffer) => bytesToHex(new Uint8Array(buffer)));
+  }
+
+  function hmacSha1Hex(key, input) {
+    return crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(key),
+      { name: "HMAC", hash: "SHA-1" },
+      false,
+      ["sign"]
+    ).then((cryptoKey) => crypto.subtle.sign("HMAC", cryptoKey, new TextEncoder().encode(input)))
+      .then((buffer) => bytesToHex(new Uint8Array(buffer)));
+  }
+
+  async function buildCosPutAuthorization({ key, host, credentials, startTime, expiredTime }) {
+    const signTime = `${startTime};${expiredTime}`;
+    const method = "put";
+    const canonicalUri = encodeCosPath(key);
+    const httpString = `${method}\n${canonicalUri}\n\nhost=${encodeCosComponent(host).toLowerCase()}\n`;
+    const stringToSign = `sha1\n${signTime}\n${await sha1Hex(httpString)}\n`;
+    const signKey = await hmacSha1Hex(credentials.tmpSecretKey, signTime);
+    const signature = await hmacSha1Hex(signKey, stringToSign);
+
+    return [
+      "q-sign-algorithm=sha1",
+      `q-ak=${credentials.tmpSecretId}`,
+      `q-sign-time=${signTime}`,
+      `q-key-time=${signTime}`,
+      "q-header-list=host",
+      "q-url-param-list=",
+      `q-signature=${signature}`
+    ].join("&");
+  }
+
+  function postCommentApiForm(url, body) {
+    return fetch(url, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        accept: "application/json",
+        "content-type": "application/x-www-form-urlencoded;charset=utf-8"
+      },
+      body: new URLSearchParams(body).toString()
+    }).then((response) => response.json());
+  }
+
+  function requestCommentUploadInfo(images) {
+    return postCommentApiForm(buildCommentUploadInfoApiUrl(), {
+      file_infos: JSON.stringify(images.map((image) => ({
+        name: image.file.name || "image.png",
+        mimetype: image.file.type || "image/png",
+        fsize: image.file.size || 0,
+        width: image.width || 0,
+        height: image.height || 0
+      }))),
+      scope: "bbs",
+      need_cache: "0"
+    });
+  }
+
+  function requestCommentUploadToken(bucket, keys, images) {
+    return postCommentApiForm(buildCommentUploadTokenApiUrl(), {
+      bucket,
+      keys: JSON.stringify(keys),
+      mimetypes: JSON.stringify(images.map((image) => image.file.type || "image/png")),
+      is_multipart_upload: "0"
+    });
+  }
+
+  function requestCommentUploadCallback(keys) {
+    return postCommentApiForm(buildCommentUploadCallbackApiUrl(), {
+      keys: JSON.stringify(keys)
+    });
+  }
+
+  async function uploadCommentImageToCos(image, key, uploadInfo, tokenInfo) {
+    const credentials = tokenInfo?.credentials;
+    if (!credentials?.tmpSecretId || !credentials?.tmpSecretKey || !credentials?.sessionToken) {
+      throw new Error("图片上传凭证无效");
+    }
+
+    const host = `${uploadInfo.bucket}.cos.${uploadInfo.region}.myqcloud.com`;
+    const url = `https://${host}${encodeCosPath(key)}`;
+    const authorization = await buildCosPutAuthorization({
+      key,
+      host,
+      credentials,
+      startTime: tokenInfo.startTime || Math.floor(Date.now() / 1000),
+      expiredTime: tokenInfo.expiredTime || Math.floor(Date.now() / 1000) + 600
+    });
+    const response = await fetch(url, {
+      method: "PUT",
+      headers: {
+        authorization,
+        "content-type": image.file.type || "application/octet-stream",
+        "x-cos-security-token": credentials.sessionToken
+      },
+      body: image.file
+    });
+    if (!response.ok) {
+      throw new Error("图片上传失败");
+    }
+  }
+
+  async function uploadReplyFormImages(images) {
+    if (!images.length) {
+      return [];
+    }
+
+    const infoData = await requestCommentUploadInfo(images);
+    const uploadInfo = infoData?.result;
+    const keys = uploadInfo?.keys || [];
+    if (infoData?.status !== "ok" || !uploadInfo?.bucket || !uploadInfo?.region || keys.length !== images.length) {
+      throw new Error(infoData?.msg || "获取图片上传信息失败");
+    }
+
+    const tokenData = await requestCommentUploadToken(uploadInfo.bucket, keys, images);
+    const tokenInfo = tokenData?.result;
+    if (tokenData?.status !== "ok" || !tokenInfo?.credentials) {
+      throw new Error(tokenData?.msg || "获取图片上传凭证失败");
+    }
+
+    await Promise.all(images.map((image, index) => uploadCommentImageToCos(image, keys[index], uploadInfo, tokenInfo)));
+
+    const callbackData = await requestCommentUploadCallback(keys);
+    const previewUrls = callbackData?.result?.preview_urls || callbackData?.result?.thumbs || [];
+    if (callbackData?.status !== "ok" || previewUrls.length !== images.length) {
+      throw new Error(callbackData?.msg || "图片上传回调失败");
+    }
+    return previewUrls;
+  }
+
+  async function submitPreviewReplyForm(preview, form) {
     const linkId = preview.dataset.linkId || "";
     const replyCommentId = form.dataset.commentId || "";
     const rootCommentId = form.dataset.rootCommentId || replyCommentId;
@@ -7373,12 +7689,13 @@
     const submitRootCommentId = isPostComment ? "-1" : rootCommentId;
     const editor = form.querySelector(".better-comment-preview__reply-input");
     const text = serializeReplyEditor(editor);
+    const images = getReplyFormImages(form);
     if (!linkId || !submitReplyCommentId || !submitRootCommentId) {
       setReplyFormStatus(form, "缺少评论目标", true);
       return;
     }
-    if (!text) {
-      setReplyFormStatus(form, "先写点内容吧", true);
+    if (!text && !images.length) {
+      setReplyFormStatus(form, "先写点内容或上传图片吧", true);
       editor?.focus();
       return;
     }
@@ -7389,23 +7706,20 @@
     }
 
     setReplyFormSending(form, true);
-    setReplyFormStatus(form, "发送中");
+    setReplyFormStatus(form, images.length ? "图片上传中" : "发送中");
 
-    runAfterIdentityCookiesRestored(() => fetch(buildCommentCreateApiUrl(), {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        accept: "application/json",
-        "content-type": "application/x-www-form-urlencoded;charset=utf-8"
-      },
-      body: new URLSearchParams({
+    runAfterIdentityCookiesRestored(async () => {
+      const imageUrls = await uploadReplyFormImages(images);
+      setReplyFormStatus(form, "发送中");
+      return postCommentApiForm(buildCommentCreateApiUrl(), {
         is_cy: "0",
         link_id: linkId,
         reply_id: submitReplyCommentId,
         root_id: submitRootCommentId,
-        text
-      }).toString()
-    })).then((response) => response.json()).then((data) => {
+        text,
+        ...(imageUrls.length ? { imgs: imageUrls.join(",") } : {})
+      });
+    }).then((data) => {
       if (data?.status !== "ok") {
         throw new Error(data?.message || data?.msg || data?.error || "发送失败");
       }
@@ -7453,6 +7767,19 @@
       submitPreviewReplyForm(preview, form);
     });
 
+    preview.addEventListener("change", (event) => {
+      const input = event.target instanceof Element
+        ? event.target.closest(".better-comment-preview__reply-file-input")
+        : null;
+      const form = input?.closest(".better-comment-preview__reply-form");
+      if (!input || !form || !preview.contains(input)) {
+        return;
+      }
+
+      addReplyFormImageFiles(form, input.files);
+      input.value = "";
+    });
+
     preview.addEventListener("click", (event) => {
       if (!(event.target instanceof Element)) {
         return;
@@ -7484,6 +7811,29 @@
           event.preventDefault();
           event.stopPropagation();
           insertEmojiIntoReplyForm(form, emojiOption.dataset.emojiText || "");
+          return;
+        }
+      }
+
+      const imageUploadButton = event.target.closest(".better-comment-preview__image-upload");
+      if (imageUploadButton && preview.contains(imageUploadButton)) {
+        const form = imageUploadButton.closest(".better-comment-preview__reply-form");
+        const input = form?.querySelector(".better-comment-preview__reply-file-input");
+        if (input) {
+          event.preventDefault();
+          event.stopPropagation();
+          input.click();
+          return;
+        }
+      }
+
+      const imageRemoveButton = event.target.closest(".better-comment-preview__reply-attachment-remove");
+      if (imageRemoveButton && preview.contains(imageRemoveButton)) {
+        const form = imageRemoveButton.closest(".better-comment-preview__reply-form");
+        if (form) {
+          event.preventDefault();
+          event.stopPropagation();
+          removeReplyFormImage(form, Number.parseInt(imageRemoveButton.dataset.imageIndex, 10));
           return;
         }
       }
