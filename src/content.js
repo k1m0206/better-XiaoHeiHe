@@ -5280,7 +5280,7 @@
 
   function removeRightContent() {
     document.querySelectorAll(RIGHT_CONTENT_SELECTOR).forEach((node) => {
-      node.remove();
+      node.style.display = "none";
     });
   }
 
@@ -5294,7 +5294,7 @@
 
   function removeHotSearchSidebar() {
     document.querySelectorAll(`.${HOT_SEARCH_SIDEBAR_CLASS}`).forEach((node) => {
-      node.remove();
+      node.style.display = "none";
     });
   }
 
