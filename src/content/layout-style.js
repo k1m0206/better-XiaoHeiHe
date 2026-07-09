@@ -457,6 +457,49 @@
         gap: 6px;
       }
 
+      .${FAVORITE_POPOVER_CLASS} .better-favorite-popover__author {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .${FAVORITE_POPOVER_CLASS} .better-favorite-popover__author-avatar {
+        width: 18px;
+        height: 18px;
+        flex: 0 0 auto;
+        border-radius: 50%;
+        background: #eef1f4;
+        color: #8a9299;
+        font-size: 10px;
+        font-weight: 800;
+        line-height: 18px;
+        text-align: center;
+        object-fit: cover;
+      }
+
+      .${FAVORITE_POPOVER_CLASS} .better-favorite-popover__author-name {
+        min-width: 0;
+        overflow: hidden;
+        color: #4f5965;
+        font-size: 12px;
+        font-weight: 800;
+        line-height: 18px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .${FAVORITE_POPOVER_CLASS} .better-favorite-popover__author-level {
+        flex: 0 0 auto;
+        padding: 0 5px;
+        border-radius: 999px;
+        background: #eef3f8;
+        color: #607083;
+        font-size: 10px;
+        font-weight: 800;
+        line-height: 15px;
+      }
+
       .${FAVORITE_POPOVER_CLASS} .better-message-popover__link-title {
         display: -webkit-box;
         overflow: hidden;

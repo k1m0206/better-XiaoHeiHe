@@ -1353,6 +1353,49 @@
         gap: 6px;
       }
 
+      .${FAVORITE_POPOVER_CLASS} .better-favorite-popover__author {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .${FAVORITE_POPOVER_CLASS} .better-favorite-popover__author-avatar {
+        width: 18px;
+        height: 18px;
+        flex: 0 0 auto;
+        border-radius: 50%;
+        background: #eef1f4;
+        color: #8a9299;
+        font-size: 10px;
+        font-weight: 800;
+        line-height: 18px;
+        text-align: center;
+        object-fit: cover;
+      }
+
+      .${FAVORITE_POPOVER_CLASS} .better-favorite-popover__author-name {
+        min-width: 0;
+        overflow: hidden;
+        color: #4f5965;
+        font-size: 12px;
+        font-weight: 800;
+        line-height: 18px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .${FAVORITE_POPOVER_CLASS} .better-favorite-popover__author-level {
+        flex: 0 0 auto;
+        padding: 0 5px;
+        border-radius: 999px;
+        background: #eef3f8;
+        color: #607083;
+        font-size: 10px;
+        font-weight: 800;
+        line-height: 15px;
+      }
+
       .${FAVORITE_POPOVER_CLASS} .better-message-popover__link-title {
         display: -webkit-box;
         overflow: hidden;
@@ -13569,13 +13612,65 @@
     return String(item?.linkid || item?.link_id || item?.id || item?.link?.linkid || item?.link?.id || "").trim();
   }
 
+  function getFavouritePostAuthor(item) {
+    const author = item?.user || item?.author || item?.link_user || item?.link?.user || item?.link?.author || {};
+    return String(
+      item?.username
+      || item?.user_name
+      || item?.nickname
+      || item?.link_user
+      || item?.author_name
+      || item?.link_user_name
+      || author?.username
+      || author?.user_name
+      || author?.nickname
+      || author?.name
+      || ""
+    ).trim();
+  }
+
+  function getFavouritePostAuthorAvatar(item) {
+    const author = item?.user || item?.author || item?.link_user || item?.link?.user || item?.link?.author || {};
+    return String(
+      item?.avatar
+      || item?.avartar
+      || item?.author_avatar
+      || item?.link_user_avatar
+      || author?.avatar
+      || author?.avartar
+      || author?.avatar_url
+      || author?.avatarUrl
+      || ""
+    ).trim();
+  }
+
+  function getFavouritePostAuthorLevel(item) {
+    const author = item?.user || item?.author || item?.link_user || item?.link?.user || item?.link?.author || {};
+    const level = normalizeUserLevel(
+      item?.level
+      || item?.user_level
+      || item?.author_level
+      || item?.link_user_level
+      || author?.level_info?.level
+      || author?.level
+      || author?.user_level
+      || ""
+    );
+    return level ? `Lv.${level}` : "";
+  }
+
   function normalizeFavouritePosts(items) {
     return (Array.isArray(items) ? items : []).map((item) => {
       const topic = Array.isArray(item?.topics) ? item.topics[0] : item?.topic;
+      const author = getFavouritePostAuthor(item);
       return {
         id: getFavouritePostLinkId(item),
         title: String(item?.title || item?.link?.title || "未命名帖子"),
         description: String(item?.description || item?.desc || item?.link?.description || ""),
+        author,
+        authorAvatar: getFavouritePostAuthorAvatar(item),
+        authorAvatarFallback: Array.from(author || "作")[0] || "作",
+        authorLevel: getFavouritePostAuthorLevel(item),
         timestamp: Number(item?.create_at || item?.created_at || item?.time || 0),
         awardCount: Number(item?.link_award_num || item?.up || item?.support_num || 0),
         commentCount: Number(item?.comment_num || item?.reply_num || 0),
@@ -13595,6 +13690,13 @@
     setFavoritePopoverState(items.map((item) => `
       <a class="better-message-popover__item better-favorite-popover__item" href="/app/bbs/link/${escapeHtml(item.id)}">
         <div class="better-message-popover__context">
+          ${item.author ? `
+            <div class="better-favorite-popover__author">
+              ${item.authorAvatar ? `<img class="better-favorite-popover__author-avatar" src="${escapeHtml(item.authorAvatar)}" alt="">` : `<span class="better-favorite-popover__author-avatar" aria-hidden="true">${escapeHtml(item.authorAvatarFallback)}</span>`}
+              <span class="better-favorite-popover__author-name">${escapeHtml(item.author)}</span>
+              ${item.authorLevel ? `<span class="better-favorite-popover__author-level">${escapeHtml(item.authorLevel)}</span>` : ""}
+            </div>
+          ` : ""}
           <span class="better-message-popover__link-title">${renderEmojiTokensInHtml(escapeHtml(item.title))}</span>
           ${item.description ? `<span class="better-message-popover__link-desc">${renderEmojiTokensInHtml(escapeHtml(item.description))}</span>` : ""}
           <div class="better-message-popover__media-row">
