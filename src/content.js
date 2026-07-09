@@ -16,6 +16,7 @@
   const TOP_MENU_TOGGLE_CLASS = "better-xiaoheihe-top-menu__toggle";
   const TOP_MENU_PANEL_CLASS = "better-xiaoheihe-top-menu__panel";
   const FAVORITE_ENTRY_CLASS = "better-xiaoheihe-favorite-entry";
+  const HEADER_SEARCH_CLASS = "better-xiaoheihe-header-search";
   const SETTINGS_ENTRY_CLASS = "better-xiaoheihe-settings-entry";
   const SETTINGS_PANEL_CLASS = "better-xiaoheihe-settings-panel";
   const AI_SUMMARY_MODAL_CLASS = "better-xiaoheihe-ai-summary-modal";
@@ -902,6 +903,8 @@
         width: 100% !important;
       }
 
+      .${HOME_LAYOUT_CLASS} .hb-page__app .content > .list,
+      .${HOME_LAYOUT_CLASS} .hb-page__app main.list,
       .${HOME_LAYOUT_CLASS} .hb-cpt__scroll-list.hb-bbs-home {
         position: relative !important;
         left: 50% !important;
@@ -951,6 +954,20 @@
 
       .${HOME_LAYOUT_CLASS} .bbs-home__topic-list .hb-cpt__pagination-inner::-webkit-scrollbar {
         display: none;
+      }
+
+      .${HOME_LAYOUT_CLASS} .bbs-community__search-module {
+        display: none !important;
+      }
+
+      .${HOME_LAYOUT_CLASS} #page-bbs-community::before {
+        content: none !important;
+        display: none !important;
+      }
+
+      .${HOME_LAYOUT_CLASS} #page-bbs-community .list::before {
+        content: none !important;
+        display: none !important;
       }
 
       .${HOME_LAYOUT_CLASS} .bbs-home__topic-item {
@@ -1030,6 +1047,68 @@
       .${FAVORITE_ENTRY_CLASS} .better-xiaoheihe-favorite-entry__icon {
         font-size: 16px;
         line-height: 1;
+      }
+
+      .${HEADER_SEARCH_CLASS} {
+        box-sizing: border-box;
+        display: inline-flex;
+        width: clamp(180px, 24vw, 320px);
+        height: 36px;
+        min-width: 0;
+        align-items: center;
+        gap: 6px;
+        margin-left: 8px;
+        padding: 0 8px 0 12px;
+        border: 1px solid #e2e6ea;
+        border-radius: 8px;
+        background: #f7f8f9;
+        color: #14191e;
+        transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
+      }
+
+      .${HEADER_SEARCH_CLASS}:focus-within {
+        border-color: #9dbde0;
+        background: #fff;
+        box-shadow: 0 0 0 3px rgba(39, 117, 209, 0.12);
+      }
+
+      .${HEADER_SEARCH_CLASS} .better-header-search__input {
+        box-sizing: border-box;
+        width: 100%;
+        min-width: 0;
+        height: 100%;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        color: #14191e;
+        font-size: 13px;
+        line-height: 36px;
+      }
+
+      .${HEADER_SEARCH_CLASS} .better-header-search__input::placeholder {
+        color: #8a9299;
+      }
+
+      .${HEADER_SEARCH_CLASS} .better-header-search__submit {
+        display: inline-flex;
+        width: 24px;
+        height: 24px;
+        flex: 0 0 auto;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        color: #59636e;
+        cursor: pointer;
+        font-size: 16px;
+        line-height: 1;
+      }
+
+      .${HEADER_SEARCH_CLASS} .better-header-search__submit:hover {
+        background: #e9edf1;
+        color: #14191e;
       }
 
       .${SETTINGS_ENTRY_CLASS} {
@@ -3577,9 +3656,9 @@
         position: fixed;
         left: var(--better-emoji-panel-left, 12px);
         top: var(--better-emoji-panel-top, 12px);
-        z-index: 2147483647;
+        z-index: 2147483647 !important;
         width: min(280px, calc(100vw - 48px));
-        max-height: 220px;
+        max-height: var(--better-emoji-panel-max-height, 220px);
         overflow: auto;
         padding: 8px;
         border: 1px solid #dfe5eb;
@@ -7495,18 +7574,16 @@
 
     const buttonRect = toggle.getBoundingClientRect();
     const panelWidth = Math.min(280, Math.max(180, window.innerWidth - 48));
-    const panelHeight = Math.min(220, panel.scrollHeight || 220);
     const left = Math.min(
       Math.max(12, buttonRect.left),
       Math.max(12, window.innerWidth - panelWidth - 12)
     );
-    const preferredTop = buttonRect.bottom + 8;
-    const top = preferredTop + panelHeight <= window.innerHeight - 12
-      ? preferredTop
-      : Math.max(12, buttonRect.top - panelHeight - 8);
+    const top = buttonRect.bottom + 8;
+    const maxHeight = Math.max(96, Math.min(220, window.innerHeight - top - 12));
 
     panel.style.setProperty("--better-emoji-panel-left", `${left}px`);
     panel.style.setProperty("--better-emoji-panel-top", `${top}px`);
+    panel.style.setProperty("--better-emoji-panel-max-height", `${maxHeight}px`);
   }
 
   function toggleReplyEmojiPanel(form) {
@@ -9896,10 +9973,17 @@
     });
   }
 
+  function removeHeaderSearch() {
+    document.querySelectorAll(`.${HEADER_SEARCH_CLASS}`).forEach((entry) => {
+      entry.remove();
+    });
+  }
+
   function removeSettingsEntry() {
     document.querySelectorAll(`.${SETTINGS_ENTRY_CLASS}`).forEach((entry) => {
       entry.remove();
     });
+    removeHeaderSearch();
     document.querySelector(`.${SETTINGS_PANEL_CLASS}`)?.remove();
   }
 
@@ -12115,6 +12199,57 @@
     }
   }
 
+  function getCurrentSearchQuery() {
+    if (!isSearchPage()) {
+      return "";
+    }
+
+    try {
+      return new URL(window.location.href).searchParams.get("q") || "";
+    } catch (error) {
+      return "";
+    }
+  }
+
+  function ensureHeaderSearch(settingsEntry) {
+    if (!settingsEntry) {
+      removeHeaderSearch();
+      return;
+    }
+
+    let form = document.querySelector(`.${HEADER_SEARCH_CLASS}`);
+    if (!form) {
+      form = document.createElement("form");
+      form.className = HEADER_SEARCH_CLASS;
+      form.setAttribute("role", "search");
+      form.innerHTML = `
+        <input class="better-header-search__input" type="search" autocomplete="off" placeholder="搜索小黑盒" aria-label="搜索小黑盒">
+        <button class="better-header-search__submit" type="submit" aria-label="搜索">
+          <i class="hb-icon" aria-hidden="true">
+            <svg class="hb-iconfont" aria-hidden="true">
+              <use xlink:href="#icon-common_search_line_24x24"></use>
+            </svg>
+          </i>
+        </button>
+      `;
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const input = form.querySelector(".better-header-search__input");
+        const query = input?.value?.trim() || "";
+        window.location.href = query ? `/app/search?q=${encodeURIComponent(query)}` : "/app/search";
+      });
+    }
+
+    const input = form.querySelector(".better-header-search__input");
+    if (input && document.activeElement !== input) {
+      input.value = getCurrentSearchQuery();
+    }
+
+    if (settingsEntry.previousElementSibling !== form) {
+      settingsEntry.insertAdjacentElement("beforebegin", form);
+    }
+  }
+
   function ensureSettingsEntry() {
     const favoriteEntry = document.querySelector(`.${FAVORITE_ENTRY_CLASS}`);
     const messageButton = document.querySelector(".hb-view-header .message-center__btn");
@@ -12146,12 +12281,14 @@
       if (entry.nextElementSibling !== publishButton) {
         publishButton.insertAdjacentElement("beforebegin", entry);
       }
+      ensureHeaderSearch(entry);
       return;
     }
 
     if (entry.previousElementSibling !== anchor) {
       anchor.insertAdjacentElement("afterend", entry);
     }
+    ensureHeaderSearch(entry);
   }
 
 
