@@ -13907,8 +13907,11 @@
     } else {
       enhanceFeed();
       if (wasLinkPage && savedScrollY !== null) {
-        window.scrollTo(0, savedScrollY);
+        const targetY = savedScrollY;
         savedScrollY = null;
+        window.requestAnimationFrame(() => {
+          window.scrollTo(0, targetY);
+        });
       }
     }
 
