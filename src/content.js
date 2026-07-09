@@ -2419,7 +2419,9 @@
         vertical-align: middle;
         flex: 0 0 auto;
         align-items: center;
-        margin: 0 4px;
+        width: auto !important;
+        min-width: 0;
+        margin: 0 5px;
       }
 
       .${HOME_LAYOUT_CLASS} .comment-children-item > .better-default-level-tag {
@@ -2431,8 +2433,19 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        height: 16px;
-        line-height: 16px;
+        box-sizing: border-box;
+        min-width: 28px;
+        height: 17px;
+        padding: 0 6px;
+        border: 1px solid rgba(96, 117, 139, 0.2);
+        border-radius: 999px !important;
+        background: linear-gradient(180deg, #ffffff 0%, #eef3f8 100%) !important;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75), 0 1px 2px rgba(31, 41, 55, 0.08);
+        color: #4f6477 !important;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0;
+        line-height: 15px;
         white-space: nowrap;
       }
 
@@ -5883,10 +5896,6 @@
     return String(value);
   }
 
-  function getLevelTagWidth(level) {
-    return 20 + String(level || "").length * 6;
-  }
-
   function renderUserLevel(level) {
     const normalizedLevel = normalizeUserLevel(level);
     if (!normalizedLevel) {
@@ -8278,11 +8287,10 @@
     const normalizedLevel = String(DEFAULT_USER_LEVEL);
     const tag = document.createElement("div");
     tag.className = "hb-cpt__level-tag list-content__level better-default-level-tag";
-    tag.style.width = `${getLevelTagWidth(normalizedLevel)}px`;
 
     const wrapper = document.createElement("div");
     wrapper.className = `level-tag__wrapper level-${normalizedLevel}`;
-    wrapper.textContent = ` Lv.${normalizedLevel}`;
+    wrapper.textContent = `Lv.${normalizedLevel}`;
     tag.appendChild(wrapper);
     return tag;
   }
