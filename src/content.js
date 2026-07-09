@@ -196,6 +196,7 @@
   let leftMenuOriginalPosition = null;
   let emojiPromise = null;
   let scheduled = false;
+  let handlingPage = false;
   let linkPageFilterRefreshTimer = null;
   let previewObserver = null;
   let rowResizeObserver = null;
@@ -13913,7 +13914,9 @@
     scheduled = true;
     window.requestAnimationFrame(() => {
       scheduled = false;
+      handlingPage = true;
       handlePage();
+      handlingPage = false;
     });
   }
 
@@ -13977,6 +13980,9 @@
 
   function observePage() {
     const observer = new MutationObserver((mutations) => {
+      if (handlingPage) {
+        return;
+      }
       if (!isLinkPage() || shouldRefreshLinkPageForMutations(mutations)) {
         scheduleHandlePage();
         scheduleLinkPageFilterRefresh();
