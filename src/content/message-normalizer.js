@@ -114,7 +114,22 @@
   }
 
   function getReplyMessageTopicName(message) {
-    return String(message?.topic_name || message?.topic?.name || "").trim();
+    const topic = Array.isArray(message?.topics) ? message.topics[0] : message?.topic;
+    return String(message?.topic_name || topic?.name || "").trim();
+  }
+
+  function getReplyMessageTopicIcon(message) {
+    const topic = Array.isArray(message?.topics) ? message.topics[0] : message?.topic;
+    return String(
+      message?.topic_icon
+      || message?.topic_pic_url
+      || message?.topic_img
+      || topic?.pic_url
+      || topic?.icon
+      || topic?.img
+      || topic?.avatar
+      || ""
+    ).trim();
   }
 
   function normalizeMessageImageList(value) {
@@ -296,6 +311,7 @@
           contentImages: tab === "award" ? [] : getReplyMessageCommentImages(message),
           replyTargetContent: tab === "award" ? "" : getReplyMessageTargetContent(message),
           topicName: getReplyMessageTopicName(message),
+          topicIcon: getReplyMessageTopicIcon(message),
           linkImages: getReplyMessageLinkImages(message),
           targetImages: tab === "award" && awardKind === "comment" ? getAwardMessageTargetImages(message) : [],
           linkAuthor: getReplyMessageLinkAuthor(message),

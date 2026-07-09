@@ -1,24 +1,34 @@
 // 顶部收藏、搜索和消息入口。
 // 本文件由原入口文件等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function ensureFavoriteEntry() {
-    const messageButton = document.querySelector(".hb-view-header .message-center__btn");
-    if (!messageButton) {
+    const headerMessageButton = document.querySelector(`.${HEADER_MESSAGE_CLASS}`);
+    const nativeMessageButton = document.querySelector(".hb-view-header .message-center__btn");
+    const anchor = headerMessageButton || nativeMessageButton;
+    if (!anchor) {
       removeFavoriteEntry();
       return;
     }
 
     let entry = document.querySelector(`.${FAVORITE_ENTRY_CLASS}`);
     if (!entry) {
-      entry = document.createElement("a");
+      entry = document.createElement("button");
       entry.className = FAVORITE_ENTRY_CLASS;
-      entry.innerHTML = '<i class="hb-icon heybox-bbs_favorite_filled_24x24 better-xiaoheihe-favorite-entry__icon" aria-hidden="true">★</i><span>收藏</span>';
+      entry.type = "button";
+      entry.innerHTML = `
+        <svg class="better-xiaoheihe-favorite-entry__icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M6.5 4.75A2.25 2.25 0 0 1 8.75 2.5h6.5a2.25 2.25 0 0 1 2.25 2.25v16.1a.75.75 0 0 1-1.18.61L12 18.43l-4.32 3.03a.75.75 0 0 1-1.18-.61V4.75Z"></path>
+        </svg>
+      `;
       entry.title = "查看收藏";
       entry.setAttribute("aria-label", "查看收藏");
+      entry.setAttribute("aria-expanded", "false");
     }
+    entry.onpointerdown = (event) => handleFavoriteEntryClick(event, entry);
+    entry.onclick = (event) => handleFavoriteEntryClick(event, entry);
+    bindFavoriteEntryClickDelegation();
 
-    entry.href = "/app/user/favour/content";
-    if (entry.previousElementSibling !== messageButton) {
-      messageButton.insertAdjacentElement("afterend", entry);
+    if (entry.previousElementSibling !== anchor) {
+      anchor.insertAdjacentElement("afterend", entry);
     }
   }
 
@@ -37,6 +47,44 @@
   function removeMessagePopover() {
     document.querySelector(`.${MESSAGE_POPOVER_CLASS}`)?.remove();
     document.querySelector(`.${HEADER_MESSAGE_CLASS}`)?.setAttribute("aria-expanded", "false");
+  }
+
+  function removeFavoritePopover() {
+    document.querySelector(`.${FAVORITE_POPOVER_CLASS}`)?.remove();
+    document.querySelector(`.${FAVORITE_ENTRY_CLASS}`)?.setAttribute("aria-expanded", "false");
+  }
+
+  function ensureFavoritePopover() {
+    let popover = document.querySelector(`.${FAVORITE_POPOVER_CLASS}`);
+    if (popover) {
+      return popover;
+    }
+
+    popover = document.createElement("div");
+    popover.className = FAVORITE_POPOVER_CLASS;
+    popover.hidden = true;
+    popover.innerHTML = `
+      <div class="better-message-popover__header">
+        <div class="better-message-popover__title">
+          <strong>收藏</strong>
+        </div>
+      </div>
+      <div class="better-message-popover__body">
+        <div class="better-message-popover__state">点击刷新查看收藏</div>
+      </div>
+    `;
+    popover.querySelector(".better-message-popover__body")?.addEventListener("scroll", (event) => {
+      const body = event.currentTarget;
+      if (
+        favoritePopoverState.hasMore
+        && !favoritePopoverState.loading
+        && body.scrollTop + body.clientHeight >= body.scrollHeight - 80
+      ) {
+        fetchAndRenderFavouritePosts({ append: true });
+      }
+    });
+    document.body.appendChild(popover);
+    return popover;
   }
 
   function removeHeaderMessage() {
@@ -103,12 +151,145 @@
     popover.style.top = `${top}px`;
   }
 
+  function positionFavoritePopover(button, popover) {
+    positionMessagePopover(button, popover);
+  }
+
   function setMessagePopoverState(contentHtml) {
     const popover = ensureMessagePopover();
     const body = popover.querySelector(".better-message-popover__body");
     if (body) {
       body.innerHTML = contentHtml;
     }
+  }
+
+  function setFavoritePopoverState(contentHtml) {
+    const popover = ensureFavoritePopover();
+    const body = popover.querySelector(".better-message-popover__body");
+    if (body) {
+      body.innerHTML = contentHtml;
+    }
+  }
+
+  function getFavouritePostLinkId(item) {
+    return String(item?.linkid || item?.link_id || item?.id || item?.link?.linkid || item?.link?.id || "").trim();
+  }
+
+  function normalizeFavouritePosts(items) {
+    return (Array.isArray(items) ? items : []).map((item) => {
+      const topic = Array.isArray(item?.topics) ? item.topics[0] : item?.topic;
+      return {
+        id: getFavouritePostLinkId(item),
+        title: String(item?.title || item?.link?.title || "未命名帖子"),
+        description: String(item?.description || item?.desc || item?.link?.description || ""),
+        timestamp: Number(item?.create_at || item?.created_at || item?.time || 0),
+        awardCount: Number(item?.link_award_num || item?.up || item?.support_num || 0),
+        commentCount: Number(item?.comment_num || item?.reply_num || 0),
+        topicName: String(topic?.name || ""),
+        topicIcon: String(topic?.pic_url || topic?.icon || "")
+      };
+    }).filter((item) => item.id);
+  }
+
+  function renderFavouritePosts(state = favoritePopoverState) {
+    const items = state.items || [];
+    if (!items.length) {
+      setFavoritePopoverState('<div class="better-message-popover__state">暂时没有收藏帖子</div>');
+      return;
+    }
+
+    setFavoritePopoverState(items.map((item) => `
+      <a class="better-message-popover__item better-favorite-popover__item" href="/app/bbs/link/${escapeHtml(item.id)}">
+        <div class="better-message-popover__context">
+          <span class="better-message-popover__link-title">${renderEmojiTokensInHtml(escapeHtml(item.title))}</span>
+          ${item.description ? `<span class="better-message-popover__link-desc">${renderEmojiTokensInHtml(escapeHtml(item.description))}</span>` : ""}
+          <div class="better-message-popover__media-row">
+            ${item.topicName ? `
+              <span class="better-message-popover__topic">
+                ${item.topicIcon ? `<img class="better-favorite-popover__topic-icon" src="${escapeHtml(item.topicIcon)}" alt="">` : ""}
+                ${escapeHtml(item.topicName)}
+              </span>
+            ` : ""}
+            <span class="better-favorite-popover__meta">${escapeHtml(formatCommentTime(item.timestamp))}</span>
+            <span class="better-favorite-popover__meta">赞 ${escapeHtml(item.awardCount)}</span>
+            <span class="better-favorite-popover__meta">评 ${escapeHtml(item.commentCount)}</span>
+          </div>
+        </div>
+      </a>
+    `).join("") + (state.loading
+      ? '<div class="better-message-popover__footer-state">正在加载更多...</div>'
+      : (state.hasMore ? '<div class="better-message-popover__footer-state">继续下滑加载更多</div>' : '<div class="better-message-popover__footer-state">没有更多收藏了</div>')));
+  }
+
+  function fetchFavouritePosts(options = {}) {
+    const limit = Number(options.limit || 20);
+    return runAfterIdentityCookiesRestored(() => fetch(buildFavourListApiUrl({
+      offset: options.offset || 0,
+      limit
+    }), {
+      credentials: "include",
+      headers: {
+        accept: "application/json"
+      }
+    })).then((response) => response.json()).then((data) => {
+      if (data?.status !== "ok") {
+        throw new Error(data?.message || data?.msg || data?.error || "收藏查询失败");
+      }
+      const rawItems = data?.result?.links || data?.result?.list || data?.result || data?.links || [];
+      return {
+        items: normalizeFavouritePosts(rawItems),
+        hasMore: Array.isArray(rawItems) && rawItems.length >= limit
+      };
+    });
+  }
+
+  function fetchAndRenderFavouritePosts(options = {}) {
+    const button = document.querySelector(`.${FAVORITE_ENTRY_CLASS}`);
+    const popover = ensureFavoritePopover();
+    if (favoritePopoverState.loading) {
+      return Promise.resolve();
+    }
+    const append = options.append === true;
+    favoritePopoverState.loading = true;
+    button?.classList.add("is-loading");
+    if (!append) {
+      favoritePopoverState.items = [];
+      favoritePopoverState.offset = 0;
+      favoritePopoverState.hasMore = true;
+      setFavoritePopoverState('<div class="better-message-popover__state">正在拉取收藏...</div>');
+    } else {
+      renderFavouritePosts();
+    }
+    return loadEmojis().then(() => fetchFavouritePosts({ offset: append ? favoritePopoverState.offset : 0, limit: 20 }))
+      .then((payload) => {
+        const mergedItems = append
+          ? [...favoritePopoverState.items, ...payload.items]
+          : payload.items;
+        const seenIds = new Set();
+        favoritePopoverState.items = mergedItems.filter((item) => {
+          if (seenIds.has(item.id)) {
+            return false;
+          }
+          seenIds.add(item.id);
+          return true;
+        });
+        favoritePopoverState.offset = favoritePopoverState.items.length;
+        favoritePopoverState.hasMore = payload.hasMore;
+        favoritePopoverState.loading = false;
+        renderFavouritePosts();
+      })
+      .catch((error) => {
+        favoritePopoverState.loading = false;
+        if (append && favoritePopoverState.items.length) {
+          renderFavouritePosts();
+          return;
+        }
+        setFavoritePopoverState(`<div class="better-message-popover__state">${escapeHtml(error?.message || "收藏加载失败")}</div>`);
+      })
+      .finally(() => {
+        button?.classList.remove("is-loading");
+        positionFavoritePopover(button, popover);
+      });
   }
 
   function getActiveMessageTabState() {
@@ -215,7 +396,12 @@
                     ${message.linkImages.map((url, index) => `<img class="better-message-popover__thumb" src="${escapeHtml(url)}" alt="帖子图片 ${escapeHtml(index + 1)}" loading="lazy">`).join("")}
                   </div>
                 ` : ""}
-                ${message.topicName ? `<span class="better-message-popover__topic">${escapeHtml(message.topicName)}</span>` : ""}
+                ${message.topicName ? `
+                  <span class="better-message-popover__topic">
+                    ${message.topicIcon ? `<img class="better-message-popover__topic-icon" src="${escapeHtml(message.topicIcon)}" alt="">` : ""}
+                    ${escapeHtml(message.topicName)}
+                  </span>
+                ` : ""}
               </div>
             ` : ""}
           </div>
@@ -348,9 +534,104 @@
     }
     popover.hidden = !shouldOpen;
     button.setAttribute("aria-expanded", String(shouldOpen));
+    closeFavoritePopover();
     positionMessagePopover(button, popover);
     bindMessagePopoverOutsideClick();
     fetchAndRenderReplyMessages();
+  }
+
+  function closeFavoritePopover() {
+    const popover = document.querySelector(`.${FAVORITE_POPOVER_CLASS}`);
+    const button = document.querySelector(`.${FAVORITE_ENTRY_CLASS}`);
+    if (popover) {
+      popover.hidden = true;
+    }
+    button?.setAttribute("aria-expanded", "false");
+  }
+
+  function bindFavoritePopoverOutsideClick() {
+    if (favoritePopoverOutsideClickBound) {
+      return;
+    }
+
+    favoritePopoverOutsideClickBound = true;
+    document.addEventListener("pointerdown", (event) => {
+      if (!(event.target instanceof Element)) {
+        return;
+      }
+      if (event.target.closest(`.${FAVORITE_POPOVER_CLASS}, .${FAVORITE_ENTRY_CLASS}`)) {
+        return;
+      }
+      closeFavoritePopover();
+    }, true);
+    window.addEventListener("resize", () => {
+      const popover = document.querySelector(`.${FAVORITE_POPOVER_CLASS}`);
+      const button = document.querySelector(`.${FAVORITE_ENTRY_CLASS}`);
+      if (popover && button && !popover.hidden) {
+        positionFavoritePopover(button, popover);
+      }
+    });
+  }
+
+  function toggleFavoritePopover(button) {
+    const popover = ensureFavoritePopover();
+    const shouldOpen = popover.hidden;
+    if (!shouldOpen) {
+      fetchAndRenderFavouritePosts();
+      return;
+    }
+    popover.hidden = false;
+    button.setAttribute("aria-expanded", "true");
+    closeMessagePopover();
+    positionFavoritePopover(button, popover);
+    bindFavoritePopoverOutsideClick();
+    fetchAndRenderFavouritePosts();
+  }
+
+  function handleFavoriteEntryClick(event, button) {
+    if (event.__betterFavoriteEntryHandled) {
+      return;
+    }
+    if (event.type === "click" && Date.now() - favoriteEntryLastPointerHandledAt < 500) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation?.();
+      return;
+    }
+    event.__betterFavoriteEntryHandled = true;
+    if (event.type === "pointerdown") {
+      favoriteEntryLastPointerHandledAt = Date.now();
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation?.();
+    toggleFavoritePopover(button);
+  }
+
+  function bindFavoriteEntryClickDelegation() {
+    if (favoriteEntryClickBound) {
+      return;
+    }
+
+    favoriteEntryClickBound = true;
+    document.addEventListener("pointerdown", (event) => {
+      const button = event.target instanceof Element
+        ? event.target.closest(`.${FAVORITE_ENTRY_CLASS}`)
+        : null;
+      if (!button) {
+        return;
+      }
+      handleFavoriteEntryClick(event, button);
+    }, true);
+    document.addEventListener("click", (event) => {
+      const button = event.target instanceof Element
+        ? event.target.closest(`.${FAVORITE_ENTRY_CLASS}`)
+        : null;
+      if (!button) {
+        return;
+      }
+      handleFavoriteEntryClick(event, button);
+    }, true);
   }
 
   function handleHeaderMessageClick(event, button) {
@@ -494,6 +775,7 @@
       }
       ensureHeaderSearch(entry);
       ensureHeaderMessage(entry);
+      ensureFavoriteEntry();
       return;
     }
 
@@ -502,6 +784,7 @@
     }
     ensureHeaderSearch(entry);
     ensureHeaderMessage(entry);
+    ensureFavoriteEntry();
   }
 
 

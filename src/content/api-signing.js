@@ -368,6 +368,21 @@
     return `https://api.xiaoheihe.cn${LINK_AWARD_API_PATH}?${params.toString()}`;
   }
 
+  function buildFavourListApiUrl(options = {}) {
+    const baseParams = getBaseApiParams();
+    const heyboxId = baseParams.heybox_id || "";
+    const params = new URLSearchParams({
+      ...baseParams,
+      ...createSignedParams(FAVOUR_LIST_API_PATH),
+      heybox_id: heyboxId,
+      userid: options.userid || heyboxId,
+      limit: String(options.limit || 20),
+      offset: String(options.offset || 0)
+    });
+
+    return `https://api.xiaoheihe.cn${FAVOUR_LIST_API_PATH}?${params.toString()}`;
+  }
+
   function buildMessageApiUrl(options = {}) {
     const params = new URLSearchParams({
       ...getBaseApiParams(),

@@ -20,6 +20,7 @@
   const HEADER_SEARCH_CLASS = "better-xiaoheihe-header-search";
   const HEADER_MESSAGE_CLASS = "better-xiaoheihe-header-message";
   const MESSAGE_POPOVER_CLASS = "better-xiaoheihe-message-popover";
+  const FAVORITE_POPOVER_CLASS = "better-xiaoheihe-favorite-popover";
   const SETTINGS_ENTRY_CLASS = "better-xiaoheihe-settings-entry";
   const SETTINGS_PANEL_CLASS = "better-xiaoheihe-settings-panel";
   const AI_SUMMARY_MODAL_CLASS = "better-xiaoheihe-ai-summary-modal";
@@ -70,6 +71,7 @@
   const COMMENT_UPLOAD_TOKEN_API_PATH = "/bbs/app/api/qcloud/cos/upload/token/v2";
   const COMMENT_UPLOAD_CALLBACK_API_PATH = "/bbs/app/api/qcloud/cos/upload/callback/v2";
   const LINK_AWARD_API_PATH = "/bbs/app/profile/award/link";
+  const FAVOUR_LIST_API_PATH = "/bbs/web/profile/favours";
   const MESSAGE_API_PATH = "/bbs/app/user/message";
   const EMOJI_API_PATH = "/bbs/app/api/emojis/list";
   const FEEDS_API_PATH = "/bbs/app/feeds";
@@ -143,6 +145,9 @@
   let topMenuOutsideClickBound = false;
   let settingsPanelOutsideClickBound = false;
   let messagePopoverOutsideClickBound = false;
+  let favoriteEntryClickBound = false;
+  let favoriteEntryLastPointerHandledAt = 0;
+  let favoritePopoverOutsideClickBound = false;
   let headerMessageClickBound = false;
   let feedAiCaptureBound = false;
   let feedAwardCaptureBound = false;
@@ -158,6 +163,12 @@
       reply: { messages: [], offset: 0, hasMore: true, loading: false },
       award: { messages: [], offset: 0, hasMore: true, loading: false }
     }
+  };
+  const favoritePopoverState = {
+    items: [],
+    offset: 0,
+    hasMore: true,
+    loading: false
   };
   let aiSummaryScrollLocked = false;
   let aiSummaryPreviousBodyOverflow = "";

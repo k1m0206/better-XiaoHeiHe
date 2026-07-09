@@ -512,6 +512,7 @@
     document.querySelectorAll(`.${FAVORITE_ENTRY_CLASS}`).forEach((entry) => {
       entry.remove();
     });
+    removeFavoritePopover();
   }
 
   function removeHeaderSearch() {
