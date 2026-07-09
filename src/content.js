@@ -3017,7 +3017,13 @@
       .${HOME_LAYOUT_CLASS} .level-tag__wrapper.level-3,
       .${HOME_LAYOUT_CLASS} .level-tag__wrapper.level-4,
       .${HOME_LAYOUT_CLASS} .level-tag__wrapper.level-5,
-      .${HOME_LAYOUT_CLASS} .level-tag__wrapper.level-6 {
+      .${HOME_LAYOUT_CLASS} .level-tag__wrapper.level-6,
+      .${HOME_LAYOUT_CLASS} .hb-level-tag.hb-level-1,
+      .${HOME_LAYOUT_CLASS} .hb-level-tag.hb-level-2,
+      .${HOME_LAYOUT_CLASS} .hb-level-tag.hb-level-3,
+      .${HOME_LAYOUT_CLASS} .hb-level-tag.hb-level-4,
+      .${HOME_LAYOUT_CLASS} .hb-level-tag.hb-level-5,
+      .${HOME_LAYOUT_CLASS} .hb-level-tag.hb-level-6 {
         border-radius: 3px;
         background: #eef0f2 !important;
         color: #59636e !important;
@@ -3038,7 +3044,8 @@
         top: -1px;
       }
 
-      .${HOME_LAYOUT_CLASS} .better-default-level-tag .level-tag__wrapper {
+      .${HOME_LAYOUT_CLASS} .better-default-level-tag .level-tag__wrapper,
+      .${HOME_LAYOUT_CLASS} .better-default-level-tag .hb-level-tag__inner {
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -9197,14 +9204,14 @@
 
   function getLevelFromElement(container) {
     const levelElement = container?.querySelector?.(
-      '.level-tag__wrapper[class*="level-"], .list-content__level .level-tag__wrapper, .hb-cpt__level-tag .level-tag__wrapper'
+      '.hb-level-tag[class*="hb-level-"], .level-tag__wrapper[class*="level-"], .list-content__level .hb-level-tag, .list-content__level .level-tag__wrapper, .hb-cpt__level-tag .level-tag__wrapper'
     );
     if (!levelElement) {
       return null;
     }
 
     const classLevel = Array.from(levelElement.classList || [])
-      .map((className) => className.match(/^level-(\d+)/)?.[1])
+      .map((className) => className.match(/(?:hb-)?level-(\d+)/)?.[1])
       .find(Boolean);
     return parseUserLevelValue(classLevel || levelElement.textContent);
   }
@@ -9216,12 +9223,16 @@
   function createDefaultLevelTagElement() {
     const normalizedLevel = String(DEFAULT_USER_LEVEL);
     const tag = document.createElement("div");
-    tag.className = "hb-cpt__level-tag list-content__level better-default-level-tag";
+    tag.className = `hb-level-tag hb-level-${normalizedLevel} list-content__level better-default-level-tag`;
 
-    const wrapper = document.createElement("div");
-    wrapper.className = `level-tag__wrapper level-${normalizedLevel}`;
-    wrapper.textContent = `Lv.${normalizedLevel}`;
-    tag.appendChild(wrapper);
+    const inner = document.createElement("div");
+    inner.className = "hb-level-tag__inner";
+
+    const text = document.createElement("div");
+    text.className = "hb-level-tag__inner__text";
+    text.textContent = ` Lv.${normalizedLevel}`;
+    inner.appendChild(text);
+    tag.appendChild(inner);
     return tag;
   }
 
@@ -9236,7 +9247,7 @@
       return;
     }
 
-    if (userContainer.querySelector(".better-default-level-tag, .hb-cpt__level-tag, .level-tag__wrapper")) {
+    if (userContainer.querySelector(".better-default-level-tag, .hb-cpt__level-tag, .hb-level-tag, .level-tag__wrapper")) {
       return;
     }
 
