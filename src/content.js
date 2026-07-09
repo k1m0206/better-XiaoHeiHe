@@ -13902,7 +13902,6 @@
     moveSearchHotListToLeftSidebar();
     removeRightContent();
     if (isLinkPage()) {
-      savedScrollY = window.scrollY;
       addFilterToBbsLink();
     } else {
       enhanceFeed();
@@ -14013,6 +14012,7 @@
     const originalReplaceState = history.replaceState;
 
     history.pushState = function (...args) {
+      savedScrollY = window.scrollY;
       const result = originalPushState.apply(this, args);
       scheduleHandlePage();
       return result;
