@@ -1,3 +1,5 @@
 # shared
 
-这里放跨 `content`、`background`、`ai-bridge` 复用的常量和归一化逻辑。当前项目没有运行时模块加载链，第一阶段先建立目录和职责边界；后续引入构建链或允许 manifest 加载多个脚本后，再把重复常量迁入这里作为唯一来源。
+这里放跨 `content`、`background`、`ai-bridge` 复用的协议常量和归一化逻辑。
+
+当前项目没有运行时模块加载链，`scripts/build-source-bundles.ps1` 会先拼入 `constants.js` 和 `normalizers.js`，再拼入各入口自己的模块源码。

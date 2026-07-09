@@ -85,10 +85,12 @@
 
 ### 模块源码
 
-`src/content.js` 和 `src/background.js` 是由模块源码生成的入口文件，仍保持 `manifest.json` 的加载路径不变。日常维护时优先修改：
+`src/content.js`、`src/background.js` 和 `src/ai-bridge.js` 是由模块源码生成的入口文件，仍保持 `manifest.json` 的加载路径不变。不要直接修改这些入口文件，日常维护时优先修改：
 
 - `src/content/`
 - `src/background/`
+- `src/ai-bridge/`
+- `src/shared/`
 
 修改模块后执行：
 

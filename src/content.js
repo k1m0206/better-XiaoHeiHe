@@ -1,7 +1,166 @@
 (function () {
-  // 此文件由 scripts/build-source-bundles.ps1 根据拆分模块生成。
+  // 此文件由 scripts/build-source-bundles.ps1 根据模块源码生成。
+  // 禁止直接修改本入口文件，改动会在下次生成时被覆盖。
   // 请优先修改 src/content 下的模块源文件。
-  // BEGIN .\src\content\state.js
+  // BEGIN src\shared\constants.js
+// 跨 content、background、ai-bridge 共享的协议常量。
+// 本文件会被 scripts/build-source-bundles.ps1 拼入各入口文件，请勿放入依赖具体运行环境的逻辑。
+  const HIDE_CY_COMMENTS_STORAGE_KEY = "better-xiaoheihe-hide-cy-comments";
+  const BLOCKED_KEYWORDS_STORAGE_KEY = "better-xiaoheihe-blocked-keywords";
+  const LEVEL_FILTERS_STORAGE_KEY = "better-xiaoheihe-level-filters";
+  const COMMENT_PREVIEW_SORT_STORAGE_KEY = "better-xiaoheihe-comment-preview-sort";
+  const AI_SETTINGS_STORAGE_KEY = "better-xiaoheihe-ai-settings";
+  const AI_MODEL_CACHE_STORAGE_KEY = "better-xiaoheihe-ai-model-cache";
+  const AI_BOT_SETTINGS_STORAGE_KEY = "better-xiaoheihe-ai-bot-settings";
+  const AI_BOT_CONSENT_STORAGE_KEY = "better-xiaoheihe-ai-bot-consent";
+  const AI_BOT_LOGS_STORAGE_KEY = "better-xiaoheihe-ai-bot-logs";
+  const AI_BOT_MESSAGE_LOGS_STORAGE_KEY = "better-xiaoheihe-ai-bot-message-logs";
+  const AI_BOT_EMOJI_CODES_STORAGE_KEY = "better-xiaoheihe-ai-bot-emoji-codes";
+  const AI_BOT_REPLIED_RECORDS_STORAGE_KEY = "better-xiaoheihe-ai-bot-replied-records";
+  const AI_BOT_FEED_COMMENT_RECORDS_STORAGE_KEY = "better-xiaoheihe-ai-bot-feed-comment-records";
+  const AI_BOT_REPLY_TARGET_RECORDS_STORAGE_KEY = "better-xiaoheihe-ai-bot-reply-target-records";
+  const AI_BOT_REPLY_QUEUE_STORAGE_KEY = "better-xiaoheihe-ai-bot-reply-queue";
+  const AI_BOT_RUNTIME_STORAGE_KEY = "better-xiaoheihe-ai-bot-runtime";
+  const API_PARAMS_STORAGE_KEY = "better-xiaoheihe-api-params";
+  const UI_STATE_STORAGE_KEY = "better-xiaoheihe-ui-state";
+  const COMMENT_EMOJI_USAGE_STORAGE_KEY = "better-xiaoheihe-comment-emoji-usage";
+
+  const LOCAL_SETTINGS_STORAGE_KEYS = [
+    HIDE_CY_COMMENTS_STORAGE_KEY,
+    BLOCKED_KEYWORDS_STORAGE_KEY,
+    LEVEL_FILTERS_STORAGE_KEY,
+    COMMENT_PREVIEW_SORT_STORAGE_KEY,
+    AI_BOT_SETTINGS_STORAGE_KEY,
+    AI_BOT_LOGS_STORAGE_KEY,
+    AI_BOT_MESSAGE_LOGS_STORAGE_KEY,
+    AI_BOT_REPLY_QUEUE_STORAGE_KEY,
+    AI_BOT_CONSENT_STORAGE_KEY,
+    API_PARAMS_STORAGE_KEY,
+    UI_STATE_STORAGE_KEY,
+    COMMENT_EMOJI_USAGE_STORAGE_KEY
+  ];
+
+  const LOCAL_SETTINGS_REQUEST_EVENT = "better-xiaoheihe-local-settings-request";
+  const LOCAL_SETTINGS_RESPONSE_EVENT = "better-xiaoheihe-local-settings-response";
+  const LOCAL_SETTINGS_SAVE_EVENT = "better-xiaoheihe-local-settings-save";
+  const LOCAL_SETTINGS_CHANGED_EVENT = "better-xiaoheihe-local-settings-changed";
+  const AI_BOT_RUNTIME_REQUEST_EVENT = "better-xiaoheihe-ai-bot-runtime-request";
+  const AI_BOT_RUNTIME_RESPONSE_EVENT = "better-xiaoheihe-ai-bot-runtime-response";
+  const OPEN_PAGE_SETTINGS_EVENT = "better-xiaoheihe-open-page-settings";
+  const AI_SETTINGS_EVENT = "better-xiaoheihe-ai-settings";
+  const AI_SETTINGS_REQUEST_EVENT = "better-xiaoheihe-ai-settings-request";
+  const AI_SETTINGS_SAVE_EVENT = "better-xiaoheihe-ai-settings-save";
+  const AI_CHAT_REQUEST_EVENT = "better-xiaoheihe-ai-chat-request";
+  const AI_CHAT_RESPONSE_EVENT = "better-xiaoheihe-ai-chat-response";
+  const AI_MODEL_LIST_REQUEST_EVENT = "better-xiaoheihe-ai-model-list-request";
+  const AI_MODEL_LIST_RESPONSE_EVENT = "better-xiaoheihe-ai-model-list-response";
+  const SANITIZED_COOKIE_RULE_REQUEST_EVENT = "better-xiaoheihe-sanitized-cookie-rule-request";
+  const SANITIZED_COOKIE_RULE_RESPONSE_EVENT = "better-xiaoheihe-sanitized-cookie-rule-response";
+
+  const AI_BOT_LOG_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+  const AI_BOT_MIN_FEED_POLL_MINUTES = 10;
+  const AI_BOT_DEFAULT_REPLY_LIMIT_PER_LINK_USER = 5;
+  const AI_BOT_DEFAULT_GLOBAL_HISTORY_LIMIT = 20;
+  const AI_BOT_MAX_GLOBAL_HISTORY_LIMIT = 100;
+  const DEFAULT_SUMMARY_PROMPT = "你是社区帖子总结助手，请用中文简洁输出：\n帖子总结\n一句话概括帖子核心内容。\n评论区信息\n提取评论区里有价值的观点、经验、补充或避坑信息，没有则跳过。\nAI简评\n像真实网友一样补充观点，避免AI味。\n返回md格式。";
+  const AI_BOT_DEFAULT_PROMPT = "你是小黑盒社区自动回复助手。请根据消息类型、帖子正文、评论区上下文和触发消息的那条评论，生成一条自然、友好、简洁的中文回复。不要使用模板化开头，不要编造事实，不要输出Markdown。如果触发消息的评论内容只有表情（没有文字，表情数量可以是多个），那么你只回复一个表情，不要添加任何文字。";
+  const AI_BOT_DEFAULT_FEED_PROMPT = "你是小黑盒社区暖贴助手。请根据帖子标题、正文和话题，生成一条自然、真实、简洁的中文评论，像普通用户浏览帖子后留下的感想。不要使用模板化开头，不要编造未提供的信息，不要输出Markdown。";
+
+  const AI_PROVIDERS = {
+    OPENAI_COMPATIBLE: "openai-compatible",
+    OPENAI_RESPONSES: "openai-responses",
+    ANTHROPIC: "anthropic",
+    GEMINI: "gemini"
+  };
+  const DEFAULT_AI_PROVIDER = AI_PROVIDERS.OPENAI_COMPATIBLE;
+  const AI_PROVIDER_DEFAULT_BASE_URLS = {
+    [AI_PROVIDERS.OPENAI_COMPATIBLE]: "https://api.openai.com/v1",
+    [AI_PROVIDERS.OPENAI_RESPONSES]: "https://api.openai.com/v1",
+    [AI_PROVIDERS.ANTHROPIC]: "https://api.anthropic.com/v1",
+    [AI_PROVIDERS.GEMINI]: "https://generativelanguage.googleapis.com/v1beta"
+  };
+  // END src\shared\constants.js
+  // BEGIN src\shared\normalizers.js
+// 跨入口复用的配置归一化逻辑。
+// 依赖 src/shared/constants.js，生成入口时必须在 constants.js 之后拼入。
+  function normalizeProvider(provider) {
+    return Object.values(AI_PROVIDERS).includes(provider) ? provider : DEFAULT_AI_PROVIDER;
+  }
+
+  function normalizeBaseUrl(baseUrl, provider) {
+    return String(baseUrl || AI_PROVIDER_DEFAULT_BASE_URLS[provider] || "").trim().replace(/\/+$/, "");
+  }
+
+  function normalizeAiSettings(settings = {}) {
+    const provider = normalizeProvider(settings?.provider || settings?.endpointMode);
+    return {
+      enabled: settings?.enabled !== false,
+      provider,
+      endpointMode: provider,
+      baseUrl: normalizeBaseUrl(settings?.baseUrl, provider),
+      model: String(settings?.model || "").trim(),
+      apiKey: String(settings?.apiKey || ""),
+      allowEmoji: settings?.allowEmoji !== false,
+      autoPopup: settings?.autoPopup !== false,
+      summaryPrompt: String(settings?.summaryPrompt || "").trim() || DEFAULT_SUMMARY_PROMPT
+    };
+  }
+
+  function normalizeIdList(value) {
+    return [...new Set((Array.isArray(value) ? value : String(value || "").split(/[\s,，;；]+/))
+      .map((item) => String(item || "").trim())
+      .filter(Boolean))];
+  }
+
+  function normalizeKeywordList(value) {
+    const seen = new Set();
+    return (Array.isArray(value) ? value : String(value || "").split(/[\r\n,，;；]+/))
+      .map((item) => String(item || "").trim())
+      .filter((item) => {
+        const normalized = item.toLocaleLowerCase();
+        if (!normalized || seen.has(normalized)) {
+          return false;
+        }
+        seen.add(normalized);
+        return true;
+      });
+  }
+
+  function normalizeAiBotSettings(settings = {}) {
+    const provider = normalizeProvider(settings?.provider || settings?.endpointMode);
+    const isEnabled = settings?.enabled === true;
+    const replyMentions = isEnabled && settings?.replyMentions !== false;
+    const replyComments = isEnabled && settings?.replyComments === true;
+    const commentHomeFeed = isEnabled && settings?.commentHomeFeed === true;
+    return {
+      enabled: replyMentions || replyComments || commentHomeFeed,
+      provider,
+      endpointMode: provider,
+      baseUrl: normalizeBaseUrl(settings?.baseUrl, provider),
+      model: String(settings?.model || "").trim(),
+      apiKey: String(settings?.apiKey || ""),
+      pollMinutes: Math.max(1, Number.parseInt(settings?.pollMinutes, 10) || 1),
+      feedPollMinutes: Math.max(AI_BOT_MIN_FEED_POLL_MINUTES, Number.parseInt(settings?.feedPollMinutes, 10) || AI_BOT_MIN_FEED_POLL_MINUTES),
+      messageFreshMinutes: Math.max(1, Number.parseInt(settings?.messageFreshMinutes, 10) || 5),
+      replyLimitPerLinkUser: Math.max(1, Number.parseInt(settings?.replyLimitPerLinkUser, 10) || AI_BOT_DEFAULT_REPLY_LIMIT_PER_LINK_USER),
+      globalHistoryEnabled: settings?.globalHistoryEnabled !== false,
+      globalHistoryLimit: Math.min(
+        AI_BOT_MAX_GLOBAL_HISTORY_LIMIT,
+        Math.max(1, Number.parseInt(settings?.globalHistoryLimit, 10) || AI_BOT_DEFAULT_GLOBAL_HISTORY_LIMIT)
+      ),
+      replyMentions,
+      replyComments,
+      commentHomeFeed,
+      feedSelectStrategy: ["first", "latest", "hot"].includes(settings?.feedSelectStrategy) ? settings.feedSelectStrategy : "first",
+      whitelistUserIds: normalizeIdList(settings?.whitelistUserIds || settings?.whitelistText),
+      rejectedReplyKeywords: normalizeKeywordList(settings?.rejectedReplyKeywords || settings?.rejectedReplyKeywordsText),
+      allowEmoji: settings?.allowEmoji !== false,
+      commentPrompt: String(settings?.commentPrompt || "").trim() || AI_BOT_DEFAULT_PROMPT,
+      feedCommentPrompt: String(settings?.feedCommentPrompt || "").trim() || AI_BOT_DEFAULT_FEED_PROMPT
+    };
+  }
+  // END src\shared\normalizers.js
+  // BEGIN src\content\state.js
 // 页面状态、配置归一化、本地设置同步。
 // 本文件由原入口文件等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   const ENHANCED_PATH_PREFIXES = ["/app/bbs", "/app/topic/link", "/app/user/profile", "/app/user/favour", "/app/search"];
@@ -32,68 +191,6 @@
   const HOT_SEARCH_SIDEBAR_OPEN_CLASS = "better-xiaoheihe-hot-search-sidebar--open";
   const HOT_SEARCH_SIDEBAR_TOGGLE_CLASS = "better-xiaoheihe-hot-search-sidebar__toggle";
   const HOT_SEARCH_SIDEBAR_PANEL_CLASS = "better-xiaoheihe-hot-search-sidebar__panel";
-  const HIDE_CY_COMMENTS_STORAGE_KEY = "better-xiaoheihe-hide-cy-comments";
-  const BLOCKED_KEYWORDS_STORAGE_KEY = "better-xiaoheihe-blocked-keywords";
-  const LEVEL_FILTERS_STORAGE_KEY = "better-xiaoheihe-level-filters";
-  const COMMENT_PREVIEW_SORT_STORAGE_KEY = "better-xiaoheihe-comment-preview-sort";
-  const AI_BOT_SETTINGS_STORAGE_KEY = "better-xiaoheihe-ai-bot-settings";
-  const AI_BOT_LOGS_STORAGE_KEY = "better-xiaoheihe-ai-bot-logs";
-  const AI_BOT_MESSAGE_LOGS_STORAGE_KEY = "better-xiaoheihe-ai-bot-message-logs";
-  const AI_BOT_REPLY_QUEUE_STORAGE_KEY = "better-xiaoheihe-ai-bot-reply-queue";
-  const AI_BOT_CONSENT_STORAGE_KEY = "better-xiaoheihe-ai-bot-consent";
-  const API_PARAMS_STORAGE_KEY = "better-xiaoheihe-api-params";
-  const UI_STATE_STORAGE_KEY = "better-xiaoheihe-ui-state";
-  const COMMENT_EMOJI_USAGE_STORAGE_KEY = "better-xiaoheihe-comment-emoji-usage";
-  const AI_BOT_LOG_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
-  const LOCAL_SETTINGS_STORAGE_KEYS = [
-    HIDE_CY_COMMENTS_STORAGE_KEY,
-    BLOCKED_KEYWORDS_STORAGE_KEY,
-    LEVEL_FILTERS_STORAGE_KEY,
-    COMMENT_PREVIEW_SORT_STORAGE_KEY,
-    AI_BOT_SETTINGS_STORAGE_KEY,
-    AI_BOT_LOGS_STORAGE_KEY,
-    AI_BOT_MESSAGE_LOGS_STORAGE_KEY,
-    AI_BOT_REPLY_QUEUE_STORAGE_KEY,
-    AI_BOT_CONSENT_STORAGE_KEY,
-    API_PARAMS_STORAGE_KEY,
-    UI_STATE_STORAGE_KEY,
-    COMMENT_EMOJI_USAGE_STORAGE_KEY
-  ];
-  const LOCAL_SETTINGS_REQUEST_EVENT = "better-xiaoheihe-local-settings-request";
-  const LOCAL_SETTINGS_RESPONSE_EVENT = "better-xiaoheihe-local-settings-response";
-  const LOCAL_SETTINGS_SAVE_EVENT = "better-xiaoheihe-local-settings-save";
-  const LOCAL_SETTINGS_CHANGED_EVENT = "better-xiaoheihe-local-settings-changed";
-  const AI_BOT_RUNTIME_REQUEST_EVENT = "better-xiaoheihe-ai-bot-runtime-request";
-  const AI_BOT_RUNTIME_RESPONSE_EVENT = "better-xiaoheihe-ai-bot-runtime-response";
-  const OPEN_PAGE_SETTINGS_EVENT = "better-xiaoheihe-open-page-settings";
-  const AI_SETTINGS_EVENT = "better-xiaoheihe-ai-settings";
-  const AI_SETTINGS_REQUEST_EVENT = "better-xiaoheihe-ai-settings-request";
-  const AI_SETTINGS_SAVE_EVENT = "better-xiaoheihe-ai-settings-save";
-  const AI_CHAT_REQUEST_EVENT = "better-xiaoheihe-ai-chat-request";
-  const AI_CHAT_RESPONSE_EVENT = "better-xiaoheihe-ai-chat-response";
-  const AI_MODEL_LIST_REQUEST_EVENT = "better-xiaoheihe-ai-model-list-request";
-  const AI_MODEL_LIST_RESPONSE_EVENT = "better-xiaoheihe-ai-model-list-response";
-  const SANITIZED_COOKIE_RULE_REQUEST_EVENT = "better-xiaoheihe-sanitized-cookie-rule-request";
-  const SANITIZED_COOKIE_RULE_RESPONSE_EVENT = "better-xiaoheihe-sanitized-cookie-rule-response";
-  const AI_BOT_MIN_FEED_POLL_MINUTES = 10;
-  const AI_BOT_DEFAULT_GLOBAL_HISTORY_LIMIT = 20;
-  const AI_BOT_MAX_GLOBAL_HISTORY_LIMIT = 100;
-  const DEFAULT_SUMMARY_PROMPT = "你是社区帖子总结助手，请用中文简洁输出：\n帖子总结\n一句话概括帖子核心内容。\n评论区信息\n提取评论区里有价值的观点、经验、补充或避坑信息，没有则跳过。\nAI简评\n像真实网友一样补充观点，避免AI味。\n返回md格式。";
-  const AI_BOT_DEFAULT_PROMPT = "你是小黑盒社区自动回复助手。请根据消息类型、帖子正文、评论区上下文和触发消息的那条评论，生成一条自然、友好、简洁的中文回复。不要使用模板化开头，不要编造事实，不要输出Markdown。如果触发消息的评论内容只有表情（没有文字，表情数量可以是多个），那么你只回复一个表情，不要添加任何文字。";
-  const AI_BOT_DEFAULT_FEED_PROMPT = "你是小黑盒社区暖贴助手。请根据帖子标题、正文和话题，生成一条自然、真实、简洁的中文评论，像普通用户浏览帖子后留下的感想。不要使用模板化开头，不要编造未提供的信息，不要输出Markdown。";
-  const AI_PROVIDERS = {
-    OPENAI_COMPATIBLE: "openai-compatible",
-    OPENAI_RESPONSES: "openai-responses",
-    ANTHROPIC: "anthropic",
-    GEMINI: "gemini"
-  };
-  const DEFAULT_AI_PROVIDER = AI_PROVIDERS.OPENAI_COMPATIBLE;
-  const AI_PROVIDER_DEFAULT_BASE_URLS = {
-    [AI_PROVIDERS.OPENAI_COMPATIBLE]: "https://api.openai.com/v1",
-    [AI_PROVIDERS.OPENAI_RESPONSES]: "https://api.openai.com/v1",
-    [AI_PROVIDERS.ANTHROPIC]: "https://api.anthropic.com/v1",
-    [AI_PROVIDERS.GEMINI]: "https://generativelanguage.googleapis.com/v1beta"
-  };
   const DEFAULT_USER_LEVEL = 6;
   const LEVEL_FILTER_MIN = 7;
   const LEVEL_FILTER_MAX = 25;
@@ -505,78 +602,6 @@
     }
   }
 
-  function normalizeAiSettings(settings = {}) {
-    const provider = Object.values(AI_PROVIDERS).includes(settings?.provider || settings?.endpointMode)
-      ? (settings?.provider || settings?.endpointMode)
-      : DEFAULT_AI_PROVIDER;
-    return {
-      enabled: settings?.enabled !== false,
-      provider,
-      endpointMode: provider,
-      baseUrl: String(settings?.baseUrl || AI_PROVIDER_DEFAULT_BASE_URLS[provider] || "").trim().replace(/\/+$/, ""),
-      model: String(settings?.model || "").trim(),
-      apiKey: String(settings?.apiKey || ""),
-      allowEmoji: settings?.allowEmoji !== false,
-      autoPopup: settings?.autoPopup !== false,
-      summaryPrompt: String(settings?.summaryPrompt || "").trim() || DEFAULT_SUMMARY_PROMPT
-    };
-  }
-
-  function normalizeIdList(value) {
-    return [...new Set((Array.isArray(value) ? value : String(value || "").split(/[\s,，;；]+/))
-      .map((item) => String(item || "").trim())
-      .filter(Boolean))];
-  }
-
-  function normalizeKeywordList(value) {
-    const seen = new Set();
-    return (Array.isArray(value) ? value : String(value || "").split(/[\r\n,，;；]+/))
-      .map((item) => String(item || "").trim())
-      .filter((item) => {
-        const normalized = item.toLocaleLowerCase();
-        if (!normalized || seen.has(normalized)) {
-          return false;
-        }
-        seen.add(normalized);
-        return true;
-      });
-  }
-
-  function normalizeAiBotSettings(settings = {}) {
-    const provider = Object.values(AI_PROVIDERS).includes(settings?.provider || settings?.endpointMode)
-      ? (settings?.provider || settings?.endpointMode)
-      : DEFAULT_AI_PROVIDER;
-    const isEnabled = settings?.enabled === true;
-    const replyMentions = isEnabled && settings?.replyMentions !== false;
-    const replyComments = isEnabled && settings?.replyComments === true;
-    const commentHomeFeed = isEnabled && settings?.commentHomeFeed === true;
-    return {
-      enabled: replyMentions || replyComments || commentHomeFeed,
-      provider,
-      endpointMode: provider,
-      baseUrl: String(settings?.baseUrl || AI_PROVIDER_DEFAULT_BASE_URLS[provider] || "").trim().replace(/\/+$/, ""),
-      model: String(settings?.model || "").trim(),
-      apiKey: String(settings?.apiKey || ""),
-      pollMinutes: Math.max(1, Number.parseInt(settings?.pollMinutes, 10) || 1),
-      feedPollMinutes: Math.max(AI_BOT_MIN_FEED_POLL_MINUTES, Number.parseInt(settings?.feedPollMinutes, 10) || AI_BOT_MIN_FEED_POLL_MINUTES),
-      feedSelectStrategy: ["first", "latest", "hot"].includes(settings?.feedSelectStrategy) ? settings.feedSelectStrategy : "first",
-      messageFreshMinutes: Math.max(1, Number.parseInt(settings?.messageFreshMinutes, 10) || 5),
-      replyLimitPerLinkUser: Math.max(1, Number.parseInt(settings?.replyLimitPerLinkUser, 10) || 5),
-      globalHistoryEnabled: settings?.globalHistoryEnabled !== false,
-      globalHistoryLimit: Math.min(
-        AI_BOT_MAX_GLOBAL_HISTORY_LIMIT,
-        Math.max(1, Number.parseInt(settings?.globalHistoryLimit, 10) || AI_BOT_DEFAULT_GLOBAL_HISTORY_LIMIT)
-      ),
-      replyMentions,
-      replyComments,
-      commentHomeFeed,
-      whitelistUserIds: normalizeIdList(settings?.whitelistUserIds || settings?.whitelistText),
-      rejectedReplyKeywords: normalizeKeywordList(settings?.rejectedReplyKeywords || settings?.rejectedReplyKeywordsText),
-      allowEmoji: settings?.allowEmoji !== false,
-      commentPrompt: String(settings?.commentPrompt || "").trim() || AI_BOT_DEFAULT_PROMPT,
-      feedCommentPrompt: String(settings?.feedCommentPrompt || "").trim() || AI_BOT_DEFAULT_FEED_PROMPT
-    };
-  }
 
   function normalizeAiBotLogs(logs) {
     const now = Date.now();
@@ -856,8 +881,8 @@
     }
   }
 
-  // END .\src\content\state.js
-  // BEGIN .\src\content\layout-style.js
+  // END src\content\state.js
+  // BEGIN src\content\layout-style.js
 // 页面布局样式注入。
 // 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function injectLayoutStyle() {
@@ -5289,8 +5314,8 @@
     document.documentElement.appendChild(style);
   }
 
-  // END .\src\content\layout-style.js
-  // BEGIN .\src\content\hot-search-sidebar.js
+  // END src\content\layout-style.js
+  // BEGIN src\content\hot-search-sidebar.js
 // 热搜侧栏挂载和显隐控制。
 // 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function removeRightContent() {
@@ -5341,8 +5366,8 @@
     return sidebar;
   }
 
-  // END .\src\content\hot-search-sidebar.js
-  // BEGIN .\src\content\hot-search-api.js
+  // END src\content\hot-search-sidebar.js
+  // BEGIN src\content\hot-search-api.js
 // 搜索热榜读取、渲染和侧栏迁移。
 // 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function findSearchHotList() {
@@ -5506,8 +5531,8 @@
     renderHotSearchFallback(panel);
   }
 
-  // END .\src\content\hot-search-api.js
-  // BEGIN .\src\content\request-context.js
+  // END src\content\hot-search-api.js
+  // BEGIN src\content\request-context.js
 // 页面 Cookie、接口参数捕获和请求上下文。
 // 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function getCookie(name) {
@@ -5735,8 +5760,8 @@
     });
   }
 
-  // END .\src\content\request-context.js
-  // BEGIN .\src\content\api-signing.js
+  // END src\content\request-context.js
+  // BEGIN src\content\api-signing.js
 // 接口签名、基础参数和 API URL 构造。
 // 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function md5(input) {
@@ -6120,8 +6145,8 @@
     return `https://api.xiaoheihe.cn${MESSAGE_API_PATH}?${params.toString()}`;
   }
 
-  // END .\src\content\api-signing.js
-  // BEGIN .\src\content\message-normalizer.js
+  // END src\content\api-signing.js
+  // BEGIN src\content\message-normalizer.js
 // 消息入口数据提取和消息列表归一化。
 // 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function escapeHtml(value) {
@@ -6443,8 +6468,8 @@
       .sort((left, right) => Number(right.timestamp || 0) - Number(left.timestamp || 0));
   }
 
-  // END .\src\content\message-normalizer.js
-  // BEGIN .\src\content\comment-renderer.js
+  // END src\content\message-normalizer.js
+  // BEGIN src\content\comment-renderer.js
 // 评论数据归一化、过滤、排序和预览渲染。
 // 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function normalizeCommentText(text) {
@@ -7462,8 +7487,8 @@
     scheduleRowHeightSync(preview.closest(`.${ROW_CLASS}`));
   }
 
-  // END .\src\content\comment-renderer.js
-  // BEGIN .\src\content\comment-cache.js
+  // END src\content\comment-renderer.js
+  // BEGIN src\content\comment-cache.js
 // 评论页数据读取和帖子详情缓存。
 // 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function fetchCommentPageData(linkId, page, options = {}) {
@@ -7612,8 +7637,8 @@
   }
 
   function delay(ms) {
-  // END .\src\content\comment-cache.js
-  // BEGIN .\src\content\feed.js
+  // END src\content\comment-cache.js
+  // BEGIN src\content\feed.js
 // 评论预览、回复表单、图片处理和信息流增强。
 // 本文件由原入口文件等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
     return new Promise((resolve) => window.setTimeout(resolve, ms));
@@ -9473,8 +9498,8 @@
     ensureLinkPageAiSummaryButton();
   }
 
-  // END .\src\content\feed.js
-  // BEGIN .\src\content\ai-summary.js
+  // END src\content\feed.js
+  // BEGIN src\content\ai-summary.js
 // AI 总结弹窗、Markdown 渲染和总结请求编排。
 // 本文件由原入口文件等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function positionAiSummaryDialog(dialog) {
@@ -10370,8 +10395,8 @@
     });
   }
 
-  // END .\src\content\ai-summary.js
-  // BEGIN .\src\content\feed-actions.js
+  // END src\content\ai-summary.js
+  // BEGIN src\content\feed-actions.js
 // 信息流点击捕获、行高同步、左侧菜单与快捷屏蔽。
 // 本文件由原入口文件等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function bindFeedItemActions(item, linkId) {
@@ -10903,8 +10928,8 @@
     document.querySelector(`.${SETTINGS_PANEL_CLASS}`)?.remove();
   }
 
-  // END .\src\content\feed-actions.js
-  // BEGIN .\src\content\settings-state.js
+  // END src\content\feed-actions.js
+  // BEGIN src\content\settings-state.js
 // 设置面板状态、关键词和 AI 连接状态。
 // 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function hasBlockedKeyword(keyword, scope) {
@@ -11157,8 +11182,8 @@
     `).join("");
   }
 
-  // END .\src\content\settings-state.js
-  // BEGIN .\src\content\settings-renderers.js
+  // END src\content\settings-state.js
+  // BEGIN src\content\settings-renderers.js
 // AI 设置和 AI Bot 设置表单渲染。
 // 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function renderAiSettingsPanelContent() {
@@ -11551,8 +11576,8 @@
     hot: "热度最高"
   };
 
-  // END .\src\content\settings-renderers.js
-  // BEGIN .\src\content\ai-bot-log-panel.js
+  // END src\content\settings-renderers.js
+  // BEGIN src\content\ai-bot-log-panel.js
 // AI Bot 日志、消息日志和队列面板渲染。
 // 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function getAiBotLogDetailLabel(key) {
@@ -11895,8 +11920,8 @@
     }
   }
 
-  // END .\src\content\ai-bot-log-panel.js
-  // BEGIN .\src\content\settings-shell.js
+  // END src\content\ai-bot-log-panel.js
+  // BEGIN src\content\settings-shell.js
 // 设置面板整体内容渲染。
 // 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function renderBlockedSettingsPanelContent() {
@@ -11976,8 +12001,8 @@
     repositionSettingsPanelIfOpen();
   }
 
-  // END .\src\content\settings-shell.js
-  // BEGIN .\src\content\ai-settings-actions.js
+  // END src\content\settings-shell.js
+  // BEGIN src\content\ai-settings-actions.js
 // AI 设置测试、模型列表和表单保存。
 // 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function testAiSettingsFromPanel(panel, button) {
@@ -12384,8 +12409,8 @@
     loadCachedAiBotModelOptions(panel);
   }
 
-  // END .\src\content\ai-settings-actions.js
-  // BEGIN .\src\content\ai-bot-actions.js
+  // END src\content\ai-settings-actions.js
+  // BEGIN src\content\ai-bot-actions.js
 // AI Bot 运行控制、日志刷新和辅助操作。
 // 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function sendAiBotRuntimeMessage(type, detail = {}) {
@@ -12648,8 +12673,8 @@
     aiBotLogRefreshTimer = null;
   }
 
-  // END .\src\content\ai-bot-actions.js
-  // BEGIN .\src\content\settings-mount.js
+  // END src\content\ai-bot-actions.js
+  // BEGIN src\content\settings-mount.js
 // 设置面板挂载、关闭、定位和外部事件绑定。
 // 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function ensureSettingsPanel() {
@@ -13121,8 +13146,8 @@
     openSettingsPanelTab(detail.tab || SETTINGS_TABS.AIBOT);
   }
 
-  // END .\src\content\settings-mount.js
-  // BEGIN .\src\content\header.js
+  // END src\content\settings-mount.js
+  // BEGIN src\content\header.js
 // 顶部收藏、搜索和消息入口。
 // 本文件由原入口文件等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function ensureFavoriteEntry() {
@@ -13631,8 +13656,8 @@
 
 
 
-  // END .\src\content\header.js
-  // BEGIN .\src\content\link-page.js
+  // END src\content\header.js
+  // BEGIN src\content\link-page.js
 // 帖子详情页评论过滤、排序和详情页 AI 总结入口。
 // 本文件由原入口文件等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function filterLinkPageComments() {
@@ -13963,8 +13988,8 @@
     window.setTimeout(refreshAllKeywordFilters, 120);
   }
 
-  // END .\src\content\link-page.js
-  // BEGIN .\src\content\navigation.js
+  // END src\content\link-page.js
+  // BEGIN src\content\navigation.js
 // 路由监听、页面观察、全局事件绑定和启动流程。
 // 本文件由原入口文件等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function handlePage() {
@@ -14397,5 +14422,5 @@
   } else {
     document.addEventListener("DOMContentLoaded", start, { once: true });
   }
-  // END .\src\content\navigation.js
+  // END src\content\navigation.js
 })();
