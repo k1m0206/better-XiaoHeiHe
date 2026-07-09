@@ -17,6 +17,8 @@
   const TOP_MENU_PANEL_CLASS = "better-xiaoheihe-top-menu__panel";
   const FAVORITE_ENTRY_CLASS = "better-xiaoheihe-favorite-entry";
   const HEADER_SEARCH_CLASS = "better-xiaoheihe-header-search";
+  const HEADER_MESSAGE_CLASS = "better-xiaoheihe-header-message";
+  const MESSAGE_POPOVER_CLASS = "better-xiaoheihe-message-popover";
   const SETTINGS_ENTRY_CLASS = "better-xiaoheihe-settings-entry";
   const SETTINGS_PANEL_CLASS = "better-xiaoheihe-settings-panel";
   const AI_SUMMARY_MODAL_CLASS = "better-xiaoheihe-ai-summary-modal";
@@ -129,6 +131,7 @@
   const COMMENT_UPLOAD_TOKEN_API_PATH = "/bbs/app/api/qcloud/cos/upload/token/v2";
   const COMMENT_UPLOAD_CALLBACK_API_PATH = "/bbs/app/api/qcloud/cos/upload/callback/v2";
   const LINK_AWARD_API_PATH = "/bbs/app/profile/award/link";
+  const MESSAGE_API_PATH = "/bbs/app/user/message";
   const EMOJI_API_PATH = "/bbs/app/api/emojis/list";
   const FEEDS_API_PATH = "/bbs/app/feeds";
   const SEARCH_WELCOME_API_PATH = "/bbs/app/api/search/welcome_page/v2";
@@ -198,6 +201,8 @@
   let rowResizeObserver = null;
   let topMenuOutsideClickBound = false;
   let settingsPanelOutsideClickBound = false;
+  let messagePopoverOutsideClickBound = false;
+  let headerMessageClickBound = false;
   let feedAiCaptureBound = false;
   let feedAwardCaptureBound = false;
   let feedImageCaptureBound = false;
@@ -206,6 +211,13 @@
   let imageViewerKeydownBound = false;
   let replyEmojiOutsideClickBound = false;
   let activeReplyEmojiForm = null;
+  const messagePopoverState = {
+    activeTab: "reply",
+    tabs: {
+      reply: { messages: [], offset: 0, hasMore: true, loading: false },
+      award: { messages: [], offset: 0, hasMore: true, loading: false }
+    }
+  };
   let aiSummaryScrollLocked = false;
   let aiSummaryPreviousBodyOverflow = "";
   let aiSummaryPreviousDocumentOverflow = "";
@@ -1109,6 +1121,524 @@
       .${HEADER_SEARCH_CLASS} .better-header-search__submit:hover {
         background: #e9edf1;
         color: #14191e;
+      }
+
+      .${HEADER_MESSAGE_CLASS} {
+        box-sizing: border-box;
+        display: inline-flex;
+        position: relative;
+        width: 36px;
+        height: 36px;
+        align-items: center;
+        justify-content: center;
+        margin-left: 6px;
+        padding: 0;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: #14191e;
+        cursor: pointer;
+        font-size: 18px;
+        line-height: 1;
+        transition: background 0.16s ease, color 0.16s ease;
+      }
+
+      .${HEADER_MESSAGE_CLASS}:hover,
+      .${HEADER_MESSAGE_CLASS}[aria-expanded="true"] {
+        background: #eceff2;
+        color: #000;
+      }
+
+      .${HEADER_MESSAGE_CLASS} i {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-style: normal;
+        font-weight: 700;
+        line-height: 1;
+      }
+
+      .${HEADER_MESSAGE_CLASS} .better-header-message__icon {
+        width: 19px;
+        height: 19px;
+        fill: none;
+        stroke: currentColor;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 2;
+      }
+
+      .${HEADER_MESSAGE_CLASS}.is-loading::after {
+        position: absolute;
+        right: 6px;
+        bottom: 6px;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #2775d1;
+        content: "";
+      }
+
+      .${MESSAGE_POPOVER_CLASS} {
+        box-sizing: border-box;
+        position: fixed;
+        z-index: 2147483647;
+        width: min(420px, calc(100vw - 24px));
+        max-height: min(620px, calc(100vh - 24px));
+        overflow: hidden;
+        border: 1px solid #e5eaf0;
+        border-radius: 10px;
+        background: #fff;
+        box-shadow: 0 18px 45px rgba(20, 25, 30, 0.18);
+        color: #14191e;
+      }
+
+      .${MESSAGE_POPOVER_CLASS}[hidden] {
+        display: none !important;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 12px 10px;
+        border-bottom: 1px solid #eef1f4;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__title {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__title strong {
+        overflow: hidden;
+        color: #14191e;
+        font-size: 14px;
+        font-weight: 800;
+        line-height: 20px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__body {
+        max-height: min(540px, calc(100vh - 112px));
+        overflow-y: auto;
+        padding: 10px;
+        background: #f6f8fa;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__tabs {
+        display: inline-flex;
+        flex: 0 0 auto;
+        gap: 4px;
+        padding: 3px;
+        border-radius: 8px;
+        background: #f1f4f7;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__tab {
+        height: 26px;
+        padding: 0 10px;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        color: #6f7b87;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__tab[aria-selected="true"] {
+        background: #fff;
+        color: #2775d1;
+        box-shadow: 0 1px 2px rgba(20, 25, 30, 0.08);
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__state {
+        padding: 28px 16px;
+        color: #8a9299;
+        font-size: 13px;
+        line-height: 20px;
+        text-align: center;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__item {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        gap: 8px;
+        padding: 11px;
+        border: 1px solid #e5eaf0;
+        border-radius: 9px;
+        background: #fff;
+        box-shadow: 0 1px 2px rgba(20, 25, 30, 0.04);
+        color: inherit;
+        text-decoration: none;
+        transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__item + .better-message-popover__item {
+        margin-top: 8px;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__item:hover {
+        border-color: #cfe0f4;
+        box-shadow: 0 6px 18px rgba(39, 117, 209, 0.1);
+        transform: translateY(-1px);
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__item--award-post {
+        border-color: #d9e9fb;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__item--award-comment {
+        border-color: #dbeee5;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__actor {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__avatar {
+        width: 28px;
+        height: 28px;
+        flex: 0 0 auto;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #e9f2ff, #f2f5f8);
+        color: #2775d1;
+        font-size: 12px;
+        font-weight: 800;
+        line-height: 28px;
+        text-align: center;
+        object-fit: cover;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__likers {
+        display: inline-flex;
+        flex: 0 0 auto;
+        align-items: center;
+        padding-left: 4px;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__liker-avatar {
+        width: 28px;
+        height: 28px;
+        margin-left: -4px;
+        border: 2px solid #fff;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #e9f2ff, #f2f5f8);
+        color: #2775d1;
+        font-size: 11px;
+        font-weight: 800;
+        line-height: 24px;
+        text-align: center;
+        object-fit: cover;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__liker-more {
+        display: inline-flex;
+        min-width: 28px;
+        height: 28px;
+        align-items: center;
+        justify-content: center;
+        margin-left: -4px;
+        padding: 0 6px;
+        border: 2px solid #fff;
+        border-radius: 999px;
+        background: #edf4fb;
+        color: #607083;
+        font-size: 10px;
+        font-weight: 800;
+        line-height: 24px;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__actor-main {
+        display: flex;
+        min-width: 0;
+        flex: 1 1 auto;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__actor-line {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        line-height: 16px;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__user {
+        min-width: 0;
+        overflow: hidden;
+        color: #2775d1;
+        font-weight: 800;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__action {
+        flex: 0 0 auto;
+        color: #6f7b87;
+        white-space: nowrap;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__time {
+        color: #9aa3ad;
+        font-size: 12px;
+        line-height: 16px;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__type {
+        flex: 0 0 auto;
+        margin-left: auto;
+        padding: 1px 6px;
+        border-radius: 999px;
+        background: #eef5ff;
+        color: #2775d1;
+        font-size: 11px;
+        font-weight: 800;
+        line-height: 16px;
+        white-space: nowrap;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__link-title {
+        display: -webkit-box;
+        overflow: hidden;
+        color: #6f7b87;
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 18px;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 1;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__link-desc {
+        display: -webkit-box;
+        overflow: hidden;
+        color: #26313b;
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 18px;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        text-overflow: ellipsis;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__content {
+        display: -webkit-box;
+        overflow: hidden;
+        padding: 8px 10px;
+        border-radius: 8px;
+        background: #f4f7fa;
+        color: #26313b;
+        font-size: 13px;
+        font-weight: 600;
+        line-height: 20px;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 3;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__content .better-comment-preview__emoji {
+        display: inline-block;
+        width: 1.45em;
+        height: 1.45em;
+        margin: 0 1px;
+        object-fit: contain;
+        vertical-align: -0.32em;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__content .better-comment-preview__emoji--big {
+        width: 2.2em;
+        height: 2.2em;
+        vertical-align: -0.58em;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__link-title .better-comment-preview__emoji,
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__link-desc .better-comment-preview__emoji {
+        display: inline-block;
+        width: 1.35em;
+        height: 1.35em;
+        margin: 0 1px;
+        object-fit: contain;
+        vertical-align: -0.28em;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__link-title .better-comment-preview__emoji--big,
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__link-desc .better-comment-preview__emoji--big {
+        width: 1.7em;
+        height: 1.7em;
+        vertical-align: -0.42em;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__comment-target {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        gap: 7px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        background: #f3faf6;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__comment-target-label {
+        color: #5a8a70;
+        font-size: 11px;
+        font-weight: 800;
+        line-height: 15px;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__target-images {
+        display: flex;
+        min-width: 0;
+        gap: 6px;
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__target-images::-webkit-scrollbar {
+        display: none;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__target-image {
+        width: 52px;
+        height: 52px;
+        flex: 0 0 auto;
+        border-radius: 7px;
+        background: #eef1f4;
+        object-fit: cover;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__context {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 6px;
+        padding: 8px 9px;
+        border-radius: 8px;
+        background: #fafbfc;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__post-author {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__post-author-avatar {
+        width: 18px;
+        height: 18px;
+        flex: 0 0 auto;
+        border-radius: 50%;
+        background: #eef1f4;
+        color: #8a9299;
+        font-size: 10px;
+        font-weight: 800;
+        line-height: 18px;
+        text-align: center;
+        object-fit: cover;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__post-author-name {
+        min-width: 0;
+        overflow: hidden;
+        color: #4f5965;
+        font-size: 12px;
+        font-weight: 800;
+        line-height: 18px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__post-author-level {
+        flex: 0 0 auto;
+        padding: 0 5px;
+        border-radius: 999px;
+        background: #eef3f8;
+        color: #607083;
+        font-size: 10px;
+        font-weight: 800;
+        line-height: 15px;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__post {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        gap: 7px;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__thumbs {
+        display: flex;
+        min-width: 0;
+        max-width: calc(100% - 96px);
+        gap: 6px;
+        overflow-x: auto;
+        padding-bottom: 1px;
+        scrollbar-width: none;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__media-row {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__thumbs::-webkit-scrollbar {
+        display: none;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__thumb {
+        width: 56px;
+        height: 56px;
+        flex: 0 0 auto;
+        border-radius: 7px;
+        background: #eef1f4;
+        object-fit: cover;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__topic {
+        flex: 0 0 auto;
+        max-width: 130px;
+        overflow: hidden;
+        padding: 1px 6px;
+        border-radius: 999px;
+        background: #f1f3f5;
+        color: #9aa3ad;
+        font-size: 11px;
+        line-height: 16px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__author {
+        display: none;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__post-meta {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__footer-state {
+        padding: 10px 8px 4px;
+        color: #9aa3ad;
+        font-size: 12px;
+        line-height: 18px;
+        text-align: center;
       }
 
       .${SETTINGS_ENTRY_CLASS} {
@@ -5543,6 +6073,19 @@
     return `https://api.xiaoheihe.cn${LINK_AWARD_API_PATH}?${params.toString()}`;
   }
 
+  function buildMessageApiUrl(options = {}) {
+    const params = new URLSearchParams({
+      ...getBaseApiParams(),
+      ...createSignedParams(MESSAGE_API_PATH),
+      list_type: String(options.listType ?? 0),
+      offset: String(options.offset || 0),
+      limit: String(options.limit || 20),
+      no_more: "false"
+    });
+
+    return `https://api.xiaoheihe.cn${MESSAGE_API_PATH}?${params.toString()}`;
+  }
+
   function escapeHtml(value) {
     return String(value ?? "")
       .replaceAll("&", "&amp;")
@@ -5550,6 +6093,316 @@
       .replaceAll(">", "&gt;")
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
+  }
+
+  function stripMessageHtml(value) {
+    const text = String(value || "")
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<img\b[^>]*\balt=["']([^"']*)["'][^>]*>/gi, "$1")
+      .replace(/<[^>]+>/g, "")
+      .replace(/&nbsp;/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#039;/g, "'");
+    return text.replace(/\s+/g, " ").trim();
+  }
+
+  function findFirstFieldDeep(source, names, seen = new Set()) {
+    if (!source || typeof source !== "object" || seen.has(source)) {
+      return "";
+    }
+    seen.add(source);
+
+    for (const name of names) {
+      if (source[name] !== undefined && source[name] !== null && source[name] !== "") {
+        return source[name];
+      }
+    }
+
+    for (const value of Object.values(source)) {
+      if (value && typeof value === "object") {
+        const found = findFirstFieldDeep(value, names, seen);
+        if (found !== "") {
+          return found;
+        }
+      }
+    }
+    return "";
+  }
+
+  function getReplyMessageLinkId(message) {
+    return String(findFirstFieldDeep(message, [
+      "linkid",
+      "link_id",
+      "linkId"
+    ]) || "").trim();
+  }
+
+  function getReplyMessageUserName(message) {
+    return String(message?.user_a?.username || findFirstFieldDeep(message, [
+      "username",
+      "user_name",
+      "nickname",
+      "nick_name",
+      "name"
+    ]) || "盒友").trim();
+  }
+
+  function getReplyMessageAvatar(message) {
+    return String(
+      message?.user_a?.avatar
+      || message?.user_a?.avartar
+      || findFirstFieldDeep(message, ["avatar", "avartar", "avatar_url", "avatarUrl"])
+      || ""
+    ).trim();
+  }
+
+  function getReplyMessageTitle(message) {
+    return stripMessageHtml(message?.link_title || findFirstFieldDeep(message, [
+      "title",
+      "link_title",
+      "linkTitle",
+      "target_title",
+      "targetTitle"
+    ])) || "查看相关帖子";
+  }
+
+  function getReplyMessageLinkDescription(message) {
+    return stripMessageHtml(message?.link_desc || message?.link_text || message?.link_content || "");
+  }
+
+  function getReplyMessageContent(message) {
+    const content = stripMessageHtml(message?.comment_a_text || findFirstFieldDeep(message, [
+      "comment_a_text",
+      "content",
+      "text",
+      "comment",
+      "comment_text",
+      "reply_content",
+      "replyContent",
+      "message",
+      "msg"
+    ]));
+    if (content) {
+      return content;
+    }
+    return "对你的内容进行了回复";
+  }
+
+  function getReplyMessageTargetContent(message) {
+    const type = String(message?.message_type || message?.type || "");
+    if (type !== "1" && !message?.comment_b_text && !message?.comment_b_id) {
+      return "";
+    }
+    return stripMessageHtml(message?.comment_b_text || message?.reply_to_text || message?.target_comment_text || "");
+  }
+
+  function getReplyMessageTopicName(message) {
+    return String(message?.topic_name || message?.topic?.name || "").trim();
+  }
+
+  function normalizeMessageImageList(value) {
+    if (Array.isArray(value)) {
+      return value.flatMap(normalizeMessageImageList);
+    }
+    if (value && typeof value === "object") {
+      return normalizeMessageImageList(value.url || value.src || value.img || value.image || value.origin || "");
+    }
+    return String(value || "")
+      .split(",")
+      .map((url) => url.trim())
+      .filter(Boolean);
+  }
+
+  function getReplyMessageLinkImages(message) {
+    return uniqueStrings([
+      ...normalizeMessageImageList(message?.link_img),
+      ...normalizeMessageImageList(message?.link_imgs),
+      ...normalizeMessageImageList(message?.link_images),
+      ...normalizeMessageImageList(message?.imgs),
+      ...normalizeMessageImageList(message?.images),
+      ...normalizeMessageImageList(message?.image)
+    ]);
+  }
+
+  function getReplyMessageCommentImages(message) {
+    return uniqueStrings([
+      ...normalizeMessageImageList(message?.comment_img),
+      ...normalizeMessageImageList(message?.comment_imgs),
+      ...normalizeMessageImageList(message?.comment_images)
+    ]);
+  }
+
+  function getReplyMessageLinkAuthor(message) {
+    return String(message?.link_user || message?.link_author || message?.author || message?.user_b?.username || "").trim();
+  }
+
+  function getReplyMessageLinkAuthorAvatar(message) {
+    return String(message?.user_b?.avatar || message?.user_b?.avartar || message?.link_user_avatar || message?.author_avatar || "").trim();
+  }
+
+  function getReplyMessageLinkAuthorLevel(message) {
+    const level = normalizeUserLevel(message?.user_b?.level_info?.level || message?.link_user_level || message?.author_level || "");
+    return level ? `Lv.${level}` : "";
+  }
+
+  function getMessageUserName(user) {
+    return String(user?.username || user?.user_name || user?.nickname || user?.name || "盒友").trim();
+  }
+
+  function getMessageUserAvatar(user) {
+    return String(user?.avatar || user?.avartar || user?.avatar_url || user?.avatarUrl || "").trim();
+  }
+
+  function getMessageUserLevel(user) {
+    const level = normalizeUserLevel(user?.level_info?.level || user?.level || user?.user_level || "");
+    return level ? `Lv.${level}` : "";
+  }
+
+  function getAwardMessageActors(message) {
+    const users = Array.isArray(message?.user_as)
+      ? message.user_as
+      : [message?.user_a].filter(Boolean);
+    return users.map((user) => ({
+      name: getMessageUserName(user),
+      avatar: getMessageUserAvatar(user),
+      avatarFallback: Array.from(getMessageUserName(user) || "盒")[0] || "盒",
+      level: getMessageUserLevel(user)
+    })).filter((user) => user.name || user.avatar);
+  }
+
+  function getAwardMessageKind(message) {
+    const type = String(message?.message_type || message?.type || "");
+    if (type === "7" || message?.comment_b_id || message?.comment_b_text || message?.comment_img) {
+      return "comment";
+    }
+    return "post";
+  }
+
+  function getAwardMessageCount(message, actors) {
+    const raw = Number(message?.comment_award_num || message?.link_award_num || actors?.length || 0);
+    return Number.isFinite(raw) && raw > 0 ? raw : (actors?.length || 0);
+  }
+
+  function getAwardMessageUserName(actors, awardCount) {
+    const firstName = actors?.[0]?.name || "盒友";
+    if (awardCount > 1) {
+      return `${firstName} 等 ${awardCount} 人`;
+    }
+    return firstName;
+  }
+
+  function getAwardMessageContent(message, awardKind) {
+    if (awardKind === "comment") {
+      return stripMessageHtml(message?.comment_b_text || message?.comment_text || message?.comment_content || "") || "你的评论被点赞了";
+    }
+    return stripMessageHtml(message?.link_desc || message?.link_text || message?.link_content || "") || "你的帖子被点赞了";
+  }
+
+  function getAwardMessageTargetImages(message) {
+    return uniqueStrings([
+      ...normalizeMessageImageList(message?.comment_img),
+      ...normalizeMessageImageList(message?.comment_imgs),
+      ...normalizeMessageImageList(message?.comment_images)
+    ]);
+  }
+
+  function getReplyMessageTypeLabel(message) {
+    const type = String(message?.message_type || message?.type || "");
+    if (messagePopoverState.activeTab === "award") {
+      return "点赞";
+    }
+    if (type === "1") {
+      return "回复";
+    }
+    if (type === "2") {
+      return "评论";
+    }
+    if (/award|like|support|up/i.test(type)) {
+      return "点赞";
+    }
+    return "互动";
+  }
+
+  function getReplyMessageActionText(message) {
+    const type = String(message?.message_type || message?.type || "");
+    if (messagePopoverState.activeTab === "award") {
+      return "点赞了你";
+    }
+    if (type === "1") {
+      return "回复了你";
+    }
+    if (type === "2") {
+      return "评论了你";
+    }
+    return "与你互动";
+  }
+
+  function getReplyMessageTimestamp(message) {
+    const raw = Number(findFirstFieldDeep(message, [
+      "create_at",
+      "created_at",
+      "timestamp",
+      "time",
+      "date"
+    ]));
+    if (!Number.isFinite(raw) || raw <= 0) {
+      return 0;
+    }
+    return raw > 100000000000 ? Math.floor(raw / 1000) : raw;
+  }
+
+  function normalizeReplyMessages(messages, options = {}) {
+    const tab = options.tab === "award" ? "award" : "reply";
+    return (Array.isArray(messages) ? messages : [])
+      .filter((message) => tab === "award" || ["1", "2"].includes(String(message?.message_type || message?.type || "")))
+      .map((message) => {
+        const awardKind = tab === "award" ? getAwardMessageKind(message) : "";
+        const actors = tab === "award" ? getAwardMessageActors(message) : [];
+        const awardCount = tab === "award" ? getAwardMessageCount(message, actors) : 0;
+        const userName = tab === "award" ? getAwardMessageUserName(actors, awardCount) : getReplyMessageUserName(message);
+        const avatar = tab === "award" ? (actors[0]?.avatar || "") : getReplyMessageAvatar(message);
+        return {
+          id: String(findFirstFieldDeep(message, ["id", "message_id", "messageId"]) || `${getReplyMessageLinkId(message)}-${getReplyMessageTimestamp(message)}-${tab === "award" ? getAwardMessageContent(message, awardKind) : getReplyMessageContent(message)}`),
+          linkId: getReplyMessageLinkId(message),
+          userName,
+          avatar,
+          avatarFallback: Array.from(userName || "盒")[0] || "盒",
+          actionText: tab === "award"
+            ? (awardKind === "comment" ? "点赞了你的评论" : "点赞了你的帖子")
+            : getReplyMessageActionText(message),
+          typeLabel: tab === "award"
+            ? (awardKind === "comment" ? "评论点赞" : "帖子点赞")
+            : getReplyMessageTypeLabel(message),
+          title: getReplyMessageTitle(message),
+          description: getReplyMessageLinkDescription(message),
+          content: tab === "award" ? getAwardMessageContent(message, awardKind) : getReplyMessageContent(message),
+          contentImages: tab === "award" ? [] : getReplyMessageCommentImages(message),
+          replyTargetContent: tab === "award" ? "" : getReplyMessageTargetContent(message),
+          topicName: getReplyMessageTopicName(message),
+          linkImages: getReplyMessageLinkImages(message),
+          targetImages: tab === "award" && awardKind === "comment" ? getAwardMessageTargetImages(message) : [],
+          linkAuthor: getReplyMessageLinkAuthor(message),
+          linkAuthorAvatar: tab === "award"
+            ? String(message?.link_user_avatar || message?.author_avatar || "").trim()
+            : getReplyMessageLinkAuthorAvatar(message),
+          linkAuthorAvatarFallback: Array.from(getReplyMessageLinkAuthor(message) || "作")[0] || "作",
+          linkAuthorLevel: tab === "award"
+            ? (() => {
+              const level = normalizeUserLevel(message?.link_user_level || message?.author_level || "");
+              return level ? `Lv.${level}` : "";
+            })()
+            : getReplyMessageLinkAuthorLevel(message),
+          timestamp: getReplyMessageTimestamp(message),
+          awardKind,
+          awardCount,
+          actors
+        };
+      })
+      .filter((message) => message.linkId)
+      .sort((left, right) => Number(right.timestamp || 0) - Number(left.timestamp || 0));
   }
 
   function normalizeCommentText(text) {
@@ -9984,6 +10837,7 @@
       entry.remove();
     });
     removeHeaderSearch();
+    removeHeaderMessage();
     document.querySelector(`.${SETTINGS_PANEL_CLASS}`)?.remove();
   }
 
@@ -12211,6 +13065,394 @@
     }
   }
 
+  function removeMessagePopover() {
+    document.querySelector(`.${MESSAGE_POPOVER_CLASS}`)?.remove();
+    document.querySelector(`.${HEADER_MESSAGE_CLASS}`)?.setAttribute("aria-expanded", "false");
+  }
+
+  function removeHeaderMessage() {
+    document.querySelectorAll(`.${HEADER_MESSAGE_CLASS}`).forEach((entry) => {
+      entry.remove();
+    });
+    removeMessagePopover();
+  }
+
+  function ensureMessagePopover() {
+    let popover = document.querySelector(`.${MESSAGE_POPOVER_CLASS}`);
+    if (popover) {
+      return popover;
+    }
+
+    popover = document.createElement("div");
+    popover.className = MESSAGE_POPOVER_CLASS;
+    popover.hidden = true;
+    popover.innerHTML = `
+      <div class="better-message-popover__header">
+        <div class="better-message-popover__title">
+          <strong>消息</strong>
+        </div>
+        <div class="better-message-popover__tabs" role="tablist" aria-label="消息类型">
+          <button class="better-message-popover__tab" type="button" role="tab" data-message-tab="reply" aria-selected="true">回复</button>
+          <button class="better-message-popover__tab" type="button" role="tab" data-message-tab="award" aria-selected="false">点赞</button>
+        </div>
+      </div>
+      <div class="better-message-popover__body">
+        <div class="better-message-popover__state">点击刷新查看消息</div>
+      </div>
+    `;
+    popover.querySelectorAll(".better-message-popover__tab").forEach((tab) => {
+      tab.addEventListener("click", (event) => {
+        event.preventDefault();
+        setMessagePopoverTab(tab.dataset.messageTab || "reply");
+      });
+    });
+    popover.querySelector(".better-message-popover__body")?.addEventListener("scroll", (event) => {
+      const body = event.currentTarget;
+      const state = getActiveMessageTabState();
+      if (
+        state.hasMore
+        && !state.loading
+        && body.scrollTop + body.clientHeight >= body.scrollHeight - 80
+      ) {
+        fetchAndRenderReplyMessages({ append: true });
+      }
+    });
+    document.body.appendChild(popover);
+    return popover;
+  }
+
+  function positionMessagePopover(button, popover) {
+    if (!button || !popover || popover.hidden) {
+      return;
+    }
+
+    const rect = button.getBoundingClientRect();
+    const width = Math.min(420, window.innerWidth - 24);
+    const left = Math.min(Math.max(12, rect.right - width), Math.max(12, window.innerWidth - width - 12));
+    const top = Math.min(rect.bottom + 10, Math.max(12, window.innerHeight - 80));
+    popover.style.left = `${left}px`;
+    popover.style.top = `${top}px`;
+  }
+
+  function setMessagePopoverState(contentHtml) {
+    const popover = ensureMessagePopover();
+    const body = popover.querySelector(".better-message-popover__body");
+    if (body) {
+      body.innerHTML = contentHtml;
+    }
+  }
+
+  function getActiveMessageTabState() {
+    return messagePopoverState.tabs[messagePopoverState.activeTab] || messagePopoverState.tabs.reply;
+  }
+
+  function updateMessagePopoverTabs() {
+    const popover = ensureMessagePopover();
+    popover.querySelectorAll(".better-message-popover__tab").forEach((tab) => {
+      tab.setAttribute("aria-selected", String(tab.dataset.messageTab === messagePopoverState.activeTab));
+    });
+  }
+
+  function setMessagePopoverTab(tab) {
+    messagePopoverState.activeTab = tab === "award" ? "award" : "reply";
+    updateMessagePopoverTabs();
+    const state = getActiveMessageTabState();
+    if (state.messages.length) {
+      renderReplyMessages(state);
+      return;
+    }
+    fetchAndRenderReplyMessages();
+  }
+
+  function renderReplyMessages(state = getActiveMessageTabState()) {
+    const messages = state.messages || [];
+
+    if (!messages.length) {
+      setMessagePopoverState(`<div class="better-message-popover__state">暂时没有新的${messagePopoverState.activeTab === "award" ? "点赞" : "回复"}消息</div>`);
+      return;
+    }
+
+    setMessagePopoverState(messages.map((message) => {
+      const actors = Array.isArray(message.actors) ? message.actors : [];
+      const visibleActors = actors.slice(0, 3);
+      const hiddenActorCount = Math.max(0, Number(message.awardCount || actors.length || 0) - visibleActors.length);
+      const actorAvatarHtml = visibleActors.length ? `
+        <div class="better-message-popover__likers" aria-hidden="true">
+          ${visibleActors.map((actor) => actor.avatar
+            ? `<img class="better-message-popover__liker-avatar" src="${escapeHtml(actor.avatar)}" alt="">`
+            : `<span class="better-message-popover__liker-avatar">${escapeHtml(actor.avatarFallback)}</span>`).join("")}
+          ${hiddenActorCount > 0 ? `<span class="better-message-popover__liker-more">+${escapeHtml(hiddenActorCount)}</span>` : ""}
+        </div>
+      ` : (message.avatar
+        ? `<img class="better-message-popover__avatar" src="${escapeHtml(message.avatar)}" alt="">`
+        : `<div class="better-message-popover__avatar" aria-hidden="true">${escapeHtml(message.avatarFallback)}</div>`);
+      const itemClass = [
+        "better-message-popover__item",
+        message.awardKind === "post" ? "better-message-popover__item--award-post" : "",
+        message.awardKind === "comment" ? "better-message-popover__item--award-comment" : ""
+      ].filter(Boolean).join(" ");
+      return `
+      <a class="${itemClass}" href="/app/bbs/link/${escapeHtml(message.linkId)}">
+        <div class="better-message-popover__actor">
+          ${actorAvatarHtml}
+          <div class="better-message-popover__actor-main">
+            <div class="better-message-popover__actor-line">
+              <span class="better-message-popover__user">${escapeHtml(message.userName)}</span>
+              <span class="better-message-popover__action">${escapeHtml(message.actionText)}</span>
+              <span class="better-message-popover__type">${escapeHtml(message.typeLabel)}</span>
+            </div>
+            <span class="better-message-popover__time">${escapeHtml(formatCommentTime(message.timestamp))}</span>
+          </div>
+        </div>
+        ${message.awardKind === "comment" ? `
+          <div class="better-message-popover__comment-target">
+            <span class="better-message-popover__comment-target-label">被点赞的评论</span>
+            <div class="better-message-popover__content">${renderEmojiTokensInHtml(escapeHtml(message.content))}</div>
+            ${message.targetImages?.length ? `
+              <div class="better-message-popover__target-images">
+                ${message.targetImages.map((url, index) => `<img class="better-message-popover__target-image" src="${escapeHtml(url)}" alt="评论图片 ${escapeHtml(index + 1)}" loading="lazy">`).join("")}
+              </div>
+            ` : ""}
+          </div>
+        ` : `
+          <div class="better-message-popover__content">${renderEmojiTokensInHtml(escapeHtml(message.content))}</div>
+          ${message.contentImages?.length ? `
+            <div class="better-message-popover__target-images">
+              ${message.contentImages.map((url, index) => `<img class="better-message-popover__target-image" src="${escapeHtml(url)}" alt="回复图片 ${escapeHtml(index + 1)}" loading="lazy">`).join("")}
+            </div>
+          ` : ""}
+          ${message.replyTargetContent ? `
+            <div class="better-message-popover__comment-target">
+              <span class="better-message-popover__comment-target-label">被回复的内容</span>
+              <div class="better-message-popover__content">${renderEmojiTokensInHtml(escapeHtml(message.replyTargetContent))}</div>
+            </div>
+          ` : ""}
+        `}
+        <div class="better-message-popover__post">
+          <div class="better-message-popover__context">
+            ${message.linkAuthor ? `
+              <div class="better-message-popover__post-author">
+                ${message.linkAuthorAvatar ? `<img class="better-message-popover__post-author-avatar" src="${escapeHtml(message.linkAuthorAvatar)}" alt="">` : `<span class="better-message-popover__post-author-avatar" aria-hidden="true">${escapeHtml(message.linkAuthorAvatarFallback)}</span>`}
+                <span class="better-message-popover__post-author-name">${escapeHtml(message.linkAuthor)}</span>
+                ${message.linkAuthorLevel ? `<span class="better-message-popover__post-author-level">${escapeHtml(message.linkAuthorLevel)}</span>` : ""}
+              </div>
+            ` : ""}
+            <span class="better-message-popover__link-title">${renderEmojiTokensInHtml(escapeHtml(message.title))}</span>
+            ${message.description ? `<span class="better-message-popover__link-desc">${renderEmojiTokensInHtml(escapeHtml(message.description))}</span>` : ""}
+            ${(message.linkImages?.length || message.topicName) ? `
+              <div class="better-message-popover__media-row">
+                ${message.linkImages?.length ? `
+                  <div class="better-message-popover__thumbs">
+                    ${message.linkImages.map((url, index) => `<img class="better-message-popover__thumb" src="${escapeHtml(url)}" alt="帖子图片 ${escapeHtml(index + 1)}" loading="lazy">`).join("")}
+                  </div>
+                ` : ""}
+                ${message.topicName ? `<span class="better-message-popover__topic">${escapeHtml(message.topicName)}</span>` : ""}
+              </div>
+            ` : ""}
+          </div>
+        </div>
+      </a>
+    `;
+    }).join("") + (state.loading
+      ? '<div class="better-message-popover__footer-state">正在加载更多...</div>'
+      : (state.hasMore ? '<div class="better-message-popover__footer-state">继续下滑加载更多</div>' : '<div class="better-message-popover__footer-state">没有更多消息了</div>')));
+  }
+
+  function fetchReplyMessages(options = {}) {
+    const limit = Number(options.limit || 20);
+    const tab = options.tab === "award" ? "award" : "reply";
+    return runAfterIdentityCookiesRestored(() => fetch(buildMessageApiUrl({
+      limit,
+      offset: options.offset || 0,
+      listType: tab === "award" ? 1 : 0
+    }), {
+      credentials: "include",
+      headers: {
+        accept: "application/json"
+      }
+    })).then((response) => response.json()).then((data) => {
+      if (data?.status !== "ok") {
+        throw new Error(data?.message || data?.msg || data?.error || "消息查询失败");
+      }
+      const rawMessages = data?.result?.messages || data?.result?.list || data?.result?.Lists || data?.messages || [];
+      return {
+        messages: normalizeReplyMessages(rawMessages, { tab }),
+        hasMore: Array.isArray(rawMessages) && rawMessages.length >= limit
+      };
+    });
+  }
+
+  function fetchAndRenderReplyMessages(options = {}) {
+    const button = document.querySelector(`.${HEADER_MESSAGE_CLASS}`);
+    const popover = ensureMessagePopover();
+    const activeTab = messagePopoverState.activeTab;
+    const activeState = getActiveMessageTabState();
+    if (activeState.loading) {
+      return Promise.resolve();
+    }
+    const append = options.append === true;
+    activeState.loading = true;
+    button?.classList.add("is-loading");
+    if (!append) {
+      activeState.messages = [];
+      activeState.offset = 0;
+      activeState.hasMore = true;
+      setMessagePopoverState(`<div class="better-message-popover__state">正在拉取${activeTab === "award" ? "点赞" : "回复"}消息...</div>`);
+    } else {
+      renderReplyMessages(activeState);
+    }
+    return loadEmojis().then(() => fetchReplyMessages({ tab: activeTab, offset: append ? activeState.offset : 0, limit: 20 }))
+      .then((payload) => {
+        const mergedMessages = append
+          ? [...activeState.messages, ...payload.messages]
+          : payload.messages;
+        const seenMessageIds = new Set();
+        activeState.messages = mergedMessages.filter((message) => {
+          const key = message.id || `${message.linkId}-${message.timestamp}-${message.content}`;
+          if (seenMessageIds.has(key)) {
+            return false;
+          }
+          seenMessageIds.add(key);
+          return true;
+        });
+        activeState.offset = activeState.messages.length;
+        activeState.hasMore = payload.hasMore;
+        activeState.loading = false;
+        renderReplyMessages(activeState);
+      })
+      .catch((error) => {
+        activeState.loading = false;
+        if (append && activeState.messages.length) {
+          renderReplyMessages(activeState);
+          return;
+        }
+        setMessagePopoverState(`<div class="better-message-popover__state">${escapeHtml(error?.message || "消息加载失败")}</div>`);
+      })
+      .finally(() => {
+        button?.classList.remove("is-loading");
+        positionMessagePopover(button, popover);
+      });
+  }
+
+  function closeMessagePopover() {
+    const popover = document.querySelector(`.${MESSAGE_POPOVER_CLASS}`);
+    const button = document.querySelector(`.${HEADER_MESSAGE_CLASS}`);
+    if (popover) {
+      popover.hidden = true;
+    }
+    button?.setAttribute("aria-expanded", "false");
+  }
+
+  function bindMessagePopoverOutsideClick() {
+    if (messagePopoverOutsideClickBound) {
+      return;
+    }
+
+    messagePopoverOutsideClickBound = true;
+    document.addEventListener("pointerdown", (event) => {
+      if (event.__betterHeaderMessageHandled) {
+        return;
+      }
+      if (!(event.target instanceof Element)) {
+        return;
+      }
+      if (event.target.closest(`.${MESSAGE_POPOVER_CLASS}, .${HEADER_MESSAGE_CLASS}`)) {
+        return;
+      }
+      closeMessagePopover();
+    }, true);
+    window.addEventListener("resize", () => {
+      const popover = document.querySelector(`.${MESSAGE_POPOVER_CLASS}`);
+      const button = document.querySelector(`.${HEADER_MESSAGE_CLASS}`);
+      if (popover && button && !popover.hidden) {
+        positionMessagePopover(button, popover);
+      }
+    });
+  }
+
+  function toggleMessagePopover(button) {
+    const popover = ensureMessagePopover();
+    const shouldOpen = popover.hidden;
+    if (!shouldOpen) {
+      fetchAndRenderReplyMessages();
+      return;
+    }
+    popover.hidden = !shouldOpen;
+    button.setAttribute("aria-expanded", String(shouldOpen));
+    positionMessagePopover(button, popover);
+    bindMessagePopoverOutsideClick();
+    fetchAndRenderReplyMessages();
+  }
+
+  function handleHeaderMessageClick(event, button) {
+    if (event.__betterHeaderMessageHandled) {
+      return;
+    }
+    event.__betterHeaderMessageHandled = true;
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation?.();
+    toggleMessagePopover(button);
+  }
+
+  function bindHeaderMessageClickDelegation() {
+    if (headerMessageClickBound) {
+      return;
+    }
+
+    headerMessageClickBound = true;
+    document.addEventListener("pointerdown", (event) => {
+      const button = event.target instanceof Element
+        ? event.target.closest(`.${HEADER_MESSAGE_CLASS}`)
+        : null;
+      if (!button) {
+        return;
+      }
+      handleHeaderMessageClick(event, button);
+    }, true);
+    document.addEventListener("click", (event) => {
+      const button = event.target instanceof Element
+        ? event.target.closest(`.${HEADER_MESSAGE_CLASS}`)
+        : null;
+      if (!button) {
+        return;
+      }
+      handleHeaderMessageClick(event, button);
+    }, true);
+  }
+
+  function ensureHeaderMessage(settingsEntry) {
+    if (!settingsEntry) {
+      removeHeaderMessage();
+      return;
+    }
+
+    let button = document.querySelector(`.${HEADER_MESSAGE_CLASS}`);
+    if (!button) {
+      button = document.createElement("button");
+      button.className = HEADER_MESSAGE_CLASS;
+      button.type = "button";
+      button.title = "回复我的";
+      button.setAttribute("aria-label", "回复我的");
+      button.setAttribute("aria-expanded", "false");
+      button.innerHTML = `
+        <i aria-hidden="true">
+          <svg class="better-header-message__icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 6.5h16v11H4z"></path>
+            <path d="m4.8 7.2 7.2 5.6 7.2-5.6"></path>
+          </svg>
+        </i>
+      `;
+    }
+    button.onpointerdown = (event) => handleHeaderMessageClick(event, button);
+    button.onclick = (event) => handleHeaderMessageClick(event, button);
+    bindHeaderMessageClickDelegation();
+
+    if (settingsEntry.previousElementSibling !== button) {
+      settingsEntry.insertAdjacentElement("beforebegin", button);
+    }
+  }
+
   function ensureHeaderSearch(settingsEntry) {
     if (!settingsEntry) {
       removeHeaderSearch();
@@ -12282,6 +13524,7 @@
         publishButton.insertAdjacentElement("beforebegin", entry);
       }
       ensureHeaderSearch(entry);
+      ensureHeaderMessage(entry);
       return;
     }
 
@@ -12289,6 +13532,7 @@
       anchor.insertAdjacentElement("afterend", entry);
     }
     ensureHeaderSearch(entry);
+    ensureHeaderMessage(entry);
   }
 
 
