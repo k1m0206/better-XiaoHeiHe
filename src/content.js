@@ -197,6 +197,7 @@
   let emojiPromise = null;
   let scheduled = false;
   let handlingPage = false;
+  let savedScrollY = null;
   let linkPageFilterRefreshTimer = null;
   let previewObserver = null;
   let rowResizeObserver = null;
@@ -13889,6 +13890,8 @@
       return;
     }
 
+    const wasLinkPage = document.documentElement.classList.contains(LINK_DETAIL_LAYOUT_CLASS);
+
     injectLayoutStyle();
     ensureFavoriteEntry();
     ensureSettingsEntry();
@@ -13899,9 +13902,14 @@
     moveSearchHotListToLeftSidebar();
     removeRightContent();
     if (isLinkPage()) {
+      savedScrollY = window.scrollY;
       addFilterToBbsLink();
     } else {
       enhanceFeed();
+      if (wasLinkPage && savedScrollY !== null) {
+        window.scrollTo(0, savedScrollY);
+        savedScrollY = null;
+      }
     }
 
   }
