@@ -1,7 +1,13 @@
 (function () {
   const ENHANCED_PATH_PREFIXES = ["/app/bbs", "/app/topic/link", "/app/user/profile", "/app/user/favour", "/app/search"];
   const LINK_PATH_REGEXP = /^\/app\/bbs\/link\/(\d+)/;
-  const RIGHT_CONTENT_SELECTOR = ".hb-layout__content--right";
+  const RIGHT_CONTENT_SELECTOR = [
+    ".hb-layout__content--right",
+    ".cpt-right-side",
+    ".bbs-community-hot-topic",
+    ".hot-search",
+    ".right-side-default.default-content"
+  ].join(", ");
   const STYLE_ID = "better-xiaoheihe-bbs-layout-style";
   const HOME_LAYOUT_CLASS = "better-xiaoheihe-home-layout";
   const LINK_DETAIL_LAYOUT_CLASS = "better-xiaoheihe-link-detail-layout";
@@ -190,6 +196,7 @@
   let previewObserver = null;
   let rowResizeObserver = null;
   let topMenuOutsideClickBound = false;
+  let settingsPanelOutsideClickBound = false;
   let feedAiCaptureBound = false;
   let feedAwardCaptureBound = false;
   let feedImageCaptureBound = false;
@@ -197,6 +204,7 @@
   let topicBlockContextMenuBound = false;
   let imageViewerKeydownBound = false;
   let replyEmojiOutsideClickBound = false;
+  let activeReplyEmojiForm = null;
   let aiSummaryScrollLocked = false;
   let aiSummaryPreviousBodyOverflow = "";
   let aiSummaryPreviousDocumentOverflow = "";
@@ -840,10 +848,121 @@
         align-items: flex-start !important;
       }
 
+      .${HOME_LAYOUT_CLASS} .hb-page__app,
+      .${HOME_LAYOUT_CLASS} .hb-page__app .hb-website__container,
+      .${HOME_LAYOUT_CLASS} .hb-page__app .hb-layout__main,
+      .${HOME_LAYOUT_CLASS} .hb-page__app .hb-layout-main__container,
+      .${HOME_LAYOUT_CLASS} .hb-page__app .hb-layout__content {
+        box-sizing: border-box !important;
+        min-width: 0 !important;
+        max-width: none !important;
+        width: min(1280px, calc(100vw - 192px)) !important;
+      }
+
+      .${HOME_LAYOUT_CLASS} .hb-page__app .hb-website__container,
+      .${HOME_LAYOUT_CLASS} .hb-page__app .hb-layout__main,
+      .${HOME_LAYOUT_CLASS} .hb-page__app .hb-layout-main__container,
+      .${HOME_LAYOUT_CLASS} .hb-page__app .hb-layout__content {
+        margin-right: auto !important;
+        margin-left: auto !important;
+      }
+
       .${HOME_LAYOUT_CLASS} .hb-page__app .hb-layout__content--left {
         flex: 1 1 0 !important;
         max-width: none !important;
         width: 100% !important;
+      }
+
+      .${HOME_LAYOUT_CLASS} .hb-page__app .content,
+      .${HOME_LAYOUT_CLASS} .hb-page__app .content > .list,
+      .${HOME_LAYOUT_CLASS} .hb-page__app main.list,
+      .${HOME_LAYOUT_CLASS} #page-topic-link,
+      .${HOME_LAYOUT_CLASS} #page-topic-link .topic-link__content,
+      .${HOME_LAYOUT_CLASS} #page-topic-link .topic-link__main,
+      .${HOME_LAYOUT_CLASS} #page-topic-link .topic-link__panel {
+        box-sizing: border-box !important;
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+        max-width: none !important;
+        width: 100% !important;
+      }
+
+      .${HOME_LAYOUT_CLASS} .hb-page__app .hb-layout-main__container--main,
+      .${HOME_LAYOUT_CLASS} .hb-view-header .hb-layout-main__container--main,
+      .${HOME_LAYOUT_CLASS} .hb-cpt__scroll-list,
+      .${HOME_LAYOUT_CLASS} .hb-bbs-home,
+      .${HOME_LAYOUT_CLASS} .bbs-home__content-item,
+      .${HOME_LAYOUT_CLASS} .bbs-home__content-list,
+      .${HOME_LAYOUT_CLASS} .topic-link__item,
+      .${HOME_LAYOUT_CLASS} .topic-link__list {
+        box-sizing: border-box !important;
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+        max-width: none !important;
+        width: 100% !important;
+      }
+
+      .${HOME_LAYOUT_CLASS} .hb-cpt__scroll-list.hb-bbs-home {
+        position: relative !important;
+        left: 50% !important;
+        width: min(1280px, calc(100vw - 192px)) !important;
+        max-width: none !important;
+        transform: translateX(-50%) !important;
+      }
+
+      .${HOME_LAYOUT_CLASS} #page-topic-link .topic-link__list {
+        position: relative !important;
+        left: 50% !important;
+        width: min(1280px, calc(100vw - 192px)) !important;
+        max-width: none !important;
+        transform: translateX(-50%) !important;
+      }
+
+      .${HOME_LAYOUT_CLASS} #page-topic-link .topic-link__header,
+      .${HOME_LAYOUT_CLASS} #page-topic-link .topic-link__filter-row {
+        box-sizing: border-box !important;
+        width: min(1280px, calc(100vw - 192px)) !important;
+        max-width: none !important;
+        margin-right: auto !important;
+        margin-left: auto !important;
+      }
+
+      .${HOME_LAYOUT_CLASS} .hb-cpt__scroll-list.hb-bbs-home > .bbs-home__topic-list-wrapper,
+      .${HOME_LAYOUT_CLASS} .hb-cpt__scroll-list.hb-bbs-home > .bbs-home__content-list {
+        width: 100% !important;
+        max-width: none !important;
+      }
+
+      .${HOME_LAYOUT_CLASS} .bbs-home__topic-list-wrapper,
+      .${HOME_LAYOUT_CLASS} .bbs-home__topic-list,
+      .${HOME_LAYOUT_CLASS} .bbs-home__topic-list .hb-cpt__pagination-outer {
+        min-width: 0 !important;
+        max-width: 100% !important;
+        width: 100% !important;
+      }
+
+      .${HOME_LAYOUT_CLASS} .bbs-home__topic-list .hb-cpt__pagination-inner {
+        display: flex !important;
+        min-width: 0 !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        scrollbar-width: none;
+      }
+
+      .${HOME_LAYOUT_CLASS} .bbs-home__topic-list .hb-cpt__pagination-inner::-webkit-scrollbar {
+        display: none;
+      }
+
+      .${HOME_LAYOUT_CLASS} .bbs-home__topic-item {
+        flex: 0 0 auto !important;
+      }
+
+      .hb-layout__content--right,
+      .cpt-right-side,
+      .bbs-community-hot-topic,
+      .hot-search,
+      .right-side-default.default-content {
+        display: none !important;
       }
 
       .${HOME_LAYOUT_CLASS} .hb-website__container > .hb-layout-main__container--left,
@@ -921,6 +1040,7 @@
         align-items: center;
         justify-content: center;
         margin-left: 6px;
+        margin-right: 0;
         border: 0;
         border-radius: 8px;
         background: transparent;
@@ -930,6 +1050,12 @@
         font-weight: 600;
         line-height: 1;
         transition: background 0.16s ease, color 0.16s ease;
+      }
+
+      .nav-actions > .${SETTINGS_ENTRY_CLASS}:has(+ .publish-btn),
+      .nav-actions > .${SETTINGS_ENTRY_CLASS}.better-xiaoheihe-settings-entry--before-publish {
+        margin-right: 8px;
+        margin-left: 0;
       }
 
       .${SETTINGS_ENTRY_CLASS}:hover,
@@ -2483,7 +2609,7 @@
 
       .${HOME_LAYOUT_CLASS} .${ROW_CLASS} {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) clamp(340px, 35vw, 420px);
+        grid-template-columns: minmax(0, 1fr) clamp(360px, 34vw, 520px);
         gap: 0;
         align-items: start;
         margin: 0 0 14px;
@@ -3065,7 +3191,8 @@
       }
 
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__level {
-        display: inline-block !important;
+        display: inline-flex;
+        flex: 0 0 auto;
         margin-left: 4px;
         vertical-align: top;
       }
@@ -3380,6 +3507,7 @@
 
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__reply-tools {
         position: relative;
+        z-index: 2147483646;
         display: flex;
         align-items: center;
         flex: 1 1 auto;
@@ -3407,8 +3535,22 @@
 
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__emoji-toggle-icon,
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__image-upload-icon {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        background: currentColor;
         font-size: 20px;
         line-height: 1;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__emoji-toggle-icon {
+        -webkit-mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath fill='black' d='M12 22a10 10 0 1 1 0-20 10 10 0 0 1 0 20Zm0-2a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.5 11a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm7 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3ZM8 14h8c-.5 2-1.9 3-4 3s-3.5-1-4-3Z'/%3E%3C/svg%3E") center / contain no-repeat;
+        mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath fill='black' d='M12 22a10 10 0 1 1 0-20 10 10 0 0 1 0 20Zm0-2a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.5 11a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm7 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3ZM8 14h8c-.5 2-1.9 3-4 3s-3.5-1-4-3Z'/%3E%3C/svg%3E") center / contain no-repeat;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__image-upload-icon {
+        -webkit-mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath fill='black' d='M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2ZM5 5h14v9.6l-3.5-3.5a1 1 0 0 0-1.4 0L11 14.2l-1.6-1.6a1 1 0 0 0-1.4 0L5 15.6V5Zm0 14v-.6l3.7-3.7 1.6 1.6a1 1 0 0 0 1.4 0l3.1-3.1L19 17.4V19H5Zm4.5-8A2.5 2.5 0 1 1 9.5 6a2.5 2.5 0 0 1 0 5Z'/%3E%3C/svg%3E") center / contain no-repeat;
+        mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath fill='black' d='M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2ZM5 5h14v9.6l-3.5-3.5a1 1 0 0 0-1.4 0L11 14.2l-1.6-1.6a1 1 0 0 0-1.4 0L5 15.6V5Zm0 14v-.6l3.7-3.7 1.6 1.6a1 1 0 0 0 1.4 0l3.1-3.1L19 17.4V19H5Zm4.5-8A2.5 2.5 0 1 1 9.5 6a2.5 2.5 0 0 1 0 5Z'/%3E%3C/svg%3E") center / contain no-repeat;
       }
 
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__emoji-toggle:hover,
@@ -3418,10 +3560,10 @@
         color: var(--color-font-2, #64696e);
       }
 
-      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__emoji-panel {
+      .${HOME_LAYOUT_CLASS} .better-comment-preview__emoji-panel {
         position: fixed;
-        left: var(--better-emoji-panel-left, 0);
-        top: var(--better-emoji-panel-top, 0);
+        left: var(--better-emoji-panel-left, 12px);
+        top: var(--better-emoji-panel-top, 12px);
         z-index: 2147483647;
         width: min(280px, calc(100vw - 48px));
         max-height: 220px;
@@ -3433,30 +3575,30 @@
         box-shadow: 0 10px 24px rgba(20, 25, 30, 0.12);
       }
 
-      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__emoji-panel[hidden] {
+      .${HOME_LAYOUT_CLASS} .better-comment-preview__emoji-panel[hidden] {
         display: none;
       }
 
-      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__emoji-grid {
+      .${HOME_LAYOUT_CLASS} .better-comment-preview__emoji-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(30px, 1fr));
         gap: 4px;
       }
 
-      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__emoji-section + .better-comment-preview__emoji-section {
+      .${HOME_LAYOUT_CLASS} .better-comment-preview__emoji-section + .better-comment-preview__emoji-section {
         margin-top: 8px;
         padding-top: 8px;
         border-top: 1px solid #eef1f4;
       }
 
-      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__emoji-section-title {
+      .${HOME_LAYOUT_CLASS} .better-comment-preview__emoji-section-title {
         margin-bottom: 5px;
         color: #8a9299;
         font-size: 12px;
         line-height: 16px;
       }
 
-      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__emoji-common-row {
+      .${HOME_LAYOUT_CLASS} .better-comment-preview__emoji-common-row {
         display: flex;
         flex-wrap: nowrap;
         gap: 4px;
@@ -3464,7 +3606,7 @@
         padding-bottom: 2px;
       }
 
-      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__emoji-option {
+      .${HOME_LAYOUT_CLASS} .better-comment-preview__emoji-option {
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -3477,17 +3619,17 @@
         cursor: pointer;
       }
 
-      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__emoji-option:hover {
+      .${HOME_LAYOUT_CLASS} .better-comment-preview__emoji-option:hover {
         background: #f0f4f8;
       }
 
-      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__emoji-option-image {
+      .${HOME_LAYOUT_CLASS} .better-comment-preview__emoji-option-image {
         width: 24px;
         height: 24px;
         object-fit: contain;
       }
 
-      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__emoji-panel-state {
+      .${HOME_LAYOUT_CLASS} .better-comment-preview__emoji-panel-state {
         color: #a8afb7;
         font-size: 12px;
         line-height: 18px;
@@ -3623,8 +3765,14 @@
       }
 
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__up-icon {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        background: currentColor;
         font-size: 13px;
         line-height: 1;
+        -webkit-mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath fill='black' d='M2 21h4V9H2v12Zm19.5-11.8c-.2-.7-.8-1.2-1.6-1.2h-5.7l.9-4.1v-.3c0-.4-.2-.8-.5-1.1L13.6 1 7 7.6V19c0 1.1.9 2 2 2h8.4c.8 0 1.5-.5 1.8-1.2l3-7.1c.1-.2.1-.5.1-.7v-1.1c0-.6-.3-1.2-.8-1.7Z'/%3E%3C/svg%3E") center / contain no-repeat;
+        mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath fill='black' d='M2 21h4V9H2v12Zm19.5-11.8c-.2-.7-.8-1.2-1.6-1.2h-5.7l.9-4.1v-.3c0-.4-.2-.8-.5-1.1L13.6 1 7 7.6V19c0 1.1.9 2 2 2h8.4c.8 0 1.5-.5 1.8-1.2l3-7.1c.1-.2.1-.5.1-.7v-1.1c0-.6-.3-1.2-.8-1.7Z'/%3E%3C/svg%3E") center / contain no-repeat;
       }
 
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__footer {
@@ -3975,17 +4123,18 @@
       }
 
       .${AI_SUMMARY_MODAL_CLASS} .better-comment-preview__emoji {
-        width: 22px;
-        height: 22px;
+        display: inline-block;
+        width: 1.45em;
+        height: 1.45em;
         margin: 0 2px;
         object-fit: contain;
-        vertical-align: -5px;
+        vertical-align: -0.35em;
       }
 
       .${AI_SUMMARY_MODAL_CLASS} .better-comment-preview__emoji--big {
-        width: 36px;
-        height: 36px;
-        vertical-align: -10px;
+        width: 2.25em;
+        height: 2.25em;
+        vertical-align: -0.78em;
       }
 
       .${AI_SUMMARY_MODAL_CLASS} .better-ai-summary__summary-content {
@@ -4108,8 +4257,29 @@
 
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-layout-main__container--main {
         box-sizing: border-box;
-        width: calc(100vw - 32px) !important;
+        width: min(1280px, calc(100vw - 192px)) !important;
         max-width: none !important;
+        margin-right: auto !important;
+        margin-left: auto !important;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} #page-bbs-link,
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} #page-bbs-link > .content,
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} #page-bbs-link > .content > .list {
+        box-sizing: border-box !important;
+        min-width: 0 !important;
+        width: min(1280px, calc(100vw - 192px)) !important;
+        max-width: none !important;
+        margin-right: auto !important;
+        margin-left: auto !important;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} #page-bbs-link {
+        position: relative;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} #page-bbs-link [data-mask-frame] {
+        display: none !important;
       }
 
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-layout__fake-frame {
@@ -4245,15 +4415,15 @@
         grid-column: 2;
         position: fixed !important;
         top: 76px !important;
-        right: 16px !important;
+        right: max(96px, calc((100vw - 1280px) * 0.5)) !important;
         z-index: 30;
         height: calc(100vh - 168px);
         max-height: calc(100vh - 168px);
         min-height: 0;
         overflow-x: hidden;
         overflow-y: auto;
-        width: max(360px, calc((100vw - 48px) * 0.4)) !important;
-        max-width: calc(100vw - 32px) !important;
+        width: clamp(360px, 34vw, 520px) !important;
+        max-width: calc(100vw - 192px) !important;
         padding: 0 0 12px 16px;
         border-left: 1px solid #eef0f2;
         background: #fff;
@@ -4385,12 +4555,12 @@
         box-sizing: border-box;
         grid-column: 2;
         position: fixed !important;
-        right: 16px !important;
+        right: max(96px, calc((100vw - 1280px) * 0.5)) !important;
         bottom: 12px !important;
         left: auto !important;
         z-index: 31;
-        width: max(360px, calc((100vw - 48px) * 0.4)) !important;
-        max-width: calc(100vw - 32px) !important;
+        width: clamp(360px, 34vw, 520px) !important;
+        max-width: calc(100vw - 192px) !important;
         margin-top: -8px;
         border-left: 1px solid #eef0f2;
         background: #fff;
@@ -4406,7 +4576,7 @@
         grid-column: 2;
       }
 
-      @media (max-width: 1180px) {
+      @media (max-width: 1040px) {
         .${HOME_LAYOUT_CLASS} .${ROW_CLASS} {
           grid-template-columns: minmax(0, 1fr);
         }
@@ -5714,7 +5884,7 @@
   }
 
   function getLevelTagWidth(level) {
-    return 11.5 + level.length * 5;
+    return 20 + String(level || "").length * 6;
   }
 
   function renderUserLevel(level) {
@@ -5724,8 +5894,10 @@
     }
 
     return `
-      <div class="hb-cpt__level-tag list-content__level better-comment-preview__level" style="width: ${getLevelTagWidth(normalizedLevel)}px;">
-        <div class="level-tag__wrapper level-${escapeHtml(normalizedLevel)}"> Lv.${escapeHtml(normalizedLevel)}</div>
+      <div class="hb-level-tag hb-level-${escapeHtml(normalizedLevel)} list-content__level better-comment-preview__level">
+        <div class="hb-level-tag__inner">
+          <div class="hb-level-tag__inner__text"> Lv.${escapeHtml(normalizedLevel)}</div>
+        </div>
       </div>
     `;
   }
@@ -7273,13 +7445,20 @@
 
   function closeReplyEmojiPanel(form) {
     const toggle = form.querySelector(".better-comment-preview__emoji-toggle");
-    const panel = form.querySelector(".better-comment-preview__emoji-panel");
+    const panel = form._betterReplyEmojiPanel || form.querySelector(".better-comment-preview__emoji-panel");
     if (!toggle || !panel) {
       return;
     }
 
     panel.hidden = true;
     toggle.setAttribute("aria-expanded", "false");
+    const tools = form.querySelector(".better-comment-preview__reply-tools");
+    if (tools && panel.parentElement !== tools) {
+      tools.appendChild(panel);
+    }
+    if (activeReplyEmojiForm === form) {
+      activeReplyEmojiForm = null;
+    }
   }
 
   function closeOtherReplyEmojiPanels(activeForm = null) {
@@ -7291,27 +7470,31 @@
   }
 
   function getOpenReplyEmojiForm() {
+    if (activeReplyEmojiForm?._betterReplyEmojiPanel && !activeReplyEmojiForm._betterReplyEmojiPanel.hidden) {
+      return activeReplyEmojiForm;
+    }
     return Array.from(document.querySelectorAll(`.${PREVIEW_CLASS} .better-comment-preview__reply-form`))
       .find((form) => form.querySelector(".better-comment-preview__emoji-panel:not([hidden])")) || null;
   }
 
   function positionReplyEmojiPanel(form) {
     const toggle = form.querySelector(".better-comment-preview__emoji-toggle");
-    const panel = form.querySelector(".better-comment-preview__emoji-panel");
+    const panel = form._betterReplyEmojiPanel || form.querySelector(".better-comment-preview__emoji-panel");
     if (!toggle || !panel || panel.hidden) {
       return;
     }
 
     const buttonRect = toggle.getBoundingClientRect();
     const panelWidth = Math.min(280, Math.max(180, window.innerWidth - 48));
+    const panelHeight = Math.min(220, panel.scrollHeight || 220);
     const left = Math.min(
       Math.max(12, buttonRect.left),
       Math.max(12, window.innerWidth - panelWidth - 12)
     );
-    const top = Math.min(
-      buttonRect.bottom + 6,
-      Math.max(12, window.innerHeight - Math.min(220, panel.scrollHeight || 220) - 12)
-    );
+    const preferredTop = buttonRect.bottom + 8;
+    const top = preferredTop + panelHeight <= window.innerHeight - 12
+      ? preferredTop
+      : Math.max(12, buttonRect.top - panelHeight - 8);
 
     panel.style.setProperty("--better-emoji-panel-left", `${left}px`);
     panel.style.setProperty("--better-emoji-panel-top", `${top}px`);
@@ -7319,15 +7502,20 @@
 
   function toggleReplyEmojiPanel(form) {
     const toggle = form.querySelector(".better-comment-preview__emoji-toggle");
-    const panel = form.querySelector(".better-comment-preview__emoji-panel");
+    const panel = form._betterReplyEmojiPanel || form.querySelector(".better-comment-preview__emoji-panel");
     if (!toggle || !panel) {
       return;
     }
 
+    form._betterReplyEmojiPanel = panel;
     const shouldOpen = panel.hidden;
     closeOtherReplyEmojiPanels(form);
+    if (shouldOpen && panel.parentElement !== document.body) {
+      document.body.appendChild(panel);
+    }
     panel.hidden = !shouldOpen;
     toggle.setAttribute("aria-expanded", String(shouldOpen));
+    activeReplyEmojiForm = shouldOpen ? form : null;
     positionReplyEmojiPanel(form);
     if (!shouldOpen) {
       return;
@@ -7808,8 +7996,8 @@
       }
 
       const emojiOption = event.target.closest(".better-comment-preview__emoji-option");
-      if (emojiOption && preview.contains(emojiOption)) {
-        const form = emojiOption.closest(".better-comment-preview__reply-form");
+      if (emojiOption && (preview.contains(emojiOption) || activeReplyEmojiForm)) {
+        const form = emojiOption.closest(".better-comment-preview__reply-form") || getOpenReplyEmojiForm();
         if (form) {
           event.preventDefault();
           event.stopPropagation();
@@ -8040,7 +8228,7 @@
   }
 
   function getFeedItemTopicText(item) {
-    return Array.from(item.querySelectorAll(".content-tag-text"))
+    return Array.from(item.querySelectorAll(".content-tag-text, .bbs-new-style-bottom__rich-stack .bbs-new-style-bottom__rich-node"))
       .map((tag) => tag.textContent?.trim())
       .filter(Boolean)
       .join("\n");
@@ -8100,7 +8288,17 @@
   }
 
   function ensureDefaultUserLevelTag(userContainer) {
-    if (!userContainer || userContainer.querySelector(".hb-cpt__level-tag, .level-tag__wrapper")) {
+    if (!userContainer) {
+      return;
+    }
+
+    const nativeLevelTag = userContainer.querySelector(".hb-cpt__level-tag:not(.better-default-level-tag), .hb-level-tag");
+    if (nativeLevelTag) {
+      userContainer.querySelectorAll(".better-default-level-tag").forEach((tag) => tag.remove());
+      return;
+    }
+
+    if (userContainer.querySelector(".better-default-level-tag, .hb-cpt__level-tag, .level-tag__wrapper")) {
       return;
     }
 
@@ -8149,12 +8347,14 @@
   }
 
   function getTopicTextFromContextTarget(target) {
-    const tag = target?.closest?.(".content-list__tag-item, .hb-cpt__content-tag, .content-tag-text, .hb-view-catalog__button");
+    const tag = target?.closest?.(
+      ".content-list__tag-item, .hb-cpt__content-tag, .content-tag-text, .hb-view-catalog__button, .bbs-new-style-bottom__rich-stack, .bbs-new-style-bottom__rich-node"
+    );
     if (!tag) {
       return "";
     }
 
-    const textNode = tag.querySelector?.(".content-tag-text") || tag;
+    const textNode = tag.querySelector?.(".content-tag-text, .bbs-new-style-bottom__rich-node") || tag;
     return normalizeBlockedKeyword(textNode.textContent);
   }
 
@@ -9501,6 +9701,7 @@
 
   function enhanceFeedItem(item) {
     if (item.closest(`.${ROW_CLASS}`)) {
+      ensureFeedItemUserLevel(item);
       normalizeNativeFeedImageLayout(item);
       ensureFeedItemFallbackImages(item, commentCache.get(getLinkIdFromItem(item))?.linkDetail);
       return;
@@ -11808,6 +12009,29 @@
     button?.setAttribute("aria-expanded", "false");
   }
 
+  function bindSettingsPanelOutsideClick() {
+    if (settingsPanelOutsideClickBound) {
+      return;
+    }
+
+    settingsPanelOutsideClickBound = true;
+    document.addEventListener("pointerdown", (event) => {
+      const panel = document.querySelector(`.${SETTINGS_PANEL_CLASS}`);
+      if (!panel || panel.hidden || !(event.target instanceof Element)) {
+        return;
+      }
+
+      if (
+        event.target.closest(`.${SETTINGS_PANEL_CLASS}`)
+        || event.target.closest(`.${SETTINGS_ENTRY_CLASS}`)
+      ) {
+        return;
+      }
+
+      closeSettingsPanel();
+    }, true);
+  }
+
   function bindSettingsPanelResizeSync() {
     if (window.__betterXiaoheiheSettingsResizeBound) {
       return;
@@ -11826,6 +12050,7 @@
       renderSettingsPanel();
       positionSettingsPanel(panel, button);
       panel.querySelector(".better-settings__input")?.focus();
+      bindSettingsPanelOutsideClick();
       bindSettingsPanelResizeSync();
     } else {
       stopAiBotLogAutoRefresh();
@@ -11850,6 +12075,7 @@
     } else {
       stopAiBotLogAutoRefresh();
     }
+    bindSettingsPanelOutsideClick();
     bindSettingsPanelResizeSync();
   }
 
@@ -11884,8 +12110,9 @@
   function ensureSettingsEntry() {
     const favoriteEntry = document.querySelector(`.${FAVORITE_ENTRY_CLASS}`);
     const messageButton = document.querySelector(".hb-view-header .message-center__btn");
+    const publishButton = document.querySelector(".nav-actions .publish-btn");
     const anchor = favoriteEntry || messageButton;
-    if (!anchor) {
+    if (!publishButton && !anchor) {
       removeSettingsEntry();
       return;
     }
@@ -11904,6 +12131,14 @@
         event.stopPropagation();
         toggleSettingsPanel(entry);
       });
+    }
+
+    entry.classList.toggle("better-xiaoheihe-settings-entry--before-publish", Boolean(publishButton));
+    if (publishButton) {
+      if (entry.nextElementSibling !== publishButton) {
+        publishButton.insertAdjacentElement("beforebegin", entry);
+      }
+      return;
     }
 
     if (entry.previousElementSibling !== anchor) {
@@ -12551,6 +12786,17 @@
     document.addEventListener("click", (event) => {
       if (!(event.target instanceof Element)) {
         closeOtherReplyEmojiPanels();
+        return;
+      }
+
+      const emojiOption = event.target.closest(".better-comment-preview__emoji-option");
+      if (emojiOption) {
+        const form = getOpenReplyEmojiForm();
+        if (form) {
+          event.preventDefault();
+          event.stopPropagation();
+          insertEmojiIntoReplyForm(form, emojiOption.dataset.emojiText || "");
+        }
         return;
       }
 
