@@ -2739,6 +2739,7 @@
         height: 100% !important;
       }
 
+      .${HOME_LAYOUT_CLASS} .better-native-feed-images--row > .bbs-content__image-cnt,
       .${HOME_LAYOUT_CLASS} .better-native-feed-images--feature > .bbs-content__image-cnt {
         right: 0 !important;
         bottom: 0 !important;
