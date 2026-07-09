@@ -1,4 +1,9 @@
 (function () {
+  // 此文件由 scripts/build-source-bundles.ps1 根据拆分模块生成。
+  // 请优先修改 src/background 下的模块源文件。
+  // BEGIN .\src\background\state.js
+// 后台常量、设置归一化、storage、模型缓存和 action 入口。
+// 本文件由原入口文件等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   const AI_SETTINGS_STORAGE_KEY = "better-xiaoheihe-ai-settings";
   const AI_MODEL_CACHE_STORAGE_KEY = "better-xiaoheihe-ai-model-cache";
   const AI_BOT_SETTINGS_STORAGE_KEY = "better-xiaoheihe-ai-bot-settings";
@@ -379,6 +384,10 @@
     });
   }
 
+  // END .\src\background\state.js
+  // BEGIN .\src\background\xiaoheihe-api.js
+// 小黑盒签名、参数缓存和 API URL 构造。
+// 本文件由原入口文件等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function md5(input) {
     function safeAdd(x, y) {
       const lsw = (x & 0xffff) + (y & 0xffff);
@@ -674,6 +683,10 @@
     return `${API_ORIGIN}${path}?${query.toString()}`;
   }
 
+  // END .\src\background\xiaoheihe-api.js
+  // BEGIN .\src\background\ai-service.js
+// AI provider 请求、模型列表和响应解析。
+// 本文件由原入口文件等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function buildProviderUrl(baseUrl, path) {
     const normalizedBaseUrl = String(baseUrl || "").trim().replace(/\/+$/, "");
     const normalizedPath = String(path || "").replace(/^\/+/, "");
@@ -997,7 +1010,10 @@
       };
     }
   }
-
+  // END .\src\background\ai-service.js
+  // BEGIN .\src\background\ai-bot-data.js
+// AI Bot 数据提取、上下文归一化和评论查找。
+// 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function getCookie(name) {
     return new Promise((resolve) => {
       if (!chrome.cookies?.get) {
@@ -1320,6 +1336,10 @@
     return null;
   }
 
+  // END .\src\background\ai-bot-data.js
+  // BEGIN .\src\background\ai-bot-api.js
+// AI Bot 小黑盒接口请求和 emoji 缓存。
+// 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   async function fetchAiBotJson(url, options = {}) {
     const response = await fetch(url, {
       ...options,
@@ -1539,6 +1559,10 @@
     return aiBotEmojiPromise;
   }
 
+  // END .\src\background\ai-bot-api.js
+  // BEGIN .\src\background\ai-bot-compose.js
+// AI Bot 提示词构造、回复清洗和评论提交。
+// 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function getAiBotMessageTypeLabel(messageSource) {
     if (messageSource === AI_BOT_MESSAGE_TYPES.FEED) {
       return "首页推荐帖";
@@ -1934,7 +1958,10 @@
       }
     });
   }
-
+  // END .\src\background\ai-bot-compose.js
+  // BEGIN .\src\background\ai-bot-queue.js
+// AI Bot 队列、已回复记录和目标频控。
+// 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   async function readReplyQueue() {
     const result = await storageGet(AI_BOT_REPLY_QUEUE_STORAGE_KEY);
     const queue = result[AI_BOT_REPLY_QUEUE_STORAGE_KEY];
@@ -2209,6 +2236,10 @@
     };
   }
 
+  // END .\src\background\ai-bot-queue.js
+  // BEGIN .\src\background\ai-bot-processor.js
+// AI Bot 消息预检、处理流程和轮询执行。
+// 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function getAiBotMessagePrecheckSkipReason(settings, message, records) {
     const messageId = String(message?.message_id || "");
     if (!messageId) {
@@ -3333,6 +3364,10 @@
     }
   }
 
+  // END .\src\background\ai-bot-processor.js
+  // BEGIN .\src\background\ai-bot-runtime.js
+// AI Bot alarm 同步和运行状态读取。
+// 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function clearAiBotAlarm() {
     return new Promise((resolve) => {
       if (!chrome.alarms?.clear) {
@@ -3417,6 +3452,10 @@
     };
   }
 
+  // END .\src\background\ai-bot-runtime.js
+  // BEGIN .\src\background\dnr-rules.js
+// DNR cookie/header 规则管理。
+// 本文件由原入口文件等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function updateSanitizedCommentCookieRule(cookieHeader) {
     return new Promise((resolve) => {
       if (!chrome.declarativeNetRequest?.updateSessionRules) {
@@ -3583,6 +3622,10 @@
     openPageSettingsFromAction(tab);
   });
 
+  // END .\src\background\dnr-rules.js
+  // BEGIN .\src\background\runtime.js
+// 后台安装、启动、storage、message 和 alarm 监听。
+// 本文件由原入口文件等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   chrome.runtime.onInstalled?.addListener(() => {
     syncAiBotAlarm({ reset: true });
   });
@@ -3687,4 +3730,5 @@
   });
 
   syncAiBotAlarm();
+  // END .\src\background\runtime.js
 })();

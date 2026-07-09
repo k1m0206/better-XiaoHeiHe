@@ -83,6 +83,21 @@
 
 修改代码后，在扩展管理页面点击重新加载插件，再刷新小黑盒页面。
 
+### 模块源码
+
+`src/content.js` 和 `src/background.js` 是由模块源码生成的入口文件，仍保持 `manifest.json` 的加载路径不变。日常维护时优先修改：
+
+- `src/content/`
+- `src/background/`
+
+修改模块后执行：
+
+```powershell
+.\scripts\build-source-bundles.ps1
+```
+
+打包脚本会自动先重新生成入口文件。
+
 ## 打包上架
 
 用于 Chrome Web Store 上传的压缩包可以通过脚本生成：

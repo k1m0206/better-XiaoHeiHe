@@ -1,4 +1,9 @@
 (function () {
+  // 此文件由 scripts/build-source-bundles.ps1 根据拆分模块生成。
+  // 请优先修改 src/content 下的模块源文件。
+  // BEGIN .\src\content\state.js
+// 页面状态、配置归一化、本地设置同步。
+// 本文件由原入口文件等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   const ENHANCED_PATH_PREFIXES = ["/app/bbs", "/app/topic/link", "/app/user/profile", "/app/user/favour", "/app/search"];
   const LINK_PATH_REGEXP = /^\/app\/bbs\/link\/(\d+)/;
   const RIGHT_CONTENT_SELECTOR = [
@@ -851,6 +856,10 @@
     }
   }
 
+  // END .\src\content\state.js
+  // BEGIN .\src\content\layout-style.js
+// 页面布局样式注入。
+// 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function injectLayoutStyle() {
     if (document.getElementById(STYLE_ID)) {
       return;
@@ -5280,6 +5289,10 @@
     document.documentElement.appendChild(style);
   }
 
+  // END .\src\content\layout-style.js
+  // BEGIN .\src\content\hot-search-sidebar.js
+// 热搜侧栏挂载和显隐控制。
+// 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function removeRightContent() {
     document.querySelectorAll(RIGHT_CONTENT_SELECTOR).forEach((node) => {
       node.style.display = "none";
@@ -5328,6 +5341,10 @@
     return sidebar;
   }
 
+  // END .\src\content\hot-search-sidebar.js
+  // BEGIN .\src\content\hot-search-api.js
+// 搜索热榜读取、渲染和侧栏迁移。
+// 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function findSearchHotList() {
     return document.querySelector(".game-rank__aside-hot-game")
       || document.querySelector(".search__hot-rank")
@@ -5489,6 +5506,10 @@
     renderHotSearchFallback(panel);
   }
 
+  // END .\src\content\hot-search-api.js
+  // BEGIN .\src\content\request-context.js
+// 页面 Cookie、接口参数捕获和请求上下文。
+// 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function getCookie(name) {
     return document.cookie
       .split("; ")
@@ -5714,6 +5735,10 @@
     });
   }
 
+  // END .\src\content\request-context.js
+  // BEGIN .\src\content\api-signing.js
+// 接口签名、基础参数和 API URL 构造。
+// 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function md5(input) {
     function safeAdd(x, y) {
       const lsw = (x & 0xffff) + (y & 0xffff);
@@ -6095,6 +6120,10 @@
     return `https://api.xiaoheihe.cn${MESSAGE_API_PATH}?${params.toString()}`;
   }
 
+  // END .\src\content\api-signing.js
+  // BEGIN .\src\content\message-normalizer.js
+// 消息入口数据提取和消息列表归一化。
+// 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function escapeHtml(value) {
     return String(value ?? "")
       .replaceAll("&", "&amp;")
@@ -6414,6 +6443,10 @@
       .sort((left, right) => Number(right.timestamp || 0) - Number(left.timestamp || 0));
   }
 
+  // END .\src\content\message-normalizer.js
+  // BEGIN .\src\content\comment-renderer.js
+// 评论数据归一化、过滤、排序和预览渲染。
+// 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function normalizeCommentText(text) {
     return String(text || "").replace(/\[cube_([^\]]+)\]/g, "[$1]");
   }
@@ -7429,6 +7462,10 @@
     scheduleRowHeightSync(preview.closest(`.${ROW_CLASS}`));
   }
 
+  // END .\src\content\comment-renderer.js
+  // BEGIN .\src\content\comment-cache.js
+// 评论页数据读取和帖子详情缓存。
+// 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function fetchCommentPageData(linkId, page, options = {}) {
     return Promise.all([
       loadEmojis(),
@@ -7575,6 +7612,10 @@
   }
 
   function delay(ms) {
+  // END .\src\content\comment-cache.js
+  // BEGIN .\src\content\feed.js
+// 评论预览、回复表单、图片处理和信息流增强。
+// 本文件由原入口文件等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
     return new Promise((resolve) => window.setTimeout(resolve, ms));
   }
 
@@ -9432,6 +9473,10 @@
     ensureLinkPageAiSummaryButton();
   }
 
+  // END .\src\content\feed.js
+  // BEGIN .\src\content\ai-summary.js
+// AI 总结弹窗、Markdown 渲染和总结请求编排。
+// 本文件由原入口文件等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function positionAiSummaryDialog(dialog) {
     if (!dialog) {
       return;
@@ -10325,6 +10370,10 @@
     });
   }
 
+  // END .\src\content\ai-summary.js
+  // BEGIN .\src\content\feed-actions.js
+// 信息流点击捕获、行高同步、左侧菜单与快捷屏蔽。
+// 本文件由原入口文件等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function bindFeedItemActions(item, linkId) {
     if (item.dataset.betterActionsBound === "1") {
       return;
@@ -10854,6 +10903,10 @@
     document.querySelector(`.${SETTINGS_PANEL_CLASS}`)?.remove();
   }
 
+  // END .\src\content\feed-actions.js
+  // BEGIN .\src\content\settings-state.js
+// 设置面板状态、关键词和 AI 连接状态。
+// 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function hasBlockedKeyword(keyword, scope) {
     const normalized = normalizeBlockedKeyword(keyword).toLowerCase();
     const normalizedScope = normalizeBlockedKeywordScope(scope);
@@ -11104,6 +11157,10 @@
     `).join("");
   }
 
+  // END .\src\content\settings-state.js
+  // BEGIN .\src\content\settings-renderers.js
+// AI 设置和 AI Bot 设置表单渲染。
+// 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function renderAiSettingsPanelContent() {
     return `
       <div class="better-settings__section better-settings__ai-section">
@@ -11494,6 +11551,10 @@
     hot: "热度最高"
   };
 
+  // END .\src\content\settings-renderers.js
+  // BEGIN .\src\content\ai-bot-log-panel.js
+// AI Bot 日志、消息日志和队列面板渲染。
+// 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function getAiBotLogDetailLabel(key) {
     return AI_BOT_LOG_DETAIL_LABELS[key] || String(key || "")
       .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
@@ -11834,6 +11895,10 @@
     }
   }
 
+  // END .\src\content\ai-bot-log-panel.js
+  // BEGIN .\src\content\settings-shell.js
+// 设置面板整体内容渲染。
+// 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function renderBlockedSettingsPanelContent() {
     const activeScope = normalizeBlockedKeywordScope(activeBlockedKeywordScope);
     const visibleBlockedKeywords = blockedKeywords.filter((item) => normalizeBlockedKeywordScope(item.scope) === activeScope);
@@ -11911,6 +11976,10 @@
     repositionSettingsPanelIfOpen();
   }
 
+  // END .\src\content\settings-shell.js
+  // BEGIN .\src\content\ai-settings-actions.js
+// AI 设置测试、模型列表和表单保存。
+// 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function testAiSettingsFromPanel(panel, button) {
     saveAiSettingsFromPanel(panel);
     const status = panel.querySelector(".better-settings__message");
@@ -12315,6 +12384,10 @@
     loadCachedAiBotModelOptions(panel);
   }
 
+  // END .\src\content\ai-settings-actions.js
+  // BEGIN .\src\content\ai-bot-actions.js
+// AI Bot 运行控制、日志刷新和辅助操作。
+// 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function sendAiBotRuntimeMessage(type, detail = {}) {
     return new Promise((resolve, reject) => {
       const id = `better-ai-bot-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -12575,6 +12648,10 @@
     aiBotLogRefreshTimer = null;
   }
 
+  // END .\src\content\ai-bot-actions.js
+  // BEGIN .\src\content\settings-mount.js
+// 设置面板挂载、关闭、定位和外部事件绑定。
+// 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function ensureSettingsPanel() {
     let panel = document.querySelector(`.${SETTINGS_PANEL_CLASS}`);
     if (panel) {
@@ -13044,6 +13121,10 @@
     openSettingsPanelTab(detail.tab || SETTINGS_TABS.AIBOT);
   }
 
+  // END .\src\content\settings-mount.js
+  // BEGIN .\src\content\header.js
+// 顶部收藏、搜索和消息入口。
+// 本文件由原入口文件等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function ensureFavoriteEntry() {
     const messageButton = document.querySelector(".hb-view-header .message-center__btn");
     if (!messageButton) {
@@ -13550,6 +13631,10 @@
 
 
 
+  // END .\src\content\header.js
+  // BEGIN .\src\content\link-page.js
+// 帖子详情页评论过滤、排序和详情页 AI 总结入口。
+// 本文件由原入口文件等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function filterLinkPageComments() {
     if (!isLinkPage()) {
       return 0;
@@ -13878,6 +13963,10 @@
     window.setTimeout(refreshAllKeywordFilters, 120);
   }
 
+  // END .\src\content\link-page.js
+  // BEGIN .\src\content\navigation.js
+// 路由监听、页面观察、全局事件绑定和启动流程。
+// 本文件由原入口文件等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function handlePage() {
     if (!isEnhancedPage()) {
       document.documentElement.classList.remove(HOME_LAYOUT_CLASS);
@@ -14308,4 +14397,5 @@
   } else {
     document.addEventListener("DOMContentLoaded", start, { once: true });
   }
+  // END .\src\content\navigation.js
 })();
