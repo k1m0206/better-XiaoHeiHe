@@ -52,6 +52,11 @@
     });
   }
 
+  function scheduleHandlePageAfterRoute() {
+    window.setTimeout(scheduleHandlePage, 0);
+    window.setTimeout(scheduleHandlePage, 120);
+  }
+
   function scheduleLinkPageFilterRefresh() {
     if (!isLinkPage()) {
       return;
@@ -110,12 +115,34 @@
     });
   }
 
+  function shouldRefreshHomePageForMutations(mutations) {
+    const homeStructureSelector = [
+      FEED_ITEM_SELECTOR,
+      `.${ROW_CLASS}`,
+      ".hb-bbs-home",
+      ".bbs-home__content-list",
+      ".bbs-home__content-item"
+    ].join(", ");
+
+    return mutations.some((mutation) => {
+      const changedNodes = [...mutation.addedNodes, ...mutation.removedNodes];
+      return changedNodes.some((node) => mutationNodeMatches(node, homeStructureSelector));
+    });
+  }
+
   function observePage() {
     const observer = new MutationObserver((mutations) => {
       if (handlingPage) {
         return;
       }
-      if (!isLinkPage() || shouldRefreshLinkPageForMutations(mutations)) {
+      if (isLinkPage()) {
+        if (shouldRefreshLinkPageForMutations(mutations)) {
+          scheduleLinkPageFilterRefresh();
+        }
+        return;
+      }
+
+      if (shouldRefreshHomePageForMutations(mutations)) {
         scheduleHandlePage();
         scheduleLinkPageFilterRefresh();
       }
@@ -128,7 +155,7 @@
   }
 
   function installRouteHooks() {
-    window.addEventListener("popstate", scheduleHandlePage);
+    window.addEventListener("popstate", scheduleHandlePageAfterRoute);
 
     const originalPushState = history.pushState;
     const originalReplaceState = history.replaceState;
@@ -136,13 +163,13 @@
     history.pushState = function (...args) {
       savedScrollY = window.scrollY;
       const result = originalPushState.apply(this, args);
-      scheduleHandlePage();
+      scheduleHandlePageAfterRoute();
       return result;
     };
 
     history.replaceState = function (...args) {
       const result = originalReplaceState.apply(this, args);
-      scheduleHandlePage();
+      scheduleHandlePageAfterRoute();
       return result;
     };
   }

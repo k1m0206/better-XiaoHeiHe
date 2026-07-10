@@ -368,7 +368,8 @@
   }
 
   function enhanceFeed() {
-    document.querySelectorAll(FEED_ITEM_SELECTOR).forEach(enhanceFeedItem);
+    const items = document.querySelectorAll(FEED_ITEM_SELECTOR);
+    items.forEach(enhanceFeedItem);
     refreshFeedItemFilters();
   }
 
