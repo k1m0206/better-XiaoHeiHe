@@ -180,6 +180,7 @@
   };
   const API_ORIGIN = "https://api.xiaoheihe.cn";
   const WEB_ORIGIN = "https://www.xiaoheihe.cn";
+  const COMMUNITY_HOME_URL = `${WEB_ORIGIN}/app/bbs/home`;
   const MESSAGE_API_PATH = "/bbs/app/user/message";
   const FEEDS_API_PATH = "/bbs/app/feeds";
   const LINK_TREE_API_PATH = "/bbs/app/link/tree";
@@ -387,10 +388,6 @@
     return normalizedModels;
   }
 
-  function isXiaoheiheWebTab(tab) {
-    return /^https:\/\/www\.xiaoheihe\.cn\//.test(String(tab?.url || ""));
-  }
-
   function sendOpenPageSettingsMessage(tabId, detail = {}) {
     if (!tabId || !chrome.tabs?.sendMessage) {
       return;
@@ -406,9 +403,11 @@
     });
   }
 
-  function openPageSettingsFromAction(tab) {
-    if (tab?.id && isXiaoheiheWebTab(tab)) {
-      sendOpenPageSettingsMessage(tab.id);
+  function openCommunityHomeFromAction(tab) {
+    if (tab?.id && chrome.tabs?.update) {
+      chrome.tabs.update(tab.id, { url: COMMUNITY_HOME_URL }, () => {
+        void chrome.runtime.lastError;
+      });
       return;
     }
 
@@ -416,20 +415,8 @@
       return;
     }
 
-    chrome.tabs.create({ url: "https://www.xiaoheihe.cn/app/bbs/home" }, (createdTab) => {
-      const tabId = createdTab?.id;
-      if (!tabId || !chrome.tabs?.onUpdated) {
-        return;
-      }
-
-      const handleUpdated = (updatedTabId, changeInfo) => {
-        if (updatedTabId !== tabId || changeInfo.status !== "complete") {
-          return;
-        }
-        chrome.tabs.onUpdated.removeListener(handleUpdated);
-        setTimeout(() => sendOpenPageSettingsMessage(tabId), 500);
-      };
-      chrome.tabs.onUpdated.addListener(handleUpdated);
+    chrome.tabs.create({ url: COMMUNITY_HOME_URL }, () => {
+      void chrome.runtime.lastError;
     });
   }
 
@@ -3668,7 +3655,7 @@
   }
 
   chrome.action?.onClicked?.addListener((tab) => {
-    openPageSettingsFromAction(tab);
+    openCommunityHomeFromAction(tab);
   });
 
   // END src\background\dnr-rules.js

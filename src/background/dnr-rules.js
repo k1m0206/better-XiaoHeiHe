@@ -163,6 +163,6 @@
   }
 
   chrome.action?.onClicked?.addListener((tab) => {
-    openPageSettingsFromAction(tab);
+    openCommunityHomeFromAction(tab);
   });
 
