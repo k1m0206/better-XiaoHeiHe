@@ -796,9 +796,9 @@
       .${MESSAGE_POPOVER_CLASS} .better-message-popover__link-title {
         display: -webkit-box;
         overflow: hidden;
-        color: #6f7b87;
+        color: #26313b;
         font-size: 12px;
-        font-weight: 700;
+        font-weight: 800;
         line-height: 18px;
         -webkit-box-orient: vertical;
         -webkit-line-clamp: 1;
@@ -807,9 +807,9 @@
       .${MESSAGE_POPOVER_CLASS} .better-message-popover__link-desc {
         display: -webkit-box;
         overflow: hidden;
-        color: #26313b;
+        color: #6f7b87;
         font-size: 12px;
-        font-weight: 700;
+        font-weight: 400;
         line-height: 18px;
         -webkit-box-orient: vertical;
         -webkit-line-clamp: 2;
