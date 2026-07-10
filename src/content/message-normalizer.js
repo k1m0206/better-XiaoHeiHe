@@ -165,15 +165,48 @@
   }
 
   function getReplyMessageLinkAuthor(message) {
-    return String(message?.link_user || message?.link_author || message?.author || message?.user_b?.username || "").trim();
+    const author = message?.link_user && typeof message.link_user === "object"
+      ? message.link_user
+      : message?.link?.user || message?.link?.author || {};
+    return String(
+      (typeof message?.link_user === "string" ? message.link_user : "")
+      || message?.link_author
+      || message?.author
+      || author?.username
+      || author?.user_name
+      || author?.nickname
+      || author?.name
+      || ""
+    ).trim();
   }
 
   function getReplyMessageLinkAuthorAvatar(message) {
-    return String(message?.user_b?.avatar || message?.user_b?.avartar || message?.link_user_avatar || message?.author_avatar || "").trim();
+    const author = message?.link_user && typeof message.link_user === "object"
+      ? message.link_user
+      : message?.link?.user || message?.link?.author || {};
+    return String(
+      message?.link_user_avatar
+      || message?.author_avatar
+      || author?.avatar
+      || author?.avartar
+      || author?.avatar_url
+      || author?.avatarUrl
+      || ""
+    ).trim();
   }
 
   function getReplyMessageLinkAuthorLevel(message) {
-    const level = normalizeUserLevel(message?.user_b?.level_info?.level || message?.link_user_level || message?.author_level || "");
+    const author = message?.link_user && typeof message.link_user === "object"
+      ? message.link_user
+      : message?.link?.user || message?.link?.author || {};
+    const level = normalizeUserLevel(
+      message?.link_user_level
+      || message?.author_level
+      || author?.level_info?.level
+      || author?.level
+      || author?.user_level
+      || ""
+    );
     return level ? `Lv.${level}` : "";
   }
 

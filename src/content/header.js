@@ -449,7 +449,7 @@
             <span class="better-message-popover__link-title">${renderEmojiTokensInHtml(escapeHtml(message.title))}</span>
             ${message.description ? `<span class="better-message-popover__link-desc">${renderEmojiTokensInHtml(escapeHtml(message.description))}</span>` : ""}
             ${(message.linkImages?.length || message.topicName) ? `
-              <div class="better-message-popover__media-row">
+              <div class="better-message-popover__media-row${message.linkImages?.length ? " better-message-popover__media-row--with-images" : ""}">
                 ${message.linkImages?.length ? `
                   <div class="better-message-popover__thumbs">
                     ${message.linkImages.map((url, index) => `<img class="better-message-popover__thumb" src="${escapeHtml(url)}" alt="帖子图片 ${escapeHtml(index + 1)}" loading="lazy">`).join("")}

@@ -1880,6 +1880,28 @@
         gap: 8px;
       }
 
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__media-row--with-images {
+        position: relative;
+        min-height: 56px;
+        align-items: flex-start;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__media-row--with-images .better-message-popover__thumbs {
+        max-width: 100%;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__media-row--with-images .better-message-popover__topic {
+        position: absolute;
+        right: 2px;
+        bottom: 2px;
+        z-index: 1;
+        max-width: calc(100% - 8px);
+        border: 1px solid rgba(220, 231, 243, 0.92);
+        background: rgba(248, 251, 255, 0.94);
+        box-shadow: 0 1px 4px rgba(39, 78, 120, 0.16);
+        color: #4f6477;
+      }
+
       .${MESSAGE_POPOVER_CLASS} .better-message-popover__thumbs::-webkit-scrollbar {
         display: none;
       }
@@ -6667,15 +6689,48 @@
   }
 
   function getReplyMessageLinkAuthor(message) {
-    return String(message?.link_user || message?.link_author || message?.author || message?.user_b?.username || "").trim();
+    const author = message?.link_user && typeof message.link_user === "object"
+      ? message.link_user
+      : message?.link?.user || message?.link?.author || {};
+    return String(
+      (typeof message?.link_user === "string" ? message.link_user : "")
+      || message?.link_author
+      || message?.author
+      || author?.username
+      || author?.user_name
+      || author?.nickname
+      || author?.name
+      || ""
+    ).trim();
   }
 
   function getReplyMessageLinkAuthorAvatar(message) {
-    return String(message?.user_b?.avatar || message?.user_b?.avartar || message?.link_user_avatar || message?.author_avatar || "").trim();
+    const author = message?.link_user && typeof message.link_user === "object"
+      ? message.link_user
+      : message?.link?.user || message?.link?.author || {};
+    return String(
+      message?.link_user_avatar
+      || message?.author_avatar
+      || author?.avatar
+      || author?.avartar
+      || author?.avatar_url
+      || author?.avatarUrl
+      || ""
+    ).trim();
   }
 
   function getReplyMessageLinkAuthorLevel(message) {
-    const level = normalizeUserLevel(message?.user_b?.level_info?.level || message?.link_user_level || message?.author_level || "");
+    const author = message?.link_user && typeof message.link_user === "object"
+      ? message.link_user
+      : message?.link?.user || message?.link?.author || {};
+    const level = normalizeUserLevel(
+      message?.link_user_level
+      || message?.author_level
+      || author?.level_info?.level
+      || author?.level
+      || author?.user_level
+      || ""
+    );
     return level ? `Lv.${level}` : "";
   }
 
@@ -13969,7 +14024,7 @@
             <span class="better-message-popover__link-title">${renderEmojiTokensInHtml(escapeHtml(message.title))}</span>
             ${message.description ? `<span class="better-message-popover__link-desc">${renderEmojiTokensInHtml(escapeHtml(message.description))}</span>` : ""}
             ${(message.linkImages?.length || message.topicName) ? `
-              <div class="better-message-popover__media-row">
+              <div class="better-message-popover__media-row${message.linkImages?.length ? " better-message-popover__media-row--with-images" : ""}">
                 ${message.linkImages?.length ? `
                   <div class="better-message-popover__thumbs">
                     ${message.linkImages.map((url, index) => `<img class="better-message-popover__thumb" src="${escapeHtml(url)}" alt="帖子图片 ${escapeHtml(index + 1)}" loading="lazy">`).join("")}

@@ -978,6 +978,28 @@
         gap: 8px;
       }
 
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__media-row--with-images {
+        position: relative;
+        min-height: 56px;
+        align-items: flex-start;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__media-row--with-images .better-message-popover__thumbs {
+        max-width: 100%;
+      }
+
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__media-row--with-images .better-message-popover__topic {
+        position: absolute;
+        right: 2px;
+        bottom: 2px;
+        z-index: 1;
+        max-width: calc(100% - 8px);
+        border: 1px solid rgba(220, 231, 243, 0.92);
+        background: rgba(248, 251, 255, 0.94);
+        box-shadow: 0 1px 4px rgba(39, 78, 120, 0.16);
+        color: #4f6477;
+      }
+
       .${MESSAGE_POPOVER_CLASS} .better-message-popover__thumbs::-webkit-scrollbar {
         display: none;
       }
