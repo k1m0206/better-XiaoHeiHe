@@ -143,6 +143,7 @@
   let previewObserver = null;
   let rowResizeObserver = null;
   let topMenuOutsideClickBound = false;
+  let hotSearchSidebarOutsideClickBound = false;
   let settingsPanelOutsideClickBound = false;
   let messagePopoverOutsideClickBound = false;
   let favoriteEntryClickBound = false;
@@ -192,6 +193,11 @@
 
   function isSearchPage() {
     return window.location.pathname.startsWith("/app/search");
+  }
+
+  function isCommunityHomePage() {
+    return window.location.pathname === "/app/bbs/home"
+      || window.location.pathname === "/app/bbs/home/";
   }
 
   function parseEventDetail(detail) {

@@ -135,7 +135,7 @@
   }
 
   function moveSearchHotListToLeftSidebar() {
-    if (!isSearchPage()) {
+    if (!isSearchPage() && !isCommunityHomePage()) {
       removeHotSearchSidebar();
       return;
     }

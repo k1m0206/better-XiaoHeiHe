@@ -306,6 +306,7 @@
   let previewObserver = null;
   let rowResizeObserver = null;
   let topMenuOutsideClickBound = false;
+  let hotSearchSidebarOutsideClickBound = false;
   let settingsPanelOutsideClickBound = false;
   let messagePopoverOutsideClickBound = false;
   let favoriteEntryClickBound = false;
@@ -355,6 +356,11 @@
 
   function isSearchPage() {
     return window.location.pathname.startsWith("/app/search");
+  }
+
+  function isCommunityHomePage() {
+    return window.location.pathname === "/app/bbs/home"
+      || window.location.pathname === "/app/bbs/home/";
   }
 
   function parseEventDetail(detail) {
@@ -3371,46 +3377,44 @@
       .${HOT_SEARCH_SIDEBAR_CLASS} {
         box-sizing: border-box;
         position: fixed;
-        top: 96px;
-        bottom: 24px;
-        left: 0;
+        top: 88px;
+        bottom: 20px;
+        left: 14px;
         z-index: 9998;
-        width: 40px;
-        max-width: calc(100vw - 16px);
+        width: min(368px, calc(100vw - 28px));
+        max-width: calc(100vw - 24px);
         overflow: hidden;
-        transition: width 0.18s ease;
-      }
-
-      .${HOT_SEARCH_SIDEBAR_CLASS}.${HOT_SEARCH_SIDEBAR_OPEN_CLASS} {
-        width: min(280px, calc(100vw - 16px));
+        pointer-events: none;
+        isolation: isolate;
       }
 
       .${HOT_SEARCH_SIDEBAR_TOGGLE_CLASS} {
         box-sizing: border-box;
         position: absolute;
-        top: 12px;
+        top: 50%;
         left: 0;
-        width: 40px;
-        min-height: 96px;
-        border: 1px solid #eef0f2;
-        border-left: 0;
-        border-radius: 0 8px 8px 0;
-        background: #fff;
-        color: #14191e;
+        z-index: 2;
+        width: 48px;
+        min-height: 92px;
+        padding: 14px 12px;
+        border: 1px solid #d7e4f1;
+        border-radius: 0 14px 14px 0;
+        background: linear-gradient(180deg, #ffffff 0%, #f5f9fd 100%);
+        color: #2775d1;
         cursor: pointer;
-        box-shadow: 0 8px 24px rgba(20, 25, 30, 0.1);
+        box-shadow: 0 8px 24px rgba(39, 78, 120, 0.14), 0 1px 2px rgba(20, 25, 30, 0.06);
+        pointer-events: auto;
+        transform: translateY(-50%);
+        backface-visibility: hidden;
         writing-mode: vertical-rl;
         letter-spacing: 0;
         font-size: 13px;
-        transition: left 0.18s ease;
+        font-weight: 600;
+        transition: left 0.2s ease;
       }
 
       .${HOT_SEARCH_SIDEBAR_CLASS}.${HOT_SEARCH_SIDEBAR_OPEN_CLASS} .${HOT_SEARCH_SIDEBAR_TOGGLE_CLASS} {
-        left: 240px;
-      }
-
-      .${HOT_SEARCH_SIDEBAR_TOGGLE_CLASS}:hover {
-        background: #f7f8f9;
+        left: min(320px, calc(100vw - 76px));
       }
 
       .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} {
@@ -3419,25 +3423,31 @@
         top: 0;
         bottom: 0;
         left: 0;
-        width: 240px;
-        max-width: calc(100vw - 56px);
+        z-index: 1;
+        width: 320px;
+        max-width: calc(100vw - 76px);
         overflow: auto;
-        padding: 12px;
-        border: 1px solid #eef0f2;
-        border-left: 0;
-        border-radius: 0 8px 8px 0;
-        background: #fff;
-        box-shadow: 0 12px 32px rgba(20, 25, 30, 0.12);
-        transform: translateX(-240px);
-        transition: transform 0.18s ease;
+        padding: 16px;
+        border: 1px solid #e4ebf2;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.98);
+        box-shadow: 0 16px 40px rgba(20, 49, 79, 0.16), 0 2px 8px rgba(20, 25, 30, 0.06);
+        pointer-events: auto;
+        backface-visibility: hidden;
+        transform: translate3d(-100%, 0, 0);
+        transition: transform 0.2s ease;
       }
 
       .${HOT_SEARCH_SIDEBAR_CLASS}.${HOT_SEARCH_SIDEBAR_OPEN_CLASS} .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} {
-        transform: translateX(0);
+        transform: translate3d(0, 0, 0);
       }
 
       .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} .game-rank__aside-hot-game {
         margin: 0 !important;
+      }
+
+      .${HOT_SEARCH_SIDEBAR_CLASS} .hot-search {
+        display: block !important;
       }
 
       .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} .aside-hot-gmae__header {
@@ -3456,14 +3466,17 @@
 
       .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} .better-hot-search__tabs {
         display: flex;
-        gap: 8px;
-        margin-bottom: 10px;
+        gap: 14px;
+        margin: 0 -2px 14px;
+        padding: 0 2px;
         overflow-x: auto;
+        border-bottom: 1px solid #edf1f5;
       }
 
       .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} .better-hot-search__tab {
         flex: 0 0 auto;
-        padding: 0 0 6px;
+        min-height: 30px;
+        padding: 0 0 8px;
         border: 0;
         border-bottom: 2px solid transparent;
         background: transparent;
@@ -3471,6 +3484,11 @@
         cursor: pointer;
         font-size: 13px;
         line-height: 18px;
+        transition: color 0.16s ease, border-color 0.16s ease;
+      }
+
+      .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} .better-hot-search__tab:hover {
+        color: #2775d1;
       }
 
       .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} .better-hot-search__tab--active {
@@ -3492,6 +3510,14 @@
         align-items: start;
         color: inherit;
         text-decoration: none;
+        border-radius: 8px;
+        padding: 5px 6px;
+        margin: 0 -6px;
+        transition: background 0.16s ease;
+      }
+
+      .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} .better-hot-search__item:hover {
+        background: #f3f7fb;
       }
 
       .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} .better-hot-search__index {
@@ -3505,6 +3531,21 @@
         color: #59636e;
         font-size: 12px;
         font-weight: 600;
+      }
+
+      .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} .better-hot-search__item:nth-child(1) .better-hot-search__index {
+        background: #fff0ed;
+        color: #e45b47;
+      }
+
+      .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} .better-hot-search__item:nth-child(2) .better-hot-search__index {
+        background: #fff6e5;
+        color: #c98520;
+      }
+
+      .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} .better-hot-search__item:nth-child(3) .better-hot-search__index {
+        background: #eef5ff;
+        color: #4d78b8;
       }
 
       .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} .better-hot-search__name {
@@ -5588,6 +5629,10 @@
 // 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function removeRightContent() {
     document.querySelectorAll(RIGHT_CONTENT_SELECTOR).forEach((node) => {
+      if (node.closest(`.${HOT_SEARCH_SIDEBAR_CLASS}`)) {
+        node.style.removeProperty("display");
+        return;
+      }
       node.style.display = "none";
     });
   }
@@ -5600,6 +5645,26 @@
     toggle?.setAttribute("title", isOpen ? "收起黑盒热搜" : "展开黑盒热搜");
   }
 
+  function bindHotSearchSidebarOutsideClick() {
+    if (hotSearchSidebarOutsideClickBound) {
+      return;
+    }
+
+    hotSearchSidebarOutsideClickBound = true;
+    document.addEventListener("click", (event) => {
+      if (!(event.target instanceof Element)) {
+        return;
+      }
+
+      const sidebar = document.querySelector(`.${HOT_SEARCH_SIDEBAR_CLASS}.${HOT_SEARCH_SIDEBAR_OPEN_CLASS}`);
+      if (!sidebar || sidebar.contains(event.target)) {
+        return;
+      }
+
+      setHotSearchSidebarOpen(sidebar, false);
+    });
+  }
+
   function removeHotSearchSidebar() {
     document.querySelectorAll(`.${HOT_SEARCH_SIDEBAR_CLASS}`).forEach((node) => {
       node.style.display = "none";
@@ -5607,6 +5672,8 @@
   }
 
   function ensureHotSearchSidebar() {
+    bindHotSearchSidebarOutsideClick();
+
     let sidebar = document.querySelector(`.${HOT_SEARCH_SIDEBAR_CLASS}`);
     if (!sidebar) {
       sidebar = document.createElement("aside");
@@ -5614,12 +5681,15 @@
 
       const panel = document.createElement("div");
       panel.className = HOT_SEARCH_SIDEBAR_PANEL_CLASS;
+      panel.addEventListener("click", (event) => {
+        event.stopPropagation();
+      });
       sidebar.appendChild(panel);
 
       const toggle = document.createElement("button");
       toggle.className = HOT_SEARCH_SIDEBAR_TOGGLE_CLASS;
       toggle.type = "button";
-      toggle.textContent = "黑盒热搜";
+      toggle.textContent = "热搜";
       toggle.title = "展开黑盒热搜";
       toggle.setAttribute("aria-label", "展开黑盒热搜");
       toggle.setAttribute("aria-expanded", "false");
@@ -5773,7 +5843,7 @@
   }
 
   function moveSearchHotListToLeftSidebar() {
-    if (!isSearchPage()) {
+    if (!isSearchPage() && !isCommunityHomePage()) {
       removeHotSearchSidebar();
       return;
     }
