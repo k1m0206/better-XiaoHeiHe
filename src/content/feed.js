@@ -300,7 +300,7 @@
   }
 
   function getLinkAwardCountElement(linkAwardButton) {
-    return linkAwardButton.querySelector(".content-list__like-cnt");
+    return linkAwardButton.querySelector(LINK_AWARD_COUNT_SELECTOR);
   }
 
   function getLinkAwardCount(linkAwardButton) {
@@ -315,7 +315,7 @@
         return;
       }
 
-      const linkAwardButton = item.querySelector(".content-list__like");
+      const linkAwardButton = item.querySelector(LINK_AWARD_BUTTON_SELECTOR);
       if (linkAwardButton) {
         updater(linkAwardButton);
       }
@@ -1787,16 +1787,23 @@
   }
 
   function ensureFeedItemPublishTime(item) {
-    const bottomRight = item.querySelector(".content-list__bottom--right");
-    if (!bottomRight) {
+    const legacyBottomRight = item.querySelector(".content-list__bottom--right");
+    const bottomMainRow = item.querySelector(".bbs-new-style-bottom__main-row");
+    const actions = bottomMainRow?.querySelector(".bbs-new-style-bottom__actions");
+    const mount = legacyBottomRight || bottomMainRow;
+    if (!mount) {
       return null;
     }
 
-    let timeElement = bottomRight.querySelector(".better-link-publish-time");
+    let timeElement = mount.querySelector(".better-link-publish-time");
     if (!timeElement) {
       timeElement = document.createElement("span");
       timeElement.className = "better-link-publish-time";
-      bottomRight.insertBefore(timeElement, bottomRight.firstChild);
+      if (actions && actions.parentElement === mount) {
+        mount.insertBefore(timeElement, actions);
+      } else {
+        mount.insertBefore(timeElement, mount.firstChild);
+      }
     }
 
     return timeElement;

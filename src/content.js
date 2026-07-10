@@ -226,6 +226,8 @@
   const PREVIEW_CLASS = "better-xiaoheihe-comment-preview";
   const IMAGE_VIEWER_CLASS = "better-xiaoheihe-image-viewer";
   const FEED_ITEM_SELECTOR = 'a.hb-cpt__bbs-list-content[href*="/app/bbs/link/"], a.hb-cpt__bbs-content[href*="/app/bbs/link/"]';
+  const LINK_AWARD_BUTTON_SELECTOR = ".content-list__like, .bbs-new-style-bottom__like";
+  const LINK_AWARD_COUNT_SELECTOR = ".content-list__like-cnt, .bbs-new-style-bottom__like > span:last-child";
   const API_PATH = "/bbs/app/link/tree";
   const SUB_COMMENT_API_PATH = "/bbs/app/comment/sub/comments";
   const COMMENT_SUPPORT_API_PATH = "/bbs/app/comment/support";
@@ -3766,15 +3768,18 @@
         font-weight: 600;
       }
 
-      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} .content-list__like {
+      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} .content-list__like,
+      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} .bbs-new-style-bottom__like {
         cursor: pointer;
       }
 
-      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} .content-list__like.better-link-award--active {
+      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} .content-list__like.better-link-award--active,
+      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} .bbs-new-style-bottom__like.better-link-award--active {
         color: #2775d1;
       }
 
-      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} .content-list__like.better-link-award--loading {
+      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} .content-list__like.better-link-award--loading,
+      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} .bbs-new-style-bottom__like.better-link-award--loading {
         opacity: 0.75;
       }
 
@@ -8365,7 +8370,7 @@
   }
 
   function getLinkAwardCountElement(linkAwardButton) {
-    return linkAwardButton.querySelector(".content-list__like-cnt");
+    return linkAwardButton.querySelector(LINK_AWARD_COUNT_SELECTOR);
   }
 
   function getLinkAwardCount(linkAwardButton) {
@@ -8380,7 +8385,7 @@
         return;
       }
 
-      const linkAwardButton = item.querySelector(".content-list__like");
+      const linkAwardButton = item.querySelector(LINK_AWARD_BUTTON_SELECTOR);
       if (linkAwardButton) {
         updater(linkAwardButton);
       }
@@ -9852,16 +9857,23 @@
   }
 
   function ensureFeedItemPublishTime(item) {
-    const bottomRight = item.querySelector(".content-list__bottom--right");
-    if (!bottomRight) {
+    const legacyBottomRight = item.querySelector(".content-list__bottom--right");
+    const bottomMainRow = item.querySelector(".bbs-new-style-bottom__main-row");
+    const actions = bottomMainRow?.querySelector(".bbs-new-style-bottom__actions");
+    const mount = legacyBottomRight || bottomMainRow;
+    if (!mount) {
       return null;
     }
 
-    let timeElement = bottomRight.querySelector(".better-link-publish-time");
+    let timeElement = mount.querySelector(".better-link-publish-time");
     if (!timeElement) {
       timeElement = document.createElement("span");
       timeElement.className = "better-link-publish-time";
-      bottomRight.insertBefore(timeElement, bottomRight.firstChild);
+      if (actions && actions.parentElement === mount) {
+        mount.insertBefore(timeElement, actions);
+      } else {
+        mount.insertBefore(timeElement, mount.firstChild);
+      }
     }
 
     return timeElement;
@@ -10852,7 +10864,7 @@
         return;
       }
 
-      const linkAwardButton = event.target.closest(".content-list__like");
+      const linkAwardButton = event.target.closest(LINK_AWARD_BUTTON_SELECTOR);
       if (!linkAwardButton || !item.contains(linkAwardButton)) {
         return;
       }
@@ -10874,7 +10886,7 @@
         return;
       }
 
-      const linkAwardButton = event.target.closest(".content-list__like");
+      const linkAwardButton = event.target.closest(LINK_AWARD_BUTTON_SELECTOR);
       const item = linkAwardButton?.closest(FEED_ITEM_SELECTOR);
       if (!linkAwardButton || !item || !document.documentElement.classList.contains(HOME_LAYOUT_CLASS)) {
         return;

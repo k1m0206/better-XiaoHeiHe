@@ -63,6 +63,8 @@
   const PREVIEW_CLASS = "better-xiaoheihe-comment-preview";
   const IMAGE_VIEWER_CLASS = "better-xiaoheihe-image-viewer";
   const FEED_ITEM_SELECTOR = 'a.hb-cpt__bbs-list-content[href*="/app/bbs/link/"], a.hb-cpt__bbs-content[href*="/app/bbs/link/"]';
+  const LINK_AWARD_BUTTON_SELECTOR = ".content-list__like, .bbs-new-style-bottom__like";
+  const LINK_AWARD_COUNT_SELECTOR = ".content-list__like-cnt, .bbs-new-style-bottom__like > span:last-child";
   const API_PATH = "/bbs/app/link/tree";
   const SUB_COMMENT_API_PATH = "/bbs/app/comment/sub/comments";
   const COMMENT_SUPPORT_API_PATH = "/bbs/app/comment/support";

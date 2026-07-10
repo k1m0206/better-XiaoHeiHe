@@ -29,7 +29,7 @@
         return;
       }
 
-      const linkAwardButton = event.target.closest(".content-list__like");
+      const linkAwardButton = event.target.closest(LINK_AWARD_BUTTON_SELECTOR);
       if (!linkAwardButton || !item.contains(linkAwardButton)) {
         return;
       }
@@ -51,7 +51,7 @@
         return;
       }
 
-      const linkAwardButton = event.target.closest(".content-list__like");
+      const linkAwardButton = event.target.closest(LINK_AWARD_BUTTON_SELECTOR);
       const item = linkAwardButton?.closest(FEED_ITEM_SELECTOR);
       if (!linkAwardButton || !item || !document.documentElement.classList.contains(HOME_LAYOUT_CLASS)) {
         return;
