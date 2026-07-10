@@ -757,6 +757,14 @@
     button.onclick = (event) => handleHeaderMessageClick(event, button);
     bindHeaderMessageClickDelegation();
 
+    const favoriteEntry = document.querySelector(`.${FAVORITE_ENTRY_CLASS}`);
+    if (favoriteEntry && favoriteEntry.parentElement === settingsEntry.parentElement) {
+      if (favoriteEntry.previousElementSibling !== button) {
+        favoriteEntry.insertAdjacentElement("beforebegin", button);
+      }
+      return;
+    }
+
     if (settingsEntry.previousElementSibling !== button) {
       settingsEntry.insertAdjacentElement("beforebegin", button);
     }
@@ -789,11 +797,25 @@
         const query = input?.value?.trim() || "";
         window.location.href = query ? `/app/search?q=${encodeURIComponent(query)}` : "/app/search";
       });
+      form.addEventListener("pointerdown", (event) => {
+        if (event.target instanceof Element && event.target.closest(".better-header-search__submit")) {
+          return;
+        }
+        form.querySelector(".better-header-search__input")?.focus();
+      });
     }
 
     const input = form.querySelector(".better-header-search__input");
     if (input && document.activeElement !== input) {
       input.value = getCurrentSearchQuery();
+    }
+
+    const messageButton = document.querySelector(`.${HEADER_MESSAGE_CLASS}`);
+    if (messageButton && messageButton.parentElement === settingsEntry.parentElement) {
+      if (messageButton.previousElementSibling !== form) {
+        messageButton.insertAdjacentElement("beforebegin", form);
+      }
+      return;
     }
 
     if (settingsEntry.previousElementSibling !== form) {
