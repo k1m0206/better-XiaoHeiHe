@@ -62,14 +62,6 @@
     return Number.parseInt(item.dataset.betterOriginalIndex, 10) || 0;
   }
 
-  function getLinkPageCommentUpCount(item) {
-    const text = item.querySelector('.comment-item__like, .comment-item__support, .comment-item__action-like, .heybox-thumbs-up')?.parentElement?.textContent
-      || item.querySelector('[class*="like"], [class*="support"]')?.textContent
-      || '';
-    const match = text.match(/\d+/);
-    return match ? Number.parseInt(match[0], 10) || 0 : 0;
-  }
-
   function normalizeLinkPageCommentTimestamp(value) {
     const text = String(value || '').trim();
     if (!text) {
@@ -152,10 +144,6 @@
   }
 
   function compareLinkPageCommentItems(left, right, sortNow) {
-    if (commentPreviewSort === COMMENT_PREVIEW_SORTS.HOT) {
-      const hotDiff = getLinkPageCommentUpCount(right) - getLinkPageCommentUpCount(left);
-      return hotDiff || getLinkPageCommentOriginalIndex(left) - getLinkPageCommentOriginalIndex(right);
-    }
     if (commentPreviewSort === COMMENT_PREVIEW_SORTS.NEWEST) {
       const timeDiff = getLinkPageCommentCreateTime(right, sortNow) - getLinkPageCommentCreateTime(left, sortNow);
       return timeDiff || getLinkPageCommentOriginalIndex(left) - getLinkPageCommentOriginalIndex(right);
@@ -253,18 +241,10 @@
     setAiButtonComplete(button, Boolean(linkId && aiSummaryCache.has(linkId)));
   }
 
-  function addFilterToBbsLink() {
-    if (!isLinkPage()) {
-      return;
-    }
-
-    ensureLinkPageCommentUserLevels();
-    moveLinkPageEmptyStateIntoCommentPanel();
-    ensureLinkPageAiSummaryButton();
-
+  function ensureLinkPageFilterControls() {
     const mountPoint = document.querySelector('.link-comment .hb-cpt__pagination-inner');
     if (!mountPoint) {
-      return;
+      return null;
     }
 
     if (!mountPoint.querySelector('.better-comment-preview__toolbar')) {
@@ -307,6 +287,21 @@
     }
     if (toolbar) {
       bindLinkPageSortControls(toolbar);
+    }
+    return toolbar;
+  }
+
+  function addFilterToBbsLink() {
+    if (!isLinkPage()) {
+      return;
+    }
+
+    ensureLinkPageCommentUserLevels();
+    moveLinkPageEmptyStateIntoCommentPanel();
+    ensureLinkPageAiSummaryButton();
+
+    if (!ensureLinkPageFilterControls()) {
+      return;
     }
 
     updateLinkPageFilterControls();

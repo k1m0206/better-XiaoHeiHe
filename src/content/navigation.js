@@ -8,6 +8,7 @@
       removeHotSearchSidebar();
       removeFavoriteEntry();
       removeSettingsEntry();
+      removeHeaderMoreMenu();
       closeTopicBlockMenu();
       return;
     }
@@ -15,6 +16,7 @@
     const wasLinkPage = document.documentElement.classList.contains(LINK_DETAIL_LAYOUT_CLASS);
 
     injectLayoutStyle();
+    ensureHeaderMoreMenu();
     ensureFavoriteEntry();
     ensureSettingsEntry();
 
@@ -68,6 +70,7 @@
     window.requestAnimationFrame(updateLinkPageFilterControls);
     linkPageFilterRefreshTimer = window.setTimeout(() => {
       linkPageFilterRefreshTimer = null;
+      ensureLinkPageFilterControls();
       updateLinkPageFilterControls();
     }, 160);
   }

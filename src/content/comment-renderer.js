@@ -844,11 +844,6 @@
   }
 
   function compareCommentGroups(left, right) {
-    if (commentPreviewSort === COMMENT_PREVIEW_SORTS.HOT) {
-      const hotDiff = getCommentUpCount(right.root) - getCommentUpCount(left.root);
-      return hotDiff || getCommentGroupOriginalIndex(left) - getCommentGroupOriginalIndex(right);
-    }
-
     if (commentPreviewSort === COMMENT_PREVIEW_SORTS.NEWEST) {
       const timeDiff = getCommentCreateTime(right.root) - getCommentCreateTime(left.root);
       return timeDiff || getCommentGroupOriginalIndex(left) - getCommentGroupOriginalIndex(right);

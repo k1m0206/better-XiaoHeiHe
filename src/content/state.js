@@ -19,6 +19,11 @@
   const FAVORITE_ENTRY_CLASS = "better-xiaoheihe-favorite-entry";
   const HEADER_SEARCH_CLASS = "better-xiaoheihe-header-search";
   const HEADER_MESSAGE_CLASS = "better-xiaoheihe-header-message";
+  const HEADER_MORE_MENU_CLASS = "better-xiaoheihe-header-more-menu";
+  const HEADER_MORE_MENU_OPEN_CLASS = "better-xiaoheihe-header-more-menu--open";
+  const HEADER_MORE_MENU_TOGGLE_CLASS = "better-xiaoheihe-header-more-menu__toggle";
+  const HEADER_MORE_MENU_PANEL_CLASS = "better-xiaoheihe-header-more-menu__panel";
+  const HEADER_MORE_MENU_SOURCE_CLASS = "better-xiaoheihe-header-more-menu__source";
   const MESSAGE_POPOVER_CLASS = "better-xiaoheihe-message-popover";
   const FAVORITE_POPOVER_CLASS = "better-xiaoheihe-favorite-popover";
   const SETTINGS_ENTRY_CLASS = "better-xiaoheihe-settings-entry";
@@ -45,13 +50,11 @@
   };
   const COMMENT_PREVIEW_SORTS = {
     DEFAULT: "default",
-    HOT: "hot",
     NEWEST: "newest",
     AUTHOR: "author"
   };
   const COMMENT_PREVIEW_SORT_LABELS = {
     [COMMENT_PREVIEW_SORTS.DEFAULT]: "默认",
-    [COMMENT_PREVIEW_SORTS.HOT]: "热度",
     [COMMENT_PREVIEW_SORTS.NEWEST]: "最新",
     [COMMENT_PREVIEW_SORTS.AUTHOR]: "作者优先"
   };
@@ -152,6 +155,7 @@
   let favoriteEntryLastPointerHandledAt = 0;
   let favoritePopoverOutsideClickBound = false;
   let headerMessageClickBound = false;
+  let headerMoreMenuOutsideClickBound = false;
   let feedAiCaptureBound = false;
   let feedAwardCaptureBound = false;
   let feedImageCaptureBound = false;

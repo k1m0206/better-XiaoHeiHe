@@ -182,6 +182,11 @@
   const FAVORITE_ENTRY_CLASS = "better-xiaoheihe-favorite-entry";
   const HEADER_SEARCH_CLASS = "better-xiaoheihe-header-search";
   const HEADER_MESSAGE_CLASS = "better-xiaoheihe-header-message";
+  const HEADER_MORE_MENU_CLASS = "better-xiaoheihe-header-more-menu";
+  const HEADER_MORE_MENU_OPEN_CLASS = "better-xiaoheihe-header-more-menu--open";
+  const HEADER_MORE_MENU_TOGGLE_CLASS = "better-xiaoheihe-header-more-menu__toggle";
+  const HEADER_MORE_MENU_PANEL_CLASS = "better-xiaoheihe-header-more-menu__panel";
+  const HEADER_MORE_MENU_SOURCE_CLASS = "better-xiaoheihe-header-more-menu__source";
   const MESSAGE_POPOVER_CLASS = "better-xiaoheihe-message-popover";
   const FAVORITE_POPOVER_CLASS = "better-xiaoheihe-favorite-popover";
   const SETTINGS_ENTRY_CLASS = "better-xiaoheihe-settings-entry";
@@ -208,13 +213,11 @@
   };
   const COMMENT_PREVIEW_SORTS = {
     DEFAULT: "default",
-    HOT: "hot",
     NEWEST: "newest",
     AUTHOR: "author"
   };
   const COMMENT_PREVIEW_SORT_LABELS = {
     [COMMENT_PREVIEW_SORTS.DEFAULT]: "默认",
-    [COMMENT_PREVIEW_SORTS.HOT]: "热度",
     [COMMENT_PREVIEW_SORTS.NEWEST]: "最新",
     [COMMENT_PREVIEW_SORTS.AUTHOR]: "作者优先"
   };
@@ -315,6 +318,7 @@
   let favoriteEntryLastPointerHandledAt = 0;
   let favoritePopoverOutsideClickBound = false;
   let headerMessageClickBound = false;
+  let headerMoreMenuOutsideClickBound = false;
   let feedAiCaptureBound = false;
   let feedAwardCaptureBound = false;
   let feedImageCaptureBound = false;
@@ -1195,6 +1199,108 @@
 
       .${HEADER_SEARCH_CLASS} .better-header-search__submit:hover {
         background: #e9edf1;
+        color: #14191e;
+      }
+
+      .${HOME_LAYOUT_CLASS} .nav .nav-links {
+        overflow: visible !important;
+      }
+
+      .${HOME_LAYOUT_CLASS} .nav .nav-links > .${HEADER_MORE_MENU_SOURCE_CLASS} {
+        display: none !important;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${HEADER_MORE_MENU_CLASS} {
+        display: inline-flex;
+        position: relative;
+        height: 100%;
+        align-items: center;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${HEADER_MORE_MENU_TOGGLE_CLASS} {
+        display: inline-flex;
+        height: 36px;
+        align-items: center;
+        gap: 4px;
+        padding: 0 12px;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        color: #8a9299;
+        cursor: pointer;
+        font-size: 15px;
+        letter-spacing: 0;
+        line-height: 36px;
+        white-space: nowrap;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${HEADER_MORE_MENU_TOGGLE_CLASS}:hover,
+      .${HOME_LAYOUT_CLASS} .${HEADER_MORE_MENU_CLASS}.${HEADER_MORE_MENU_OPEN_CLASS} .${HEADER_MORE_MENU_TOGGLE_CLASS} {
+        background: #f3f4f5;
+        color: #14191e;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${HEADER_MORE_MENU_TOGGLE_CLASS} .hb-icon {
+        display: inline-flex;
+        width: 16px;
+        height: 16px;
+        align-items: center;
+        justify-content: center;
+        transition: transform 0.16s ease;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${HEADER_MORE_MENU_CLASS}.${HEADER_MORE_MENU_OPEN_CLASS} .${HEADER_MORE_MENU_TOGGLE_CLASS} .hb-icon {
+        transform: rotate(180deg);
+      }
+
+      .${HOME_LAYOUT_CLASS} .${HEADER_MORE_MENU_PANEL_CLASS} {
+        box-sizing: border-box;
+        display: flex;
+        position: absolute;
+        top: calc(100% + 6px);
+        left: 50%;
+        z-index: 10020;
+        width: 140px;
+        flex-direction: column;
+        padding: 4px;
+        border: 1px solid #e6e9ed;
+        border-radius: 8px;
+        background: #fff;
+        box-shadow: 0 8px 22px rgba(20, 25, 30, 0.12);
+        opacity: 0;
+        pointer-events: none;
+        transform: translate(-50%, -4px);
+        transition: opacity 0.14s ease, transform 0.14s ease, visibility 0.14s ease;
+        visibility: hidden;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${HEADER_MORE_MENU_CLASS}.${HEADER_MORE_MENU_OPEN_CLASS} .${HEADER_MORE_MENU_PANEL_CLASS} {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translate(-50%, 0);
+        visibility: visible;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${HEADER_MORE_MENU_PANEL_CLASS} > button {
+        display: flex;
+        width: 100%;
+        height: 34px;
+        align-items: center;
+        justify-content: center;
+        padding: 0 6px;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        color: #4f5965;
+        cursor: pointer;
+        font-size: 13px;
+        letter-spacing: 0;
+        text-align: center;
+        white-space: nowrap;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${HEADER_MORE_MENU_PANEL_CLASS} > button:hover {
+        background: #f3f6f9;
         color: #14191e;
       }
 
@@ -7745,11 +7851,6 @@
   }
 
   function compareCommentGroups(left, right) {
-    if (commentPreviewSort === COMMENT_PREVIEW_SORTS.HOT) {
-      const hotDiff = getCommentUpCount(right.root) - getCommentUpCount(left.root);
-      return hotDiff || getCommentGroupOriginalIndex(left) - getCommentGroupOriginalIndex(right);
-    }
-
     if (commentPreviewSort === COMMENT_PREVIEW_SORTS.NEWEST) {
       const timeDiff = getCommentCreateTime(right.root) - getCommentCreateTime(left.root);
       return timeDiff || getCommentGroupOriginalIndex(left) - getCommentGroupOriginalIndex(right);
@@ -14411,6 +14512,125 @@
     }
   }
 
+  function setHeaderMoreMenuOpen(menu, isOpen) {
+    menu.classList.toggle(HEADER_MORE_MENU_OPEN_CLASS, isOpen);
+    menu.querySelector(`.${HEADER_MORE_MENU_TOGGLE_CLASS}`)?.setAttribute("aria-expanded", String(isOpen));
+  }
+
+  function closeHeaderMoreMenu() {
+    document.querySelectorAll(`.${HEADER_MORE_MENU_CLASS}.${HEADER_MORE_MENU_OPEN_CLASS}`).forEach((menu) => {
+      setHeaderMoreMenuOpen(menu, false);
+    });
+  }
+
+  function bindHeaderMoreMenuOutsideClick() {
+    if (headerMoreMenuOutsideClickBound) {
+      return;
+    }
+
+    headerMoreMenuOutsideClickBound = true;
+    document.addEventListener("click", (event) => {
+      if (event.target instanceof Element && event.target.closest(`.${HEADER_MORE_MENU_CLASS}`)) {
+        return;
+      }
+      closeHeaderMoreMenu();
+    });
+  }
+
+  function removeHeaderMoreMenu() {
+    document.querySelectorAll(`.${HEADER_MORE_MENU_CLASS}`).forEach((menu) => {
+      menu.remove();
+    });
+    document.querySelectorAll(`.${HEADER_MORE_MENU_SOURCE_CLASS}`).forEach((button) => {
+      button.classList.remove(HEADER_MORE_MENU_SOURCE_CLASS);
+    });
+  }
+
+  function ensureHeaderMoreMenu() {
+    const navLinks = document.querySelector(".nav .nav-links");
+    if (!navLinks) {
+      return;
+    }
+
+    const secondaryLabels = new Set(["小黑盒加速器", "黑盒语音", "黑盒工坊", "开放平台", "加入我们"]);
+    const nativeButtons = Array.from(navLinks.querySelectorAll(":scope > button.nav-link"));
+    const sourceButtons = nativeButtons.filter((button) => secondaryLabels.has(button.textContent?.trim() || ""));
+    sourceButtons.forEach((button) => button.classList.add(HEADER_MORE_MENU_SOURCE_CLASS));
+
+    if (!sourceButtons.length) {
+      return;
+    }
+
+    let menu = navLinks.querySelector(`:scope > .${HEADER_MORE_MENU_CLASS}`);
+    if (!menu) {
+      menu = document.createElement("div");
+      menu.className = HEADER_MORE_MENU_CLASS;
+
+      const toggle = document.createElement("button");
+      toggle.className = HEADER_MORE_MENU_TOGGLE_CLASS;
+      toggle.type = "button";
+      toggle.setAttribute("aria-haspopup", "menu");
+      toggle.setAttribute("aria-expanded", "false");
+      toggle.innerHTML = `
+        <span>更多</span>
+        <i class="hb-icon" aria-hidden="true">
+          <svg class="hb-iconfont" aria-hidden="true">
+            <use xlink:href="#icon-common_arrow_down_line_24x24"></use>
+          </svg>
+        </i>
+      `;
+      toggle.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        setHeaderMoreMenuOpen(menu, !menu.classList.contains(HEADER_MORE_MENU_OPEN_CLASS));
+      });
+
+      const panel = document.createElement("div");
+      panel.className = HEADER_MORE_MENU_PANEL_CLASS;
+      panel.setAttribute("role", "menu");
+      panel.addEventListener("click", (event) => {
+        const item = event.target instanceof Element
+          ? event.target.closest("[data-header-more-label]")
+          : null;
+        if (!item) {
+          return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+        const label = item.dataset.headerMoreLabel || "";
+        const source = Array.from(navLinks.querySelectorAll(`:scope > button.${HEADER_MORE_MENU_SOURCE_CLASS}`))
+          .find((button) => button.textContent?.trim() === label);
+        closeHeaderMoreMenu();
+        source?.click();
+      });
+
+      menu.append(toggle, panel);
+      const communityButton = nativeButtons.find((button) => button.textContent?.trim() === "社区");
+      if (communityButton) {
+        communityButton.insertAdjacentElement("afterend", menu);
+      } else {
+        navLinks.appendChild(menu);
+      }
+    }
+
+    const panel = menu.querySelector(`.${HEADER_MORE_MENU_PANEL_CLASS}`);
+    const signature = sourceButtons.map((button) => button.textContent?.trim() || "").join("|");
+    if (panel && panel.dataset.signature !== signature) {
+      panel.dataset.signature = signature;
+      panel.replaceChildren(...sourceButtons.map((button) => {
+        const item = document.createElement("button");
+        item.type = "button";
+        item.setAttribute("role", "menuitem");
+        item.dataset.headerMoreLabel = button.textContent?.trim() || "";
+        item.textContent = button.textContent?.trim() || "";
+        return item;
+      }));
+    }
+
+    bindHeaderMoreMenuOutsideClick();
+  }
+
   function ensureSettingsEntry() {
     const favoriteEntry = document.querySelector(`.${FAVORITE_ENTRY_CLASS}`);
     const messageButton = document.querySelector(".hb-view-header .message-center__btn");
@@ -14524,14 +14744,6 @@
     return Number.parseInt(item.dataset.betterOriginalIndex, 10) || 0;
   }
 
-  function getLinkPageCommentUpCount(item) {
-    const text = item.querySelector('.comment-item__like, .comment-item__support, .comment-item__action-like, .heybox-thumbs-up')?.parentElement?.textContent
-      || item.querySelector('[class*="like"], [class*="support"]')?.textContent
-      || '';
-    const match = text.match(/\d+/);
-    return match ? Number.parseInt(match[0], 10) || 0 : 0;
-  }
-
   function normalizeLinkPageCommentTimestamp(value) {
     const text = String(value || '').trim();
     if (!text) {
@@ -14614,10 +14826,6 @@
   }
 
   function compareLinkPageCommentItems(left, right, sortNow) {
-    if (commentPreviewSort === COMMENT_PREVIEW_SORTS.HOT) {
-      const hotDiff = getLinkPageCommentUpCount(right) - getLinkPageCommentUpCount(left);
-      return hotDiff || getLinkPageCommentOriginalIndex(left) - getLinkPageCommentOriginalIndex(right);
-    }
     if (commentPreviewSort === COMMENT_PREVIEW_SORTS.NEWEST) {
       const timeDiff = getLinkPageCommentCreateTime(right, sortNow) - getLinkPageCommentCreateTime(left, sortNow);
       return timeDiff || getLinkPageCommentOriginalIndex(left) - getLinkPageCommentOriginalIndex(right);
@@ -14715,18 +14923,10 @@
     setAiButtonComplete(button, Boolean(linkId && aiSummaryCache.has(linkId)));
   }
 
-  function addFilterToBbsLink() {
-    if (!isLinkPage()) {
-      return;
-    }
-
-    ensureLinkPageCommentUserLevels();
-    moveLinkPageEmptyStateIntoCommentPanel();
-    ensureLinkPageAiSummaryButton();
-
+  function ensureLinkPageFilterControls() {
     const mountPoint = document.querySelector('.link-comment .hb-cpt__pagination-inner');
     if (!mountPoint) {
-      return;
+      return null;
     }
 
     if (!mountPoint.querySelector('.better-comment-preview__toolbar')) {
@@ -14770,6 +14970,21 @@
     if (toolbar) {
       bindLinkPageSortControls(toolbar);
     }
+    return toolbar;
+  }
+
+  function addFilterToBbsLink() {
+    if (!isLinkPage()) {
+      return;
+    }
+
+    ensureLinkPageCommentUserLevels();
+    moveLinkPageEmptyStateIntoCommentPanel();
+    ensureLinkPageAiSummaryButton();
+
+    if (!ensureLinkPageFilterControls()) {
+      return;
+    }
 
     updateLinkPageFilterControls();
   }
@@ -14802,6 +15017,7 @@
       removeHotSearchSidebar();
       removeFavoriteEntry();
       removeSettingsEntry();
+      removeHeaderMoreMenu();
       closeTopicBlockMenu();
       return;
     }
@@ -14809,6 +15025,7 @@
     const wasLinkPage = document.documentElement.classList.contains(LINK_DETAIL_LAYOUT_CLASS);
 
     injectLayoutStyle();
+    ensureHeaderMoreMenu();
     ensureFavoriteEntry();
     ensureSettingsEntry();
 
@@ -14862,6 +15079,7 @@
     window.requestAnimationFrame(updateLinkPageFilterControls);
     linkPageFilterRefreshTimer = window.setTimeout(() => {
       linkPageFilterRefreshTimer = null;
+      ensureLinkPageFilterControls();
       updateLinkPageFilterControls();
     }, 160);
   }

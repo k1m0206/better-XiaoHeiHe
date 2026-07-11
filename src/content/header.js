@@ -823,6 +823,125 @@
     }
   }
 
+  function setHeaderMoreMenuOpen(menu, isOpen) {
+    menu.classList.toggle(HEADER_MORE_MENU_OPEN_CLASS, isOpen);
+    menu.querySelector(`.${HEADER_MORE_MENU_TOGGLE_CLASS}`)?.setAttribute("aria-expanded", String(isOpen));
+  }
+
+  function closeHeaderMoreMenu() {
+    document.querySelectorAll(`.${HEADER_MORE_MENU_CLASS}.${HEADER_MORE_MENU_OPEN_CLASS}`).forEach((menu) => {
+      setHeaderMoreMenuOpen(menu, false);
+    });
+  }
+
+  function bindHeaderMoreMenuOutsideClick() {
+    if (headerMoreMenuOutsideClickBound) {
+      return;
+    }
+
+    headerMoreMenuOutsideClickBound = true;
+    document.addEventListener("click", (event) => {
+      if (event.target instanceof Element && event.target.closest(`.${HEADER_MORE_MENU_CLASS}`)) {
+        return;
+      }
+      closeHeaderMoreMenu();
+    });
+  }
+
+  function removeHeaderMoreMenu() {
+    document.querySelectorAll(`.${HEADER_MORE_MENU_CLASS}`).forEach((menu) => {
+      menu.remove();
+    });
+    document.querySelectorAll(`.${HEADER_MORE_MENU_SOURCE_CLASS}`).forEach((button) => {
+      button.classList.remove(HEADER_MORE_MENU_SOURCE_CLASS);
+    });
+  }
+
+  function ensureHeaderMoreMenu() {
+    const navLinks = document.querySelector(".nav .nav-links");
+    if (!navLinks) {
+      return;
+    }
+
+    const secondaryLabels = new Set(["小黑盒加速器", "黑盒语音", "黑盒工坊", "开放平台", "加入我们"]);
+    const nativeButtons = Array.from(navLinks.querySelectorAll(":scope > button.nav-link"));
+    const sourceButtons = nativeButtons.filter((button) => secondaryLabels.has(button.textContent?.trim() || ""));
+    sourceButtons.forEach((button) => button.classList.add(HEADER_MORE_MENU_SOURCE_CLASS));
+
+    if (!sourceButtons.length) {
+      return;
+    }
+
+    let menu = navLinks.querySelector(`:scope > .${HEADER_MORE_MENU_CLASS}`);
+    if (!menu) {
+      menu = document.createElement("div");
+      menu.className = HEADER_MORE_MENU_CLASS;
+
+      const toggle = document.createElement("button");
+      toggle.className = HEADER_MORE_MENU_TOGGLE_CLASS;
+      toggle.type = "button";
+      toggle.setAttribute("aria-haspopup", "menu");
+      toggle.setAttribute("aria-expanded", "false");
+      toggle.innerHTML = `
+        <span>更多</span>
+        <i class="hb-icon" aria-hidden="true">
+          <svg class="hb-iconfont" aria-hidden="true">
+            <use xlink:href="#icon-common_arrow_down_line_24x24"></use>
+          </svg>
+        </i>
+      `;
+      toggle.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        setHeaderMoreMenuOpen(menu, !menu.classList.contains(HEADER_MORE_MENU_OPEN_CLASS));
+      });
+
+      const panel = document.createElement("div");
+      panel.className = HEADER_MORE_MENU_PANEL_CLASS;
+      panel.setAttribute("role", "menu");
+      panel.addEventListener("click", (event) => {
+        const item = event.target instanceof Element
+          ? event.target.closest("[data-header-more-label]")
+          : null;
+        if (!item) {
+          return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+        const label = item.dataset.headerMoreLabel || "";
+        const source = Array.from(navLinks.querySelectorAll(`:scope > button.${HEADER_MORE_MENU_SOURCE_CLASS}`))
+          .find((button) => button.textContent?.trim() === label);
+        closeHeaderMoreMenu();
+        source?.click();
+      });
+
+      menu.append(toggle, panel);
+      const communityButton = nativeButtons.find((button) => button.textContent?.trim() === "社区");
+      if (communityButton) {
+        communityButton.insertAdjacentElement("afterend", menu);
+      } else {
+        navLinks.appendChild(menu);
+      }
+    }
+
+    const panel = menu.querySelector(`.${HEADER_MORE_MENU_PANEL_CLASS}`);
+    const signature = sourceButtons.map((button) => button.textContent?.trim() || "").join("|");
+    if (panel && panel.dataset.signature !== signature) {
+      panel.dataset.signature = signature;
+      panel.replaceChildren(...sourceButtons.map((button) => {
+        const item = document.createElement("button");
+        item.type = "button";
+        item.setAttribute("role", "menuitem");
+        item.dataset.headerMoreLabel = button.textContent?.trim() || "";
+        item.textContent = button.textContent?.trim() || "";
+        return item;
+      }));
+    }
+
+    bindHeaderMoreMenuOutsideClick();
+  }
+
   function ensureSettingsEntry() {
     const favoriteEntry = document.querySelector(`.${FAVORITE_ENTRY_CLASS}`);
     const messageButton = document.querySelector(".hb-view-header .message-center__btn");
