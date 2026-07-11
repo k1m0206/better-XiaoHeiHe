@@ -74,6 +74,8 @@
       document.body.appendChild(sidebar);
     }
 
+    sidebar.style.removeProperty("display");
+
     return sidebar;
   }
 
