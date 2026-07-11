@@ -18,6 +18,8 @@
   const TOP_MENU_PANEL_CLASS = "better-xiaoheihe-top-menu__panel";
   const FAVORITE_ENTRY_CLASS = "better-xiaoheihe-favorite-entry";
   const HEADER_SEARCH_CLASS = "better-xiaoheihe-header-search";
+  const HEADER_SEARCH_HISTORY_CLASS = "better-header-search__history";
+  const SEARCH_HISTORY_STORAGE_KEY = "website:bbs-search-history";
   const HEADER_MESSAGE_CLASS = "better-xiaoheihe-header-message";
   const HEADER_MORE_MENU_CLASS = "better-xiaoheihe-header-more-menu";
   const HEADER_MORE_MENU_OPEN_CLASS = "better-xiaoheihe-header-more-menu--open";
@@ -155,6 +157,7 @@
   let favoriteEntryLastPointerHandledAt = 0;
   let favoritePopoverOutsideClickBound = false;
   let headerMessageClickBound = false;
+  let headerSearchHistoryOutsideClickBound = false;
   let headerMoreMenuOutsideClickBound = false;
   let feedAiCaptureBound = false;
   let feedAwardCaptureBound = false;

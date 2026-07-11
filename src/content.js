@@ -181,6 +181,8 @@
   const TOP_MENU_PANEL_CLASS = "better-xiaoheihe-top-menu__panel";
   const FAVORITE_ENTRY_CLASS = "better-xiaoheihe-favorite-entry";
   const HEADER_SEARCH_CLASS = "better-xiaoheihe-header-search";
+  const HEADER_SEARCH_HISTORY_CLASS = "better-header-search__history";
+  const SEARCH_HISTORY_STORAGE_KEY = "website:bbs-search-history";
   const HEADER_MESSAGE_CLASS = "better-xiaoheihe-header-message";
   const HEADER_MORE_MENU_CLASS = "better-xiaoheihe-header-more-menu";
   const HEADER_MORE_MENU_OPEN_CLASS = "better-xiaoheihe-header-more-menu--open";
@@ -318,6 +320,7 @@
   let favoriteEntryLastPointerHandledAt = 0;
   let favoritePopoverOutsideClickBound = false;
   let headerMessageClickBound = false;
+  let headerSearchHistoryOutsideClickBound = false;
   let headerMoreMenuOutsideClickBound = false;
   let feedAiCaptureBound = false;
   let feedAwardCaptureBound = false;
@@ -1145,6 +1148,7 @@
         display: inline-flex;
         width: clamp(180px, 24vw, 320px);
         height: 36px;
+        position: relative;
         min-width: 0;
         align-items: center;
         gap: 6px;
@@ -1200,6 +1204,61 @@
       .${HEADER_SEARCH_CLASS} .better-header-search__submit:hover {
         background: #e9edf1;
         color: #14191e;
+      }
+
+      .${HEADER_SEARCH_CLASS} .${HEADER_SEARCH_HISTORY_CLASS} {
+        box-sizing: border-box;
+        display: flex;
+        position: absolute;
+        top: calc(100% + 8px);
+        left: 0;
+        z-index: 10030;
+        width: 100%;
+        max-height: 280px;
+        flex-direction: column;
+        overflow-y: auto;
+        padding: 6px;
+        border: 1px solid #e4e8ec;
+        border-radius: 8px;
+        background: #fff;
+        box-shadow: 0 10px 28px rgba(20, 25, 30, 0.14);
+      }
+
+      .${HEADER_SEARCH_CLASS} .${HEADER_SEARCH_HISTORY_CLASS}[hidden] {
+        display: none;
+      }
+
+      .${HEADER_SEARCH_CLASS} .better-header-search__history-title {
+        padding: 3px 8px 6px;
+        color: #8a9299;
+        font-size: 11px;
+        line-height: 16px;
+      }
+
+      .${HEADER_SEARCH_CLASS} .better-header-search__history-item {
+        display: block;
+        width: 100%;
+        min-height: 34px;
+        overflow: hidden;
+        padding: 0 8px;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        color: #26313b;
+        cursor: pointer;
+        font-size: 13px;
+        letter-spacing: 0;
+        line-height: 34px;
+        text-align: left;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .${HEADER_SEARCH_CLASS} .better-header-search__history-item:hover,
+      .${HEADER_SEARCH_CLASS} .better-header-search__history-item:focus-visible {
+        background: #f1f5f9;
+        color: #14191e;
+        outline: 0;
       }
 
       .${HOME_LAYOUT_CLASS} .nav .nav-links {
@@ -14459,6 +14518,95 @@
     }
   }
 
+  function readHeaderSearchHistory() {
+    try {
+      const value = JSON.parse(localStorage.getItem(SEARCH_HISTORY_STORAGE_KEY) || "[]");
+      if (!Array.isArray(value)) {
+        return [];
+      }
+      return [...new Set(value.map((item) => String(item || "").trim()).filter(Boolean))].slice(0, 12);
+    } catch {
+      return [];
+    }
+  }
+
+  function writeHeaderSearchHistory(query) {
+    const normalizedQuery = String(query || "").trim();
+    if (!normalizedQuery) {
+      return;
+    }
+
+    try {
+      const nextHistory = [
+        normalizedQuery,
+        ...readHeaderSearchHistory().filter((item) => item !== normalizedQuery)
+      ].slice(0, 12);
+      localStorage.setItem(SEARCH_HISTORY_STORAGE_KEY, JSON.stringify(nextHistory));
+    } catch {
+      // Ignore unavailable page storage and continue with the search.
+    }
+  }
+
+  function closeHeaderSearchHistory(form) {
+    const history = form?.querySelector(`.${HEADER_SEARCH_HISTORY_CLASS}`);
+    if (history) {
+      history.hidden = true;
+    }
+  }
+
+  function renderHeaderSearchHistory(form) {
+    const history = form.querySelector(`.${HEADER_SEARCH_HISTORY_CLASS}`);
+    const input = form.querySelector(".better-header-search__input");
+    if (!history || !input) {
+      return;
+    }
+
+    const keyword = input.value.trim().toLocaleLowerCase();
+    const items = readHeaderSearchHistory().filter((item) => (
+      !keyword || item.toLocaleLowerCase().includes(keyword)
+    ));
+    history.replaceChildren();
+    if (!items.length) {
+      history.hidden = true;
+      return;
+    }
+
+    const title = document.createElement("div");
+    title.className = "better-header-search__history-title";
+    title.textContent = "搜索历史";
+    history.appendChild(title);
+
+    items.forEach((item) => {
+      const button = document.createElement("button");
+      button.className = "better-header-search__history-item";
+      button.type = "button";
+      button.setAttribute("role", "option");
+      button.textContent = item;
+      button.addEventListener("click", () => {
+        input.value = item;
+        writeHeaderSearchHistory(item);
+        closeHeaderSearchHistory(form);
+        window.location.href = `/app/search?q=${encodeURIComponent(item)}`;
+      });
+      history.appendChild(button);
+    });
+    history.hidden = false;
+  }
+
+  function bindHeaderSearchHistoryOutsideClick() {
+    if (headerSearchHistoryOutsideClickBound) {
+      return;
+    }
+
+    headerSearchHistoryOutsideClickBound = true;
+    document.addEventListener("click", (event) => {
+      if (event.target instanceof Element && event.target.closest(`.${HEADER_SEARCH_CLASS}`)) {
+        return;
+      }
+      document.querySelectorAll(`.${HEADER_SEARCH_CLASS}`).forEach(closeHeaderSearchHistory);
+    });
+  }
+
   function ensureHeaderSearch(settingsEntry) {
     if (!settingsEntry) {
       removeHeaderSearch();
@@ -14479,19 +14627,33 @@
             </svg>
           </i>
         </button>
+        <div class="${HEADER_SEARCH_HISTORY_CLASS}" role="listbox" aria-label="搜索历史" hidden></div>
       `;
       form.addEventListener("submit", (event) => {
         event.preventDefault();
         const input = form.querySelector(".better-header-search__input");
         const query = input?.value?.trim() || "";
+        writeHeaderSearchHistory(query);
+        closeHeaderSearchHistory(form);
         window.location.href = query ? `/app/search?q=${encodeURIComponent(query)}` : "/app/search";
       });
       form.addEventListener("pointerdown", (event) => {
-        if (event.target instanceof Element && event.target.closest(".better-header-search__submit")) {
+        if (event.target instanceof Element && event.target.closest(`.better-header-search__submit, .${HEADER_SEARCH_HISTORY_CLASS}`)) {
           return;
         }
-        form.querySelector(".better-header-search__input")?.focus();
+        const input = form.querySelector(".better-header-search__input");
+        input?.focus();
+        renderHeaderSearchHistory(form);
       });
+      const input = form.querySelector(".better-header-search__input");
+      input?.addEventListener("focus", () => renderHeaderSearchHistory(form));
+      input?.addEventListener("input", () => renderHeaderSearchHistory(form));
+      input?.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          closeHeaderSearchHistory(form);
+        }
+      });
+      bindHeaderSearchHistoryOutsideClick();
     }
 
     const input = form.querySelector(".better-header-search__input");

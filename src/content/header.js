@@ -770,6 +770,95 @@
     }
   }
 
+  function readHeaderSearchHistory() {
+    try {
+      const value = JSON.parse(localStorage.getItem(SEARCH_HISTORY_STORAGE_KEY) || "[]");
+      if (!Array.isArray(value)) {
+        return [];
+      }
+      return [...new Set(value.map((item) => String(item || "").trim()).filter(Boolean))].slice(0, 12);
+    } catch {
+      return [];
+    }
+  }
+
+  function writeHeaderSearchHistory(query) {
+    const normalizedQuery = String(query || "").trim();
+    if (!normalizedQuery) {
+      return;
+    }
+
+    try {
+      const nextHistory = [
+        normalizedQuery,
+        ...readHeaderSearchHistory().filter((item) => item !== normalizedQuery)
+      ].slice(0, 12);
+      localStorage.setItem(SEARCH_HISTORY_STORAGE_KEY, JSON.stringify(nextHistory));
+    } catch {
+      // Ignore unavailable page storage and continue with the search.
+    }
+  }
+
+  function closeHeaderSearchHistory(form) {
+    const history = form?.querySelector(`.${HEADER_SEARCH_HISTORY_CLASS}`);
+    if (history) {
+      history.hidden = true;
+    }
+  }
+
+  function renderHeaderSearchHistory(form) {
+    const history = form.querySelector(`.${HEADER_SEARCH_HISTORY_CLASS}`);
+    const input = form.querySelector(".better-header-search__input");
+    if (!history || !input) {
+      return;
+    }
+
+    const keyword = input.value.trim().toLocaleLowerCase();
+    const items = readHeaderSearchHistory().filter((item) => (
+      !keyword || item.toLocaleLowerCase().includes(keyword)
+    ));
+    history.replaceChildren();
+    if (!items.length) {
+      history.hidden = true;
+      return;
+    }
+
+    const title = document.createElement("div");
+    title.className = "better-header-search__history-title";
+    title.textContent = "搜索历史";
+    history.appendChild(title);
+
+    items.forEach((item) => {
+      const button = document.createElement("button");
+      button.className = "better-header-search__history-item";
+      button.type = "button";
+      button.setAttribute("role", "option");
+      button.textContent = item;
+      button.addEventListener("click", () => {
+        input.value = item;
+        writeHeaderSearchHistory(item);
+        closeHeaderSearchHistory(form);
+        window.location.href = `/app/search?q=${encodeURIComponent(item)}`;
+      });
+      history.appendChild(button);
+    });
+    history.hidden = false;
+  }
+
+  function bindHeaderSearchHistoryOutsideClick() {
+    if (headerSearchHistoryOutsideClickBound) {
+      return;
+    }
+
+    headerSearchHistoryOutsideClickBound = true;
+    document.addEventListener("click", (event) => {
+      if (event.target instanceof Element && event.target.closest(`.${HEADER_SEARCH_CLASS}`)) {
+        return;
+      }
+      document.querySelectorAll(`.${HEADER_SEARCH_CLASS}`).forEach(closeHeaderSearchHistory);
+    });
+  }
+
   function ensureHeaderSearch(settingsEntry) {
     if (!settingsEntry) {
       removeHeaderSearch();
@@ -790,19 +879,33 @@
             </svg>
           </i>
         </button>
+        <div class="${HEADER_SEARCH_HISTORY_CLASS}" role="listbox" aria-label="搜索历史" hidden></div>
       `;
       form.addEventListener("submit", (event) => {
         event.preventDefault();
         const input = form.querySelector(".better-header-search__input");
         const query = input?.value?.trim() || "";
+        writeHeaderSearchHistory(query);
+        closeHeaderSearchHistory(form);
         window.location.href = query ? `/app/search?q=${encodeURIComponent(query)}` : "/app/search";
       });
       form.addEventListener("pointerdown", (event) => {
-        if (event.target instanceof Element && event.target.closest(".better-header-search__submit")) {
+        if (event.target instanceof Element && event.target.closest(`.better-header-search__submit, .${HEADER_SEARCH_HISTORY_CLASS}`)) {
           return;
         }
-        form.querySelector(".better-header-search__input")?.focus();
+        const input = form.querySelector(".better-header-search__input");
+        input?.focus();
+        renderHeaderSearchHistory(form);
       });
+      const input = form.querySelector(".better-header-search__input");
+      input?.addEventListener("focus", () => renderHeaderSearchHistory(form));
+      input?.addEventListener("input", () => renderHeaderSearchHistory(form));
+      input?.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          closeHeaderSearchHistory(form);
+        }
+      });
+      bindHeaderSearchHistoryOutsideClick();
     }
 
     const input = form.querySelector(".better-header-search__input");

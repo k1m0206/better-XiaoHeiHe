@@ -237,6 +237,7 @@
         display: inline-flex;
         width: clamp(180px, 24vw, 320px);
         height: 36px;
+        position: relative;
         min-width: 0;
         align-items: center;
         gap: 6px;
@@ -292,6 +293,61 @@
       .${HEADER_SEARCH_CLASS} .better-header-search__submit:hover {
         background: #e9edf1;
         color: #14191e;
+      }
+
+      .${HEADER_SEARCH_CLASS} .${HEADER_SEARCH_HISTORY_CLASS} {
+        box-sizing: border-box;
+        display: flex;
+        position: absolute;
+        top: calc(100% + 8px);
+        left: 0;
+        z-index: 10030;
+        width: 100%;
+        max-height: 280px;
+        flex-direction: column;
+        overflow-y: auto;
+        padding: 6px;
+        border: 1px solid #e4e8ec;
+        border-radius: 8px;
+        background: #fff;
+        box-shadow: 0 10px 28px rgba(20, 25, 30, 0.14);
+      }
+
+      .${HEADER_SEARCH_CLASS} .${HEADER_SEARCH_HISTORY_CLASS}[hidden] {
+        display: none;
+      }
+
+      .${HEADER_SEARCH_CLASS} .better-header-search__history-title {
+        padding: 3px 8px 6px;
+        color: #8a9299;
+        font-size: 11px;
+        line-height: 16px;
+      }
+
+      .${HEADER_SEARCH_CLASS} .better-header-search__history-item {
+        display: block;
+        width: 100%;
+        min-height: 34px;
+        overflow: hidden;
+        padding: 0 8px;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        color: #26313b;
+        cursor: pointer;
+        font-size: 13px;
+        letter-spacing: 0;
+        line-height: 34px;
+        text-align: left;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .${HEADER_SEARCH_CLASS} .better-header-search__history-item:hover,
+      .${HEADER_SEARCH_CLASS} .better-header-search__history-item:focus-visible {
+        background: #f1f5f9;
+        color: #14191e;
+        outline: 0;
       }
 
       .${HOME_LAYOUT_CLASS} .nav .nav-links {
