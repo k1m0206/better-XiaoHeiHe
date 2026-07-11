@@ -162,7 +162,8 @@
     });
   }
 
-  chrome.action?.onClicked?.addListener((tab) => {
+  const actionClickEvent = chrome.action?.onClicked || chrome.browserAction?.onClicked;
+  actionClickEvent?.addListener((tab) => {
     openCommunityHomeFromAction(tab);
   });
 

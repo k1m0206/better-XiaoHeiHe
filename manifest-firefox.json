@@ -1,0 +1,60 @@
+{
+  "manifest_version": 2,
+  "name": "__MSG_extensionName__",
+  "short_name": "__MSG_extensionShortName__",
+  "version": "1.0.7",
+  "description": "__MSG_extensionDescription__",
+  "permissions": [
+    "storage",
+    "alarms",
+    "notifications",
+    "cookies",
+    "declarativeNetRequestWithHostAccess"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "browser_action": {},
+  "background": {
+    "scripts": [
+      "src/background.js"
+    ]
+  },
+  "default_locale": "zh_CN",
+  "icons": {
+    "16": "assets/icons/icon16.png",
+    "32": "assets/icons/icon32.png",
+    "48": "assets/icons/icon48.png",
+    "128": "assets/icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.xiaoheihe.cn/*"
+      ],
+      "js": [
+        "src/ai-bridge.js"
+      ],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://www.xiaoheihe.cn/*"
+      ],
+      "js": [
+        "src/content.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    }
+  ],
+  "optional_permissions": ["tabs", "activeTab"],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "better-xiaoheihe@example.com",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
+    }
+  }
+}

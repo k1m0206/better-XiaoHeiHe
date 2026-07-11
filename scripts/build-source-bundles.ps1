@@ -27,7 +27,7 @@ function Join-SourceBundle {
     }
 
     $lines.Add("  // BEGIN $file")
-    foreach ($line in Get-Content -LiteralPath $path) {
+    foreach ($line in Get-Content -LiteralPath $path -Encoding UTF8) {
       $lines.Add($line)
     }
     $lines.Add("  // END $file")

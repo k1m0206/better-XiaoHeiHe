@@ -124,6 +124,21 @@ src/shared/
 dist/better-XiaoHeiHe.zip
 ```
 
+生成 Firefox 测试包和 AMO 上传包：
+
+```powershell
+.\scripts\build-firefox.ps1
+```
+
+输出文件：
+
+```text
+build/better-xiaoheihe-firefox-v*.xpi
+dist/better-XiaoHeiHe-firefox-v*.zip
+```
+
+Firefox 本地调试与签名说明见 `FIREFOX_ADAPTATION.md`。
+
 商店资料和隐私说明见：
 
 - `CHROME_STORE.md`
