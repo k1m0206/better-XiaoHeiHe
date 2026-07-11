@@ -1,7 +1,7 @@
 (function () {
-  // 此文件由 scripts/build-source-bundles.ps1 根据模块源码生成。
-  // 禁止直接修改本入口文件，改动会在下次生成时被覆盖。
-  // 请优先修改 src/content 下的模块源文件。
+  // Generated from module sources by scripts/build-source-bundles.ps1.
+  // Do not edit this generated entry file directly; changes will be overwritten.
+  // Edit module sources under src/content instead.
   // BEGIN src\shared\constants.js
 // 跨 content、background、ai-bridge 共享的协议常量。
 // 本文件会被 scripts/build-source-bundles.ps1 拼入各入口文件，请勿放入依赖具体运行环境的逻辑。

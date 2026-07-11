@@ -16,8 +16,8 @@ function Join-SourceBundle {
 
   $lines = New-Object System.Collections.Generic.List[string]
   $lines.Add("(function () {")
-  $lines.Add("  // 此文件由 scripts/build-source-bundles.ps1 根据模块源码生成。")
-  $lines.Add("  // 禁止直接修改本入口文件，改动会在下次生成时被覆盖。")
+  $lines.Add("  // Generated from module sources by scripts/build-source-bundles.ps1.")
+  $lines.Add("  // Do not edit this generated entry file directly; changes will be overwritten.")
   $lines.Add("  // $EditHint")
 
   foreach ($file in $Files) {
@@ -39,7 +39,7 @@ function Join-SourceBundle {
 
 Join-SourceBundle `
   -OutputPath (Join-Path $root "src\content.js") `
-  -EditHint "请优先修改 src/content 下的模块源文件。" `
+  -EditHint "Edit module sources under src/content instead." `
   -Files @(
     "src\shared\constants.js",
     "src\shared\normalizers.js",
@@ -69,7 +69,7 @@ Join-SourceBundle `
 
 Join-SourceBundle `
   -OutputPath (Join-Path $root "src\background.js") `
-  -EditHint "请优先修改 src/background 下的模块源文件。" `
+  -EditHint "Edit module sources under src/background instead." `
   -Files @(
     "src\shared\constants.js",
     "src\shared\normalizers.js",
@@ -88,7 +88,7 @@ Join-SourceBundle `
 
 Join-SourceBundle `
   -OutputPath (Join-Path $root "src\ai-bridge.js") `
-  -EditHint "请优先修改 src/ai-bridge 和 src/shared 下的模块源文件。" `
+  -EditHint "Edit module sources under src/ai-bridge and src/shared instead." `
   -Files @(
     "src\shared\constants.js",
     "src\shared\normalizers.js",
