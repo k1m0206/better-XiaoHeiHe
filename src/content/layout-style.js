@@ -647,15 +647,10 @@
         white-space: nowrap;
       }
 
-      .${FAVORITE_POPOVER_CLASS} .better-favorite-popover__author-level {
+      .${FAVORITE_POPOVER_CLASS} .better-comment-preview__level {
+        display: inline-flex;
         flex: 0 0 auto;
-        padding: 0 5px;
-        border-radius: 999px;
-        background: #eef3f8;
-        color: #607083;
-        font-size: 10px;
-        font-weight: 800;
-        line-height: 15px;
+        vertical-align: top;
       }
 
       .${FAVORITE_POPOVER_CLASS} .better-message-popover__link-title {
@@ -1101,15 +1096,10 @@
         white-space: nowrap;
       }
 
-      .${MESSAGE_POPOVER_CLASS} .better-message-popover__post-author-level {
+      .${MESSAGE_POPOVER_CLASS} .better-comment-preview__level {
+        display: inline-flex;
         flex: 0 0 auto;
-        padding: 0 5px;
-        border-radius: 999px;
-        background: #eef3f8;
-        color: #607083;
-        font-size: 10px;
-        font-weight: 800;
-        line-height: 15px;
+        vertical-align: top;
       }
 
       .${MESSAGE_POPOVER_CLASS} .better-message-popover__post {

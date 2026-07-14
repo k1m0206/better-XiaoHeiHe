@@ -1558,15 +1558,10 @@
         white-space: nowrap;
       }
 
-      .${FAVORITE_POPOVER_CLASS} .better-favorite-popover__author-level {
+      .${FAVORITE_POPOVER_CLASS} .better-comment-preview__level {
+        display: inline-flex;
         flex: 0 0 auto;
-        padding: 0 5px;
-        border-radius: 999px;
-        background: #eef3f8;
-        color: #607083;
-        font-size: 10px;
-        font-weight: 800;
-        line-height: 15px;
+        vertical-align: top;
       }
 
       .${FAVORITE_POPOVER_CLASS} .better-message-popover__link-title {
@@ -2012,15 +2007,10 @@
         white-space: nowrap;
       }
 
-      .${MESSAGE_POPOVER_CLASS} .better-message-popover__post-author-level {
+      .${MESSAGE_POPOVER_CLASS} .better-comment-preview__level {
+        display: inline-flex;
         flex: 0 0 auto;
-        padding: 0 5px;
-        border-radius: 999px;
-        background: #eef3f8;
-        color: #607083;
-        font-size: 10px;
-        font-weight: 800;
-        line-height: 15px;
+        vertical-align: top;
       }
 
       .${MESSAGE_POPOVER_CLASS} .better-message-popover__post {
@@ -7026,6 +7016,7 @@
           id: String(findFirstFieldDeep(message, ["id", "message_id", "messageId"]) || `${getReplyMessageLinkId(message)}-${getReplyMessageTimestamp(message)}-${tab === "award" ? getAwardMessageContent(message, awardKind) : getReplyMessageContent(message)}`),
           linkId: getReplyMessageLinkId(message),
           userName,
+          userLevel: tab === "award" ? (actors[0]?.level || "") : getMessageUserLevel(message?.user_a),
           avatar,
           avatarFallback: Array.from(userName || "盒")[0] || "盒",
           actionText: tab === "award"
@@ -14007,7 +13998,7 @@
             <div class="better-favorite-popover__author">
               ${item.authorAvatar ? `<img class="better-favorite-popover__author-avatar" src="${escapeHtml(item.authorAvatar)}" alt="">` : `<span class="better-favorite-popover__author-avatar" aria-hidden="true">${escapeHtml(item.authorAvatarFallback)}</span>`}
               <span class="better-favorite-popover__author-name">${escapeHtml(item.author)}</span>
-              ${item.authorLevel ? `<span class="better-favorite-popover__author-level">${escapeHtml(item.authorLevel)}</span>` : ""}
+              ${renderUserLevel(item.authorLevel)}
             </div>
           ` : ""}
           <span class="better-message-popover__link-title">${renderEmojiTokensInHtml(escapeHtml(item.title))}</span>
@@ -14157,6 +14148,7 @@
           <div class="better-message-popover__actor-main">
             <div class="better-message-popover__actor-line">
               <span class="better-message-popover__user">${escapeHtml(message.userName)}</span>
+              ${renderUserLevel(message.userLevel)}
               <span class="better-message-popover__action">${escapeHtml(message.actionText)}</span>
               <span class="better-message-popover__type">${escapeHtml(message.typeLabel)}</span>
             </div>
@@ -14193,7 +14185,7 @@
               <div class="better-message-popover__post-author">
                 ${message.linkAuthorAvatar ? `<img class="better-message-popover__post-author-avatar" src="${escapeHtml(message.linkAuthorAvatar)}" alt="">` : `<span class="better-message-popover__post-author-avatar" aria-hidden="true">${escapeHtml(message.linkAuthorAvatarFallback)}</span>`}
                 <span class="better-message-popover__post-author-name">${escapeHtml(message.linkAuthor)}</span>
-                ${message.linkAuthorLevel ? `<span class="better-message-popover__post-author-level">${escapeHtml(message.linkAuthorLevel)}</span>` : ""}
+                ${renderUserLevel(message.linkAuthorLevel)}
               </div>
             ` : ""}
             <span class="better-message-popover__link-title">${renderEmojiTokensInHtml(escapeHtml(message.title))}</span>

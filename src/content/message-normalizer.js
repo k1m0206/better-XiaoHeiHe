@@ -330,6 +330,7 @@
           id: String(findFirstFieldDeep(message, ["id", "message_id", "messageId"]) || `${getReplyMessageLinkId(message)}-${getReplyMessageTimestamp(message)}-${tab === "award" ? getAwardMessageContent(message, awardKind) : getReplyMessageContent(message)}`),
           linkId: getReplyMessageLinkId(message),
           userName,
+          userLevel: tab === "award" ? (actors[0]?.level || "") : getMessageUserLevel(message?.user_a),
           avatar,
           avatarFallback: Array.from(userName || "盒")[0] || "盒",
           actionText: tab === "award"
