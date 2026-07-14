@@ -177,6 +177,19 @@
     };
   }
 
+  function installHomeFeedFocusRefreshGuard() {
+    if (homeFeedFocusRefreshGuardBound) {
+      return;
+    }
+
+    homeFeedFocusRefreshGuardBound = true;
+    window.addEventListener("visibilitychange", (event) => {
+      if (isCommunityHomePage() && document.visibilityState === "visible") {
+        event.stopImmediatePropagation();
+      }
+    });
+  }
+
   function installLocalSettingsStateSync() {
     window.addEventListener("storage", (event) => {
       if (!useLegacyLocalSettingsSync) {
@@ -439,6 +452,7 @@
   }
 
   async function start() {
+    installHomeFeedFocusRefreshGuard();
     installApiParamCapture();
     captureExistingApiEntries();
     bindFeedAiCapture();

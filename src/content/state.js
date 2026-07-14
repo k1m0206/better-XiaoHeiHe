@@ -163,6 +163,7 @@
   let feedAwardCaptureBound = false;
   let feedImageCaptureBound = false;
   let heyboxWebLinkCaptureBound = false;
+  let homeFeedFocusRefreshGuardBound = false;
   let topicBlockContextMenuBound = false;
   let imageViewerKeydownBound = false;
   let replyEmojiOutsideClickBound = false;
