@@ -8,27 +8,48 @@
     const style = document.createElement("style");
     style.id = STYLE_ID;
     style.textContent = `
-      .${HOME_LAYOUT_CLASS} .hb-page__app .hb-layout__content {
-        align-items: flex-start !important;
-      }
-
+      .${HOME_LAYOUT_CLASS} body,
+      .${HOME_LAYOUT_CLASS} #app,
+      .${HOME_LAYOUT_CLASS} .app,
+      .${HOME_LAYOUT_CLASS} .hb-website__app,
       .${HOME_LAYOUT_CLASS} .hb-page__app,
       .${HOME_LAYOUT_CLASS} .hb-page__app .hb-website__container,
       .${HOME_LAYOUT_CLASS} .hb-page__app .hb-layout__main,
       .${HOME_LAYOUT_CLASS} .hb-page__app .hb-layout-main__container,
-      .${HOME_LAYOUT_CLASS} .hb-page__app .hb-layout__content {
+      .${HOME_LAYOUT_CLASS} .hb-page__app .hb-layout__content,
+      .${HOME_LAYOUT_CLASS} #page-bbs-community,
+      .${HOME_LAYOUT_CLASS} #page-bbs-community .content,
+      .${HOME_LAYOUT_CLASS} #page-bbs-community .content > main,
+      .${HOME_LAYOUT_CLASS} #page-bbs-community .content > main > .list,
+      .${HOME_LAYOUT_CLASS} #page-bbs-community .hb-cpt__scroll-list,
+      .${HOME_LAYOUT_CLASS} #page-bbs-community .hb-bbs-home,
+      .${HOME_LAYOUT_CLASS} #page-bbs-community .bbs-home__content-list,
+      .${HOME_LAYOUT_CLASS} #page-bbs-community .bbs-home__content-item {
         box-sizing: border-box !important;
+        position: relative !important;
+        left: auto !important;
+        right: auto !important;
+        transform: none !important;
         min-width: 0 !important;
-        max-width: none !important;
-        width: min(1280px, calc(100vw - 192px)) !important;
+        max-width: 100% !important;
+        width: 100% !important;
       }
 
       .${HOME_LAYOUT_CLASS} .hb-page__app .hb-website__container,
       .${HOME_LAYOUT_CLASS} .hb-page__app .hb-layout__main,
       .${HOME_LAYOUT_CLASS} .hb-page__app .hb-layout-main__container,
-      .${HOME_LAYOUT_CLASS} .hb-page__app .hb-layout__content {
-        margin-right: auto !important;
-        margin-left: auto !important;
+      .${HOME_LAYOUT_CLASS} .hb-page__app .hb-layout__content,
+      .${HOME_LAYOUT_CLASS} #page-bbs-community .content,
+      .${HOME_LAYOUT_CLASS} #page-bbs-community .content > main,
+      .${HOME_LAYOUT_CLASS} #page-bbs-community .content > main > .list {
+        position: relative !important;
+        left: auto !important;
+        right: auto !important;
+        transform: none !important;
+        margin-right: 0 !important;
+        margin-left: 0 !important;
+        padding-left: clamp(12px, 4vw, 48px) !important;
+        padding-right: clamp(12px, 4vw, 48px) !important;
       }
 
       .${HOME_LAYOUT_CLASS} .hb-page__app .hb-layout__content--left {
@@ -70,27 +91,28 @@
       .${HOME_LAYOUT_CLASS} .hb-page__app main.list,
       .${HOME_LAYOUT_CLASS} .hb-cpt__scroll-list.hb-bbs-home {
         position: relative !important;
-        left: 50% !important;
-        width: min(1280px, calc(100vw - 192px)) !important;
-        max-width: none !important;
-        transform: translateX(-50%) !important;
+        left: auto !important;
+        right: auto !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        transform: none !important;
       }
 
       .${HOME_LAYOUT_CLASS} #page-topic-link .topic-link__list {
         position: relative !important;
-        left: 50% !important;
-        width: min(1280px, calc(100vw - 192px)) !important;
-        max-width: none !important;
-        transform: translateX(-50%) !important;
+        left: auto !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        transform: none !important;
       }
 
       .${HOME_LAYOUT_CLASS} #page-topic-link .topic-link__header,
       .${HOME_LAYOUT_CLASS} #page-topic-link .topic-link__filter-row {
         box-sizing: border-box !important;
-        width: min(1280px, calc(100vw - 192px)) !important;
-        max-width: none !important;
-        margin-right: auto !important;
-        margin-left: auto !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin-right: 0 !important;
+        margin-left: 0 !important;
       }
 
       .${HOME_LAYOUT_CLASS} .hb-cpt__scroll-list.hb-bbs-home > .bbs-home__topic-list-wrapper,
@@ -137,11 +159,23 @@
         flex: 0 0 auto !important;
       }
 
-      .hb-layout__content--right,
-      .cpt-right-side,
-      .bbs-community-hot-topic,
-      .hot-search,
-      .right-side-default.default-content {
+      .${HOME_LAYOUT_CLASS} .hb-layout__content--right,
+      .${HOME_LAYOUT_CLASS} .cpt-right-side,
+      .${HOME_LAYOUT_CLASS} .bbs-community-hot-topic,
+      .${HOME_LAYOUT_CLASS} .hot-search,
+      .${HOME_LAYOUT_CLASS} .right-side-default.default-content,
+      .${HOME_LAYOUT_CLASS} .hb-layout__content > [class*="right"],
+      .${HOME_LAYOUT_CLASS} .hb-layout__content > [class*="side"],
+      .${HOME_LAYOUT_CLASS} .hb-layout-main__container--left:empty,
+      .${HOME_LAYOUT_CLASS} #page-bbs-community .cpt-right-side,
+      .${HOME_LAYOUT_CLASS} #page-bbs-community .cpt-right-side.right,
+      .${HOME_LAYOUT_CLASS} #page-bbs-community .right-side-default,
+      .${HOME_LAYOUT_CLASS} #page-bbs-community .right-side-default.default-content,
+      .${HOME_LAYOUT_CLASS} #page-bbs-community .dynamic-content,
+      .${HOME_LAYOUT_CLASS} #page-bbs-community .bbs-community-hot-topic,
+      .${HOME_LAYOUT_CLASS} #page-bbs-community .qr-section,
+      .${HOME_LAYOUT_CLASS} #page-bbs-community .app-links,
+      .${HOME_LAYOUT_CLASS} #page-bbs-community .footer-info {
         display: none !important;
       }
 
@@ -2838,7 +2872,7 @@
 
       .${HOME_LAYOUT_CLASS} .${ROW_CLASS} {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) clamp(360px, 34vw, 520px);
+        grid-template-columns: minmax(0, 1fr) clamp(360px, 28vw, 520px);
         gap: 0;
         align-items: start;
         margin: 0 0 14px;
