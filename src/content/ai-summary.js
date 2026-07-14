@@ -173,27 +173,11 @@
   }
 
   function lockAiSummaryPageScroll() {
-    if (aiSummaryScrollLocked) {
-      return;
-    }
-
-    aiSummaryScrollLocked = true;
-    aiSummaryPreviousBodyOverflow = document.body.style.overflow;
-    aiSummaryPreviousDocumentOverflow = document.documentElement.style.overflow;
-    document.body.style.overflow = "hidden";
-    document.documentElement.style.overflow = "hidden";
+    lockPageScroll(AI_SUMMARY_MODAL_CLASS);
   }
 
   function unlockAiSummaryPageScroll() {
-    if (!aiSummaryScrollLocked) {
-      return;
-    }
-
-    aiSummaryScrollLocked = false;
-    document.body.style.overflow = aiSummaryPreviousBodyOverflow;
-    document.documentElement.style.overflow = aiSummaryPreviousDocumentOverflow;
-    aiSummaryPreviousBodyOverflow = "";
-    aiSummaryPreviousDocumentOverflow = "";
+    unlockPageScroll(AI_SUMMARY_MODAL_CLASS);
   }
 
   function closeAiSummaryModal() {

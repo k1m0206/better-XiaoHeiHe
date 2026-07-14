@@ -459,11 +459,8 @@
       : "";
     prev.hidden = activeImageViewerImages.length <= 1;
     next.hidden = activeImageViewerImages.length <= 1;
-    if (viewer.hidden) {
-      documentOverflowBeforeImageViewer = document.documentElement.style.overflow;
-    }
+    lockPageScroll(IMAGE_VIEWER_CLASS);
     viewer.hidden = false;
-    document.documentElement.style.overflow = "hidden";
   }
 
   function closeImageViewer() {
@@ -477,8 +474,7 @@
     if (image) {
       image.removeAttribute("src");
     }
-    document.documentElement.style.overflow = documentOverflowBeforeImageViewer;
-    documentOverflowBeforeImageViewer = "";
+    unlockPageScroll(IMAGE_VIEWER_CLASS);
   }
 
   function updateExpandButton(textElement) {
@@ -538,6 +534,30 @@
     }
 
     activeImageViewerImages = imageUrls;
+    showImageViewerAt(Math.max(0, visibleWraps.indexOf(imageWrap)));
+  }
+
+  function openFeedNativeImageViewer(imageWrap, item) {
+    const imageGroup = imageWrap?.closest(".bbs-content__imgs-wrapper");
+    const visibleWraps = Array.from(imageGroup?.querySelectorAll(":scope > .bbs-content__image") || []);
+    if (!imageGroup || !visibleWraps.length) {
+      return;
+    }
+
+    const linkId = getLinkIdFromItem(item);
+    const cachedImageUrls = commentCache.get(linkId)?.linkDetail?.feedImageUrls || [];
+    const imageUrls = cachedImageUrls.filter(isSafeCommentImageUrl);
+    activeImageViewerImages = imageUrls.length
+      ? imageUrls
+      : visibleWraps
+        .map((wrap) => wrap.querySelector(".hb-cpt__image-elem")?.currentSrc
+          || wrap.querySelector(".hb-cpt__image-elem")?.src
+          || "")
+        .filter(isSafeCommentImageUrl);
+    if (!activeImageViewerImages.length) {
+      return;
+    }
+
     showImageViewerAt(Math.max(0, visibleWraps.indexOf(imageWrap)));
   }
 

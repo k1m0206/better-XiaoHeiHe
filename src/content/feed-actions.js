@@ -221,15 +221,21 @@
       }
 
       const fallbackImageWrap = event.target.closest(".better-feed-fallback-image-wrap");
-      const item = fallbackImageWrap?.closest(FEED_ITEM_SELECTOR);
-      if (!fallbackImageWrap || !item || !document.documentElement.classList.contains(HOME_LAYOUT_CLASS)) {
+      const nativeImageWrap = event.target.closest(".bbs-content__imgs-wrapper > .bbs-content__image");
+      const imageWrap = fallbackImageWrap || nativeImageWrap;
+      const item = imageWrap?.closest(FEED_ITEM_SELECTOR);
+      if (!imageWrap || !item || !document.documentElement.classList.contains(HOME_LAYOUT_CLASS)) {
         return;
       }
 
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();
-      openFeedFallbackImageViewer(fallbackImageWrap);
+      if (fallbackImageWrap) {
+        openFeedFallbackImageViewer(fallbackImageWrap);
+      } else {
+        openFeedNativeImageViewer(nativeImageWrap, item);
+      }
     }, true);
   }
 

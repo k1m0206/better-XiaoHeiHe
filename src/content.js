@@ -344,12 +344,10 @@
     hasMore: true,
     loading: false
   };
-  let aiSummaryScrollLocked = false;
-  let aiSummaryPreviousBodyOverflow = "";
-  let aiSummaryPreviousDocumentOverflow = "";
+  const pageScrollLockOwners = new Set();
+  let pageScrollLockState = null;
   let activeImageViewerImages = [];
   let activeImageViewerIndex = 0;
-  let documentOverflowBeforeImageViewer = "";
 
   function isEnhancedPage() {
     return window.location.hostname === "www.xiaoheihe.cn"
@@ -371,6 +369,84 @@
   function isCommunityHomePage() {
     return window.location.pathname === "/app/bbs/home"
       || window.location.pathname === "/app/bbs/home/";
+  }
+
+  function captureInlineStyle(element, property) {
+    return {
+      value: element.style.getPropertyValue(property),
+      priority: element.style.getPropertyPriority(property)
+    };
+  }
+
+  function restoreInlineStyle(element, property, savedStyle) {
+    if (savedStyle?.value) {
+      element.style.setProperty(property, savedStyle.value, savedStyle.priority || "");
+      return;
+    }
+    element.style.removeProperty(property);
+  }
+
+  function lockPageScroll(owner) {
+    if (!owner || pageScrollLockOwners.has(owner) || !document.body) {
+      return;
+    }
+
+    pageScrollLockOwners.add(owner);
+    if (pageScrollLockState) {
+      return;
+    }
+
+    const root = document.documentElement;
+    const body = document.body;
+    const scrollX = window.scrollX;
+    const scrollY = window.scrollY;
+    const scrollbarWidth = Math.max(0, window.innerWidth - root.clientWidth);
+    pageScrollLockState = {
+      scrollX,
+      scrollY,
+      rootOverflow: captureInlineStyle(root, "overflow"),
+      bodyStyles: Object.fromEntries([
+        "overflow",
+        "position",
+        "top",
+        "left",
+        "right",
+        "width",
+        "padding-right"
+      ].map((property) => [property, captureInlineStyle(body, property)]))
+    };
+
+    root.style.setProperty("overflow", "hidden", "important");
+    body.style.setProperty("overflow", "hidden", "important");
+    body.style.setProperty("position", "fixed", "important");
+    body.style.setProperty("top", `${-scrollY}px`, "important");
+    body.style.setProperty("left", `${-scrollX}px`, "important");
+    body.style.setProperty("right", "0", "important");
+    body.style.setProperty("width", "100%", "important");
+    if (scrollbarWidth > 0) {
+      const paddingRight = Number.parseFloat(window.getComputedStyle(body).paddingRight) || 0;
+      body.style.setProperty("padding-right", `${paddingRight + scrollbarWidth}px`, "important");
+    }
+  }
+
+  function unlockPageScroll(owner) {
+    pageScrollLockOwners.delete(owner);
+    if (pageScrollLockOwners.size || !pageScrollLockState || !document.body) {
+      return;
+    }
+
+    const savedState = pageScrollLockState;
+    pageScrollLockState = null;
+    restoreInlineStyle(document.documentElement, "overflow", savedState.rootOverflow);
+    Object.entries(savedState.bodyStyles).forEach(([property, savedStyle]) => {
+      restoreInlineStyle(document.body, property, savedStyle);
+    });
+    window.scrollTo(savedState.scrollX, savedState.scrollY);
+    window.requestAnimationFrame(() => {
+      if (!pageScrollLockState) {
+        window.scrollTo(savedState.scrollX, savedState.scrollY);
+      }
+    });
   }
 
   function parseEventDetail(detail) {
@@ -8717,11 +8793,8 @@
       : "";
     prev.hidden = activeImageViewerImages.length <= 1;
     next.hidden = activeImageViewerImages.length <= 1;
-    if (viewer.hidden) {
-      documentOverflowBeforeImageViewer = document.documentElement.style.overflow;
-    }
+    lockPageScroll(IMAGE_VIEWER_CLASS);
     viewer.hidden = false;
-    document.documentElement.style.overflow = "hidden";
   }
 
   function closeImageViewer() {
@@ -8735,8 +8808,7 @@
     if (image) {
       image.removeAttribute("src");
     }
-    document.documentElement.style.overflow = documentOverflowBeforeImageViewer;
-    documentOverflowBeforeImageViewer = "";
+    unlockPageScroll(IMAGE_VIEWER_CLASS);
   }
 
   function updateExpandButton(textElement) {
@@ -8796,6 +8868,30 @@
     }
 
     activeImageViewerImages = imageUrls;
+    showImageViewerAt(Math.max(0, visibleWraps.indexOf(imageWrap)));
+  }
+
+  function openFeedNativeImageViewer(imageWrap, item) {
+    const imageGroup = imageWrap?.closest(".bbs-content__imgs-wrapper");
+    const visibleWraps = Array.from(imageGroup?.querySelectorAll(":scope > .bbs-content__image") || []);
+    if (!imageGroup || !visibleWraps.length) {
+      return;
+    }
+
+    const linkId = getLinkIdFromItem(item);
+    const cachedImageUrls = commentCache.get(linkId)?.linkDetail?.feedImageUrls || [];
+    const imageUrls = cachedImageUrls.filter(isSafeCommentImageUrl);
+    activeImageViewerImages = imageUrls.length
+      ? imageUrls
+      : visibleWraps
+        .map((wrap) => wrap.querySelector(".hb-cpt__image-elem")?.currentSrc
+          || wrap.querySelector(".hb-cpt__image-elem")?.src
+          || "")
+        .filter(isSafeCommentImageUrl);
+    if (!activeImageViewerImages.length) {
+      return;
+    }
+
     showImageViewerAt(Math.max(0, visibleWraps.indexOf(imageWrap)));
   }
 
@@ -10299,27 +10395,11 @@
   }
 
   function lockAiSummaryPageScroll() {
-    if (aiSummaryScrollLocked) {
-      return;
-    }
-
-    aiSummaryScrollLocked = true;
-    aiSummaryPreviousBodyOverflow = document.body.style.overflow;
-    aiSummaryPreviousDocumentOverflow = document.documentElement.style.overflow;
-    document.body.style.overflow = "hidden";
-    document.documentElement.style.overflow = "hidden";
+    lockPageScroll(AI_SUMMARY_MODAL_CLASS);
   }
 
   function unlockAiSummaryPageScroll() {
-    if (!aiSummaryScrollLocked) {
-      return;
-    }
-
-    aiSummaryScrollLocked = false;
-    document.body.style.overflow = aiSummaryPreviousBodyOverflow;
-    document.documentElement.style.overflow = aiSummaryPreviousDocumentOverflow;
-    aiSummaryPreviousBodyOverflow = "";
-    aiSummaryPreviousDocumentOverflow = "";
+    unlockPageScroll(AI_SUMMARY_MODAL_CLASS);
   }
 
   function closeAiSummaryModal() {
@@ -11244,15 +11324,21 @@
       }
 
       const fallbackImageWrap = event.target.closest(".better-feed-fallback-image-wrap");
-      const item = fallbackImageWrap?.closest(FEED_ITEM_SELECTOR);
-      if (!fallbackImageWrap || !item || !document.documentElement.classList.contains(HOME_LAYOUT_CLASS)) {
+      const nativeImageWrap = event.target.closest(".bbs-content__imgs-wrapper > .bbs-content__image");
+      const imageWrap = fallbackImageWrap || nativeImageWrap;
+      const item = imageWrap?.closest(FEED_ITEM_SELECTOR);
+      if (!imageWrap || !item || !document.documentElement.classList.contains(HOME_LAYOUT_CLASS)) {
         return;
       }
 
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();
-      openFeedFallbackImageViewer(fallbackImageWrap);
+      if (fallbackImageWrap) {
+        openFeedFallbackImageViewer(fallbackImageWrap);
+      } else {
+        openFeedNativeImageViewer(nativeImageWrap, item);
+      }
     }, true);
   }
 

@@ -181,12 +181,10 @@
     hasMore: true,
     loading: false
   };
-  let aiSummaryScrollLocked = false;
-  let aiSummaryPreviousBodyOverflow = "";
-  let aiSummaryPreviousDocumentOverflow = "";
+  const pageScrollLockOwners = new Set();
+  let pageScrollLockState = null;
   let activeImageViewerImages = [];
   let activeImageViewerIndex = 0;
-  let documentOverflowBeforeImageViewer = "";
 
   function isEnhancedPage() {
     return window.location.hostname === "www.xiaoheihe.cn"
@@ -208,6 +206,84 @@
   function isCommunityHomePage() {
     return window.location.pathname === "/app/bbs/home"
       || window.location.pathname === "/app/bbs/home/";
+  }
+
+  function captureInlineStyle(element, property) {
+    return {
+      value: element.style.getPropertyValue(property),
+      priority: element.style.getPropertyPriority(property)
+    };
+  }
+
+  function restoreInlineStyle(element, property, savedStyle) {
+    if (savedStyle?.value) {
+      element.style.setProperty(property, savedStyle.value, savedStyle.priority || "");
+      return;
+    }
+    element.style.removeProperty(property);
+  }
+
+  function lockPageScroll(owner) {
+    if (!owner || pageScrollLockOwners.has(owner) || !document.body) {
+      return;
+    }
+
+    pageScrollLockOwners.add(owner);
+    if (pageScrollLockState) {
+      return;
+    }
+
+    const root = document.documentElement;
+    const body = document.body;
+    const scrollX = window.scrollX;
+    const scrollY = window.scrollY;
+    const scrollbarWidth = Math.max(0, window.innerWidth - root.clientWidth);
+    pageScrollLockState = {
+      scrollX,
+      scrollY,
+      rootOverflow: captureInlineStyle(root, "overflow"),
+      bodyStyles: Object.fromEntries([
+        "overflow",
+        "position",
+        "top",
+        "left",
+        "right",
+        "width",
+        "padding-right"
+      ].map((property) => [property, captureInlineStyle(body, property)]))
+    };
+
+    root.style.setProperty("overflow", "hidden", "important");
+    body.style.setProperty("overflow", "hidden", "important");
+    body.style.setProperty("position", "fixed", "important");
+    body.style.setProperty("top", `${-scrollY}px`, "important");
+    body.style.setProperty("left", `${-scrollX}px`, "important");
+    body.style.setProperty("right", "0", "important");
+    body.style.setProperty("width", "100%", "important");
+    if (scrollbarWidth > 0) {
+      const paddingRight = Number.parseFloat(window.getComputedStyle(body).paddingRight) || 0;
+      body.style.setProperty("padding-right", `${paddingRight + scrollbarWidth}px`, "important");
+    }
+  }
+
+  function unlockPageScroll(owner) {
+    pageScrollLockOwners.delete(owner);
+    if (pageScrollLockOwners.size || !pageScrollLockState || !document.body) {
+      return;
+    }
+
+    const savedState = pageScrollLockState;
+    pageScrollLockState = null;
+    restoreInlineStyle(document.documentElement, "overflow", savedState.rootOverflow);
+    Object.entries(savedState.bodyStyles).forEach(([property, savedStyle]) => {
+      restoreInlineStyle(document.body, property, savedStyle);
+    });
+    window.scrollTo(savedState.scrollX, savedState.scrollY);
+    window.requestAnimationFrame(() => {
+      if (!pageScrollLockState) {
+        window.scrollTo(savedState.scrollX, savedState.scrollY);
+      }
+    });
   }
 
   function parseEventDetail(detail) {
