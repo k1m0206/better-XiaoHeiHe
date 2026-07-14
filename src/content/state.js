@@ -185,6 +185,7 @@
   let pageScrollLockState = null;
   let activeImageViewerImages = [];
   let activeImageViewerIndex = 0;
+  let imageViewerLoadToken = 0;
 
   function isEnhancedPage() {
     return window.location.hostname === "www.xiaoheihe.cn"

@@ -2924,6 +2924,7 @@
 
       .${HOME_LAYOUT_CLASS} .better-native-feed-images--row {
         display: grid !important;
+        position: relative !important;
         height: auto !important;
         grid-template-columns: repeat(var(--better-native-image-count), minmax(0, 1fr));
         gap: 4px;
@@ -2950,6 +2951,7 @@
 
       .${HOME_LAYOUT_CLASS} .better-native-feed-images--feature {
         display: grid !important;
+        position: relative !important;
         height: 240px !important;
         grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
         grid-template-rows: repeat(2, minmax(0, 1fr));
@@ -2978,13 +2980,33 @@
         height: 100% !important;
       }
 
-      .${HOME_LAYOUT_CLASS} .better-native-feed-images--row > .bbs-content__image-cnt,
-      .${HOME_LAYOUT_CLASS} .better-native-feed-images--feature > .bbs-content__image-cnt {
-        right: 0 !important;
-        bottom: 0 !important;
+      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} .bbs-content__imgs-wrapper {
+        position: relative !important;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${ROW_CLASS} .bbs-content__imgs-wrapper > .bbs-content__image-cnt {
+        box-sizing: border-box;
+        display: inline-flex !important;
+        position: absolute !important;
+        right: 8px !important;
+        bottom: 8px !important;
         top: auto !important;
         left: auto !important;
-        z-index: 1;
+        z-index: 2;
+        min-width: 48px;
+        height: 28px;
+        align-items: center;
+        justify-content: center;
+        padding: 0 10px;
+        border: 1px solid rgba(255, 255, 255, 0.24);
+        border-radius: 999px !important;
+        background: rgba(20, 25, 30, 0.68);
+        box-shadow: 0 2px 8px rgba(20, 25, 30, 0.2);
+        color: #fff;
+        font-size: 13px;
+        font-weight: 700;
+        line-height: 26px;
+        pointer-events: none;
       }
 
       .${HOME_LAYOUT_CLASS} .better-feed-fallback-images {
@@ -4125,6 +4147,91 @@
         max-width: min(92vw, 1280px);
         max-height: 88vh;
         object-fit: contain;
+        transition: opacity 0.14s ease;
+        will-change: opacity, transform;
+      }
+
+      .${IMAGE_VIEWER_CLASS}.better-image-viewer--loading .better-image-viewer__image {
+        opacity: 0.58;
+      }
+
+      .${IMAGE_VIEWER_CLASS}.better-image-viewer--loading::before {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        z-index: 2;
+        width: 30px;
+        height: 30px;
+        margin: -15px 0 0 -15px;
+        border: 2px solid rgba(255, 255, 255, 0.28);
+        border-top-color: #fff;
+        border-radius: 50%;
+        pointer-events: none;
+        animation: better-image-viewer-spin 0.72s linear infinite;
+      }
+
+      .${IMAGE_VIEWER_CLASS} .better-image-viewer__image--enter-open {
+        animation: better-image-viewer-enter-open 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
+      }
+
+      .${IMAGE_VIEWER_CLASS} .better-image-viewer__image--enter-prev {
+        animation: better-image-viewer-enter-prev 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
+      }
+
+      .${IMAGE_VIEWER_CLASS} .better-image-viewer__image--enter-next {
+        animation: better-image-viewer-enter-next 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
+      }
+
+      @keyframes better-image-viewer-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      @keyframes better-image-viewer-enter-open {
+        from {
+          opacity: 0;
+          transform: scale(0.965);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+
+      @keyframes better-image-viewer-enter-prev {
+        from {
+          opacity: 0;
+          transform: translate3d(-24px, 0, 0) scale(0.985);
+        }
+        to {
+          opacity: 1;
+          transform: translate3d(0, 0, 0) scale(1);
+        }
+      }
+
+      @keyframes better-image-viewer-enter-next {
+        from {
+          opacity: 0;
+          transform: translate3d(24px, 0, 0) scale(0.985);
+        }
+        to {
+          opacity: 1;
+          transform: translate3d(0, 0, 0) scale(1);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .${IMAGE_VIEWER_CLASS}.better-image-viewer--loading::before {
+          display: none;
+        }
+
+        .${IMAGE_VIEWER_CLASS} .better-image-viewer__image--enter-open,
+        .${IMAGE_VIEWER_CLASS} .better-image-viewer__image--enter-prev,
+        .${IMAGE_VIEWER_CLASS} .better-image-viewer__image--enter-next {
+          animation: none;
+        }
       }
 
       .${IMAGE_VIEWER_CLASS} .better-image-viewer__close,

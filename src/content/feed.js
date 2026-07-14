@@ -452,8 +452,12 @@
     const counter = viewer.querySelector(".better-image-viewer__counter");
     const prev = viewer.querySelector(".better-image-viewer__prev");
     const next = viewer.querySelector(".better-image-viewer__next");
+    const wasHidden = viewer.hidden;
+    const previousIndex = activeImageViewerIndex;
+    const direction = wasHidden ? "open" : (index < previousIndex ? "prev" : "next");
     activeImageViewerIndex = (index + activeImageViewerImages.length) % activeImageViewerImages.length;
-    image.src = activeImageViewerImages[activeImageViewerIndex];
+    const imageUrl = activeImageViewerImages[activeImageViewerIndex];
+    const loadToken = ++imageViewerLoadToken;
     counter.textContent = activeImageViewerImages.length > 1
       ? `${activeImageViewerIndex + 1} / ${activeImageViewerImages.length}`
       : "";
@@ -461,6 +465,40 @@
     next.hidden = activeImageViewerImages.length <= 1;
     lockPageScroll(IMAGE_VIEWER_CLASS);
     viewer.hidden = false;
+    viewer.classList.add("better-image-viewer--loading");
+
+    const revealImage = () => {
+      if (loadToken !== imageViewerLoadToken || viewer.hidden) {
+        return;
+      }
+
+      const transitionClass = `better-image-viewer__image--enter-${direction}`;
+      image.classList.remove(
+        "better-image-viewer__image--enter-open",
+        "better-image-viewer__image--enter-prev",
+        "better-image-viewer__image--enter-next"
+      );
+      image.src = imageUrl;
+      viewer.classList.remove("better-image-viewer--loading");
+      void image.offsetWidth;
+      image.classList.add(transitionClass);
+      image.addEventListener("animationend", () => image.classList.remove(transitionClass), { once: true });
+      window.setTimeout(() => {
+        if (loadToken === imageViewerLoadToken) {
+          image.classList.remove(transitionClass);
+        }
+      }, 320);
+    };
+
+    if (image.src === imageUrl && image.complete) {
+      revealImage();
+      return;
+    }
+
+    const preloadImage = new Image();
+    preloadImage.addEventListener("load", revealImage, { once: true });
+    preloadImage.addEventListener("error", revealImage, { once: true });
+    preloadImage.src = imageUrl;
   }
 
   function closeImageViewer() {
@@ -469,9 +507,16 @@
       return;
     }
 
+    imageViewerLoadToken += 1;
     viewer.hidden = true;
+    viewer.classList.remove("better-image-viewer--loading");
     const image = viewer.querySelector(".better-image-viewer__image");
     if (image) {
+      image.classList.remove(
+        "better-image-viewer__image--enter-open",
+        "better-image-viewer__image--enter-prev",
+        "better-image-viewer__image--enter-next"
+      );
       image.removeAttribute("src");
     }
     unlockPageScroll(IMAGE_VIEWER_CLASS);
