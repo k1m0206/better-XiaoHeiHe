@@ -2683,7 +2683,7 @@
         bottom: 20px;
         left: 14px;
         z-index: 9998;
-        width: min(368px, calc(100vw - 28px));
+        width: min(354px, calc(100vw - 28px));
         max-width: calc(100vw - 24px);
         overflow: hidden;
         pointer-events: none;
@@ -2696,9 +2696,9 @@
         top: 50%;
         left: 0;
         z-index: 2;
-        width: 48px;
+        width: 34px;
         min-height: 92px;
-        padding: 14px 12px;
+        padding: 14px 5px;
         border: 1px solid #d7e4f1;
         border-radius: 0 14px 14px 0;
         background: linear-gradient(180deg, #ffffff 0%, #f5f9fd 100%);
@@ -2716,7 +2716,7 @@
       }
 
       .${HOT_SEARCH_SIDEBAR_CLASS}.${HOT_SEARCH_SIDEBAR_OPEN_CLASS} .${HOT_SEARCH_SIDEBAR_TOGGLE_CLASS} {
-        left: min(320px, calc(100vw - 76px));
+        left: min(320px, calc(100vw - 62px));
       }
 
       .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} {
@@ -2727,7 +2727,7 @@
         left: 0;
         z-index: 1;
         width: 320px;
-        max-width: calc(100vw - 76px);
+        max-width: calc(100vw - 62px);
         overflow: auto;
         padding: 16px;
         border: 1px solid #e4ebf2;
