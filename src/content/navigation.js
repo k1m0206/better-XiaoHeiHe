@@ -22,6 +22,7 @@
 
     document.documentElement.classList.add(HOME_LAYOUT_CLASS);
     document.documentElement.classList.toggle(LINK_DETAIL_LAYOUT_CLASS, isLinkPage());
+    applyFeedLayoutSettings();
     moveLeftMenuToTop();
     moveSearchHotListToLeftSidebar();
     removeRightContent();
@@ -230,6 +231,9 @@
       }
       if (Object.prototype.hasOwnProperty.call(values, COMMENT_EMOJI_USAGE_STORAGE_KEY)) {
         syncEmojiUsageStats(values[COMMENT_EMOJI_USAGE_STORAGE_KEY]);
+      }
+      if (Object.prototype.hasOwnProperty.call(values, FEED_LAYOUT_SETTINGS_STORAGE_KEY)) {
+        syncFeedLayoutSettings(values[FEED_LAYOUT_SETTINGS_STORAGE_KEY]);
       }
       if (Object.prototype.hasOwnProperty.call(values, AI_BOT_SETTINGS_STORAGE_KEY)) {
         aiBotSettings = normalizeAiBotSettings(values[AI_BOT_SETTINGS_STORAGE_KEY]);

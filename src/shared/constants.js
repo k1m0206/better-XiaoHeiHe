@@ -19,6 +19,7 @@
   const API_PARAMS_STORAGE_KEY = "better-xiaoheihe-api-params";
   const UI_STATE_STORAGE_KEY = "better-xiaoheihe-ui-state";
   const COMMENT_EMOJI_USAGE_STORAGE_KEY = "better-xiaoheihe-comment-emoji-usage";
+  const FEED_LAYOUT_SETTINGS_STORAGE_KEY = "better-xiaoheihe-feed-layout-settings";
 
   const LOCAL_SETTINGS_STORAGE_KEYS = [
     HIDE_CY_COMMENTS_STORAGE_KEY,
@@ -32,7 +33,8 @@
     AI_BOT_CONSENT_STORAGE_KEY,
     API_PARAMS_STORAGE_KEY,
     UI_STATE_STORAGE_KEY,
-    COMMENT_EMOJI_USAGE_STORAGE_KEY
+    COMMENT_EMOJI_USAGE_STORAGE_KEY,
+    FEED_LAYOUT_SETTINGS_STORAGE_KEY
   ];
 
   const LOCAL_SETTINGS_REQUEST_EVENT = "better-xiaoheihe-local-settings-request";

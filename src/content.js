@@ -24,6 +24,7 @@
   const API_PARAMS_STORAGE_KEY = "better-xiaoheihe-api-params";
   const UI_STATE_STORAGE_KEY = "better-xiaoheihe-ui-state";
   const COMMENT_EMOJI_USAGE_STORAGE_KEY = "better-xiaoheihe-comment-emoji-usage";
+  const FEED_LAYOUT_SETTINGS_STORAGE_KEY = "better-xiaoheihe-feed-layout-settings";
 
   const LOCAL_SETTINGS_STORAGE_KEYS = [
     HIDE_CY_COMMENTS_STORAGE_KEY,
@@ -37,7 +38,8 @@
     AI_BOT_CONSENT_STORAGE_KEY,
     API_PARAMS_STORAGE_KEY,
     UI_STATE_STORAGE_KEY,
-    COMMENT_EMOJI_USAGE_STORAGE_KEY
+    COMMENT_EMOJI_USAGE_STORAGE_KEY,
+    FEED_LAYOUT_SETTINGS_STORAGE_KEY
   ];
 
   const LOCAL_SETTINGS_REQUEST_EVENT = "better-xiaoheihe-local-settings-request";
@@ -241,6 +243,7 @@
   const SETTINGS_TABS = {
     FEED: "feed",
     COMMENT: "comment",
+    GENERAL: "general",
     AI: "ai",
     AIBOT: "aibot",
     AIBOT_LOGS: "aibot-logs"
@@ -259,6 +262,14 @@
     [BLOCKED_KEYWORD_SCOPES.COMMENT]: "评论",
     [BLOCKED_KEYWORD_SCOPES.FEED]: "帖子"
   };
+  const DEFAULT_FEED_LAYOUT = {
+    totalWidth: 92,
+    postWidth: 70
+  };
+  const FEED_LAYOUT_TOTAL_WIDTH_MIN = 60;
+  const FEED_LAYOUT_TOTAL_WIDTH_MAX = 100;
+  const FEED_LAYOUT_POST_WIDTH_MIN = 45;
+  const FEED_LAYOUT_POST_WIDTH_MAX = 80;
   const ROW_CLASS = "better-xiaoheihe-feed-row";
   const PREVIEW_CLASS = "better-xiaoheihe-comment-preview";
   const IMAGE_VIEWER_CLASS = "better-xiaoheihe-image-viewer";
@@ -319,6 +330,7 @@
   let aiSettings = normalizeAiSettings();
   let aiBotSettings = normalizeAiBotSettings();
   let uiState = normalizeUiState();
+  let feedLayoutSettings = normalizeFeedLayoutSettings();
   let aiBotLogs = [];
   let aiBotMessageLogs = [];
   let aiBotReplyQueue = [];
@@ -405,6 +417,72 @@
   function isCommunityHomePage() {
     return window.location.pathname === "/app/bbs/home"
       || window.location.pathname === "/app/bbs/home/";
+  }
+
+  function clampFeedLayoutValue(value, min, max, fallback) {
+    const parsed = Number.parseInt(value, 10);
+    return Math.min(max, Math.max(min, Number.isFinite(parsed) ? parsed : fallback));
+  }
+
+  function normalizeFeedLayout(layout) {
+    return {
+      totalWidth: clampFeedLayoutValue(
+        layout?.totalWidth,
+        FEED_LAYOUT_TOTAL_WIDTH_MIN,
+        FEED_LAYOUT_TOTAL_WIDTH_MAX,
+        DEFAULT_FEED_LAYOUT.totalWidth
+      ),
+      postWidth: clampFeedLayoutValue(
+        layout?.postWidth,
+        FEED_LAYOUT_POST_WIDTH_MIN,
+        FEED_LAYOUT_POST_WIDTH_MAX,
+        DEFAULT_FEED_LAYOUT.postWidth
+      )
+    };
+  }
+
+  function normalizeFeedLayoutSettings(settings) {
+    if (settings?.totalWidth !== undefined || settings?.postWidth !== undefined) {
+      return normalizeFeedLayout(settings);
+    }
+    return normalizeFeedLayout(settings?.home);
+  }
+
+  function applyFeedLayoutSettings() {
+    const layout = feedLayoutSettings;
+    const root = document.documentElement;
+    root.style.setProperty("--better-feed-total-width", `${layout.totalWidth}vw`);
+    root.style.setProperty("--better-feed-post-column", `${layout.postWidth}fr`);
+    root.style.setProperty("--better-feed-comment-column", `${100 - layout.postWidth}fr`);
+  }
+
+  function updateFeedLayoutSetting(nextLayout, options = {}) {
+    feedLayoutSettings = normalizeFeedLayoutSettings({
+      ...feedLayoutSettings,
+      ...nextLayout
+    });
+    applyFeedLayoutSettings();
+    if (options.persist !== false) {
+      saveLocalSettings({
+        [FEED_LAYOUT_SETTINGS_STORAGE_KEY]: feedLayoutSettings
+      });
+    }
+    if (options.render === true) {
+      renderSettingsPanel();
+    }
+  }
+
+  function syncFeedLayoutSettings(savedSettings) {
+    const normalizedSettings = normalizeFeedLayoutSettings(savedSettings);
+    if (JSON.stringify(normalizedSettings) === JSON.stringify(feedLayoutSettings)) {
+      applyFeedLayoutSettings();
+      return;
+    }
+    feedLayoutSettings = normalizedSettings;
+    applyFeedLayoutSettings();
+    if (activeSettingsTab === SETTINGS_TABS.GENERAL) {
+      renderSettingsPanel();
+    }
   }
 
   function captureInlineStyle(element, property) {
@@ -941,6 +1019,8 @@
     aiBotReplyQueue = normalizeAiBotReplyQueue(values[AI_BOT_REPLY_QUEUE_STORAGE_KEY]);
     aiBotConsentAccepted = values[AI_BOT_CONSENT_STORAGE_KEY] === true;
     emojiUsageStats = normalizeEmojiUsageStats(values[COMMENT_EMOJI_USAGE_STORAGE_KEY]);
+    feedLayoutSettings = normalizeFeedLayoutSettings(values[FEED_LAYOUT_SETTINGS_STORAGE_KEY]);
+    applyFeedLayoutSettings();
   }
 
   async function loadLocalSettingsState() {
@@ -1012,6 +1092,9 @@
     nextValues[COMMENT_EMOJI_USAGE_STORAGE_KEY] = keysPresent[COMMENT_EMOJI_USAGE_STORAGE_KEY]
       ? normalizeEmojiUsageStats(values[COMMENT_EMOJI_USAGE_STORAGE_KEY])
       : {};
+    nextValues[FEED_LAYOUT_SETTINGS_STORAGE_KEY] = keysPresent[FEED_LAYOUT_SETTINGS_STORAGE_KEY]
+      ? normalizeFeedLayoutSettings(values[FEED_LAYOUT_SETTINGS_STORAGE_KEY])
+      : normalizeFeedLayoutSettings();
 
     applyLocalSettingsValues(nextValues);
 
@@ -1139,10 +1222,43 @@
         margin-left: 0 !important;
       }
 
+      .${HOME_LAYOUT_CLASS} .hb-cpt__scroll-list.hb-bbs-home,
+      .${HOME_LAYOUT_CLASS} #page-bbs-community .hb-cpt__scroll-list.hb-bbs-home {
+        position: relative !important;
+        left: 50% !important;
+        width: var(--better-feed-total-width, 92vw) !important;
+        max-width: calc(100vw - 24px) !important;
+        flex: 0 1 var(--better-feed-total-width, 92vw) !important;
+        margin-right: 0 !important;
+        margin-left: 0 !important;
+        transform: translateX(-50%) !important;
+      }
+
       .${HOME_LAYOUT_CLASS} .hb-cpt__scroll-list.hb-bbs-home > .bbs-home__topic-list-wrapper,
       .${HOME_LAYOUT_CLASS} .hb-cpt__scroll-list.hb-bbs-home > .bbs-home__content-list {
+        position: relative !important;
+        left: auto !important;
         width: 100% !important;
-        max-width: none !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        flex: 0 0 auto !important;
+        margin-right: 0 !important;
+        margin-left: 0 !important;
+        transform: none !important;
+      }
+
+      .${HOME_LAYOUT_CLASS} .search-result__list.general,
+      .${HOME_LAYOUT_CLASS} .hb-page__app .search-result__list.general {
+        box-sizing: border-box !important;
+        position: relative !important;
+        left: 50% !important;
+        width: var(--better-feed-total-width, 92vw) !important;
+        min-width: 0 !important;
+        max-width: calc(100vw - 24px) !important;
+        flex: 0 1 var(--better-feed-total-width, 92vw) !important;
+        margin-right: 0 !important;
+        margin-left: 0 !important;
+        transform: translateX(-50%) !important;
       }
 
       .${HOME_LAYOUT_CLASS} .bbs-home__topic-list-wrapper,
@@ -2851,9 +2967,74 @@
         opacity: 0.45;
       }
 
+      .${SETTINGS_PANEL_CLASS} .better-settings__layout-control {
+        margin-top: 16px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__layout-control-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        color: #3c4651;
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 18px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__layout-control-header output {
+        flex: 0 0 auto;
+        color: #2775d1;
+        font-weight: 600;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__layout-range {
+        box-sizing: border-box;
+        width: 100%;
+        margin: 8px 0 0;
+        accent-color: #2775d1;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__layout-scale {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 2px;
+        color: #a1a8b0;
+        font-size: 11px;
+        line-height: 16px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__layout-preview {
+        box-sizing: border-box;
+        display: flex;
+        width: var(--better-layout-preview-total);
+        height: 34px;
+        overflow: hidden;
+        margin: 16px auto 10px;
+        border: 1px solid #dce3ea;
+        border-radius: 7px;
+        background: #f7f9fb;
+        color: #59636e;
+        font-size: 11px;
+        line-height: 34px;
+        text-align: center;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__layout-preview-post {
+        width: var(--better-layout-preview-post);
+        background: #eef5ff;
+        color: #1f66b8;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__layout-preview-comment {
+        width: var(--better-layout-preview-comment);
+        border-left: 1px solid #dce3ea;
+        background: #f7fafc;
+      }
+
       .${SETTINGS_PANEL_CLASS} .better-settings__tabs {
         display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(5, minmax(0, 1fr));
         gap: 4px;
         margin-bottom: 10px;
         padding: 3px;
@@ -4102,16 +4283,30 @@
       }
 
       .${HOME_LAYOUT_CLASS} .${ROW_CLASS} {
+        box-sizing: border-box;
         display: grid;
-        grid-template-columns: minmax(0, 1fr) clamp(360px, 28vw, 520px);
+        position: relative;
+        left: 50%;
+        grid-template-columns: minmax(0, var(--better-feed-post-column, 70fr)) minmax(0, var(--better-feed-comment-column, 30fr));
         gap: 0;
         align-items: start;
-        margin: 0 0 14px;
+        width: var(--better-feed-total-width, 92vw) !important;
+        max-width: calc(100vw - 24px) !important;
+        margin: 0 auto 14px;
         border: 1px solid #eef0f2;
         border-radius: 8px;
         background: #fff;
         box-shadow: 0 1px 2px rgba(20, 25, 30, 0.04);
         overflow: hidden;
+        transform: translateX(-50%);
+      }
+
+      .${HOME_LAYOUT_CLASS} .hb-cpt__scroll-list.hb-bbs-home .${ROW_CLASS},
+      .${HOME_LAYOUT_CLASS} .search-result__list.general > .search-result__link.${ROW_CLASS} {
+        left: auto;
+        width: 100% !important;
+        max-width: 100% !important;
+        transform: none;
       }
 
       .${HOME_LAYOUT_CLASS} .search-result__link.${ROW_CLASS} {
@@ -12138,8 +12333,9 @@
   }
 
   function setActiveSettingsTab(tab) {
-    activeSettingsTab = tab === SETTINGS_TABS.AI || tab === SETTINGS_TABS.AIBOT || tab === SETTINGS_TABS.AIBOT_LOGS ? tab : normalizeBlockedKeywordScope(tab);
-    if (activeSettingsTab !== SETTINGS_TABS.AI && activeSettingsTab !== SETTINGS_TABS.AIBOT && activeSettingsTab !== SETTINGS_TABS.AIBOT_LOGS) {
+    const standaloneTabs = [SETTINGS_TABS.GENERAL, SETTINGS_TABS.AI, SETTINGS_TABS.AIBOT, SETTINGS_TABS.AIBOT_LOGS];
+    activeSettingsTab = standaloneTabs.includes(tab) ? tab : normalizeBlockedKeywordScope(tab);
+    if (!standaloneTabs.includes(activeSettingsTab)) {
       activeBlockedKeywordScope = activeSettingsTab;
     }
     renderSettingsPanel();
@@ -13161,6 +13357,39 @@
     `;
   }
 
+  function renderFeedLayoutSettingsPanelContent() {
+    const layout = feedLayoutSettings;
+    const commentWidth = 100 - layout.postWidth;
+
+    return `
+      <div class="better-settings__section better-settings__layout-section">
+        <div class="better-settings__section-title">信息流布局</div>
+        <div class="better-settings__desc">首页、话题、搜索、用户主页和收藏等信息流统一使用此配置。</div>
+        <div class="better-settings__layout-control">
+          <div class="better-settings__layout-control-header">
+            <span>帖子 + 评论区总宽度</span>
+            <output class="better-settings__layout-total-value">${layout.totalWidth}%</output>
+          </div>
+          <input class="better-settings__layout-range better-settings__layout-total-range" type="range" min="${FEED_LAYOUT_TOTAL_WIDTH_MIN}" max="${FEED_LAYOUT_TOTAL_WIDTH_MAX}" step="1" value="${layout.totalWidth}">
+          <div class="better-settings__layout-scale"><span>${FEED_LAYOUT_TOTAL_WIDTH_MIN}%</span><span>${FEED_LAYOUT_TOTAL_WIDTH_MAX}%</span></div>
+        </div>
+        <div class="better-settings__layout-control">
+          <div class="better-settings__layout-control-header">
+            <span>帖子 / 评论区宽度占比</span>
+            <output class="better-settings__layout-ratio-value">帖子 ${layout.postWidth}% · 评论 ${commentWidth}%</output>
+          </div>
+          <input class="better-settings__layout-range better-settings__layout-post-range" type="range" min="${FEED_LAYOUT_POST_WIDTH_MIN}" max="${FEED_LAYOUT_POST_WIDTH_MAX}" step="1" value="${layout.postWidth}">
+          <div class="better-settings__layout-scale"><span>评论更宽</span><span>帖子更宽</span></div>
+        </div>
+        <div class="better-settings__layout-preview" style="--better-layout-preview-total: ${layout.totalWidth}%; --better-layout-preview-post: ${layout.postWidth}%; --better-layout-preview-comment: ${commentWidth}%" aria-hidden="true">
+          <span class="better-settings__layout-preview-post">帖子</span>
+          <span class="better-settings__layout-preview-comment">评论区</span>
+        </div>
+        <button class="better-settings__text-button better-settings__layout-reset" type="button">恢复默认值</button>
+      </div>
+    `;
+  }
+
   function renderSettingsPanel() {
     const panel = document.querySelector(`.${SETTINGS_PANEL_CLASS}`);
     if (!panel) {
@@ -13168,17 +13397,20 @@
     }
 
     panel.innerHTML = `
-      <div class="better-settings__tabs" role="tablist" aria-label="屏蔽范围">
+      <div class="better-settings__tabs" role="tablist" aria-label="设置分类">
         <button class="better-settings__tab" type="button" role="tab" data-settings-tab="${SETTINGS_TABS.FEED}" aria-selected="${activeSettingsTab === SETTINGS_TABS.FEED ? "true" : "false"}">帖子</button>
         <button class="better-settings__tab" type="button" role="tab" data-settings-tab="${SETTINGS_TABS.COMMENT}" aria-selected="${activeSettingsTab === SETTINGS_TABS.COMMENT ? "true" : "false"}">评论</button>
+        <button class="better-settings__tab" type="button" role="tab" data-settings-tab="${SETTINGS_TABS.GENERAL}" aria-selected="${activeSettingsTab === SETTINGS_TABS.GENERAL ? "true" : "false"}">通用</button>
         <button class="better-settings__tab" type="button" role="tab" data-settings-tab="${SETTINGS_TABS.AI}" aria-selected="${activeSettingsTab === SETTINGS_TABS.AI ? "true" : "false"}">AI 总结</button>
         <button class="better-settings__tab" type="button" role="tab" data-settings-tab="${SETTINGS_TABS.AIBOT}" aria-selected="${activeSettingsTab === SETTINGS_TABS.AIBOT ? "true" : "false"}">AI Bot</button>
       </div>
       ${activeSettingsTab === SETTINGS_TABS.AI
         ? renderAiSettingsPanelContent()
-        : (activeSettingsTab === SETTINGS_TABS.AIBOT
-          ? renderAiBotSettingsPanelContent()
-          : (activeSettingsTab === SETTINGS_TABS.AIBOT_LOGS ? renderAiBotLogsPanelContent() : renderBlockedSettingsPanelContent()))}
+        : (activeSettingsTab === SETTINGS_TABS.GENERAL
+          ? renderFeedLayoutSettingsPanelContent()
+          : (activeSettingsTab === SETTINGS_TABS.AIBOT
+            ? renderAiBotSettingsPanelContent()
+            : (activeSettingsTab === SETTINGS_TABS.AIBOT_LOGS ? renderAiBotLogsPanelContent() : renderBlockedSettingsPanelContent())))}
     `;
     syncSettingsAutoHeightTextareas(panel);
     if (activeSettingsTab === SETTINGS_TABS.AI) {
@@ -13916,6 +14148,14 @@
         return;
       }
 
+      const layoutResetButton = event.target.closest(".better-settings__layout-reset");
+      if (layoutResetButton && panel.contains(layoutResetButton)) {
+        updateFeedLayoutSetting(DEFAULT_FEED_LAYOUT, {
+          render: true
+        });
+        return;
+      }
+
       const resetAiBotPromptButton = event.target.closest(".better-settings__ai-bot-reset-prompt");
       if (resetAiBotPromptButton && panel.contains(resetAiBotPromptButton)) {
         const promptInput = panel.querySelector(".better-settings__ai-bot-comment-prompt");
@@ -14114,6 +14354,31 @@
         }
       }
 
+      if (event.target.matches(".better-settings__layout-total-range, .better-settings__layout-post-range")) {
+        const isTotalWidth = event.target.matches(".better-settings__layout-total-range");
+        updateFeedLayoutSetting(isTotalWidth
+          ? { totalWidth: event.target.value }
+          : { postWidth: event.target.value }, {
+          persist: false
+        });
+        const layout = feedLayoutSettings;
+        const totalValue = panel.querySelector(".better-settings__layout-total-value");
+        const ratioValue = panel.querySelector(".better-settings__layout-ratio-value");
+        const preview = panel.querySelector(".better-settings__layout-preview");
+        if (totalValue) {
+          totalValue.textContent = `${layout.totalWidth}%`;
+        }
+        if (ratioValue) {
+          ratioValue.textContent = `帖子 ${layout.postWidth}% · 评论 ${100 - layout.postWidth}%`;
+        }
+        if (preview) {
+          preview.style.setProperty("--better-layout-preview-total", `${layout.totalWidth}%`);
+          preview.style.setProperty("--better-layout-preview-post", `${layout.postWidth}%`);
+          preview.style.setProperty("--better-layout-preview-comment", `${100 - layout.postWidth}%`);
+        }
+        return;
+      }
+
       if (event.target.matches(".better-settings__ai-base-url, .better-settings__ai-model, .better-settings__ai-api-key, .better-settings__ai-summary-prompt")) {
         if (event.target.matches(".better-settings__ai-summary-prompt")) {
           syncAutoHeightTextarea(event.target);
@@ -14145,6 +14410,14 @@
 
       if (event.target.matches(".better-settings__ai-enabled, .better-settings__ai-allow-emoji, .better-settings__ai-auto-popup")) {
         saveAiSettingsFromPanel(panel);
+        return;
+      }
+
+      if (event.target.matches(".better-settings__layout-total-range, .better-settings__layout-post-range")) {
+        const isTotalWidth = event.target.matches(".better-settings__layout-total-range");
+        updateFeedLayoutSetting(isTotalWidth
+          ? { totalWidth: event.target.value }
+          : { postWidth: event.target.value });
         return;
       }
 
@@ -14310,7 +14583,8 @@
   }
 
   function openSettingsPanelTab(tab) {
-    activeSettingsTab = tab === SETTINGS_TABS.AI || tab === SETTINGS_TABS.AIBOT || tab === SETTINGS_TABS.AIBOT_LOGS ? tab : normalizeBlockedKeywordScope(tab);
+    const standaloneTabs = [SETTINGS_TABS.GENERAL, SETTINGS_TABS.AI, SETTINGS_TABS.AIBOT, SETTINGS_TABS.AIBOT_LOGS];
+    activeSettingsTab = standaloneTabs.includes(tab) ? tab : normalizeBlockedKeywordScope(tab);
     const button = document.querySelector(`.${SETTINGS_ENTRY_CLASS}`);
     if (!button) {
       return;
@@ -14321,7 +14595,7 @@
     button.setAttribute("aria-expanded", "true");
     renderSettingsPanel();
     positionSettingsPanel(panel, button);
-    panel.querySelector(activeSettingsTab === SETTINGS_TABS.AI ? ".better-settings__ai-base-url" : (activeSettingsTab === SETTINGS_TABS.AIBOT ? ".better-settings__ai-bot-base-url" : (activeSettingsTab === SETTINGS_TABS.AIBOT_LOGS ? ".better-settings__ai-bot-refresh-logs" : ".better-settings__input")))?.focus();
+    panel.querySelector(activeSettingsTab === SETTINGS_TABS.AI ? ".better-settings__ai-base-url" : (activeSettingsTab === SETTINGS_TABS.AIBOT ? ".better-settings__ai-bot-base-url" : (activeSettingsTab === SETTINGS_TABS.AIBOT_LOGS ? ".better-settings__ai-bot-refresh-logs" : (activeSettingsTab === SETTINGS_TABS.GENERAL ? ".better-settings__layout-total-range" : ".better-settings__input"))))?.focus();
     if (activeSettingsTab === SETTINGS_TABS.AIBOT_LOGS) {
       startAiBotLogAutoRefresh();
     } else {
@@ -15936,6 +16210,7 @@
 
     document.documentElement.classList.add(HOME_LAYOUT_CLASS);
     document.documentElement.classList.toggle(LINK_DETAIL_LAYOUT_CLASS, isLinkPage());
+    applyFeedLayoutSettings();
     moveLeftMenuToTop();
     moveSearchHotListToLeftSidebar();
     removeRightContent();
@@ -16144,6 +16419,9 @@
       }
       if (Object.prototype.hasOwnProperty.call(values, COMMENT_EMOJI_USAGE_STORAGE_KEY)) {
         syncEmojiUsageStats(values[COMMENT_EMOJI_USAGE_STORAGE_KEY]);
+      }
+      if (Object.prototype.hasOwnProperty.call(values, FEED_LAYOUT_SETTINGS_STORAGE_KEY)) {
+        syncFeedLayoutSettings(values[FEED_LAYOUT_SETTINGS_STORAGE_KEY]);
       }
       if (Object.prototype.hasOwnProperty.call(values, AI_BOT_SETTINGS_STORAGE_KEY)) {
         aiBotSettings = normalizeAiBotSettings(values[AI_BOT_SETTINGS_STORAGE_KEY]);

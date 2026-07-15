@@ -46,6 +46,39 @@
     `;
   }
 
+  function renderFeedLayoutSettingsPanelContent() {
+    const layout = feedLayoutSettings;
+    const commentWidth = 100 - layout.postWidth;
+
+    return `
+      <div class="better-settings__section better-settings__layout-section">
+        <div class="better-settings__section-title">信息流布局</div>
+        <div class="better-settings__desc">首页、话题、搜索、用户主页和收藏等信息流统一使用此配置。</div>
+        <div class="better-settings__layout-control">
+          <div class="better-settings__layout-control-header">
+            <span>帖子 + 评论区总宽度</span>
+            <output class="better-settings__layout-total-value">${layout.totalWidth}%</output>
+          </div>
+          <input class="better-settings__layout-range better-settings__layout-total-range" type="range" min="${FEED_LAYOUT_TOTAL_WIDTH_MIN}" max="${FEED_LAYOUT_TOTAL_WIDTH_MAX}" step="1" value="${layout.totalWidth}">
+          <div class="better-settings__layout-scale"><span>${FEED_LAYOUT_TOTAL_WIDTH_MIN}%</span><span>${FEED_LAYOUT_TOTAL_WIDTH_MAX}%</span></div>
+        </div>
+        <div class="better-settings__layout-control">
+          <div class="better-settings__layout-control-header">
+            <span>帖子 / 评论区宽度占比</span>
+            <output class="better-settings__layout-ratio-value">帖子 ${layout.postWidth}% · 评论 ${commentWidth}%</output>
+          </div>
+          <input class="better-settings__layout-range better-settings__layout-post-range" type="range" min="${FEED_LAYOUT_POST_WIDTH_MIN}" max="${FEED_LAYOUT_POST_WIDTH_MAX}" step="1" value="${layout.postWidth}">
+          <div class="better-settings__layout-scale"><span>评论更宽</span><span>帖子更宽</span></div>
+        </div>
+        <div class="better-settings__layout-preview" style="--better-layout-preview-total: ${layout.totalWidth}%; --better-layout-preview-post: ${layout.postWidth}%; --better-layout-preview-comment: ${commentWidth}%" aria-hidden="true">
+          <span class="better-settings__layout-preview-post">帖子</span>
+          <span class="better-settings__layout-preview-comment">评论区</span>
+        </div>
+        <button class="better-settings__text-button better-settings__layout-reset" type="button">恢复默认值</button>
+      </div>
+    `;
+  }
+
   function renderSettingsPanel() {
     const panel = document.querySelector(`.${SETTINGS_PANEL_CLASS}`);
     if (!panel) {
@@ -53,17 +86,20 @@
     }
 
     panel.innerHTML = `
-      <div class="better-settings__tabs" role="tablist" aria-label="屏蔽范围">
+      <div class="better-settings__tabs" role="tablist" aria-label="设置分类">
         <button class="better-settings__tab" type="button" role="tab" data-settings-tab="${SETTINGS_TABS.FEED}" aria-selected="${activeSettingsTab === SETTINGS_TABS.FEED ? "true" : "false"}">帖子</button>
         <button class="better-settings__tab" type="button" role="tab" data-settings-tab="${SETTINGS_TABS.COMMENT}" aria-selected="${activeSettingsTab === SETTINGS_TABS.COMMENT ? "true" : "false"}">评论</button>
+        <button class="better-settings__tab" type="button" role="tab" data-settings-tab="${SETTINGS_TABS.GENERAL}" aria-selected="${activeSettingsTab === SETTINGS_TABS.GENERAL ? "true" : "false"}">通用</button>
         <button class="better-settings__tab" type="button" role="tab" data-settings-tab="${SETTINGS_TABS.AI}" aria-selected="${activeSettingsTab === SETTINGS_TABS.AI ? "true" : "false"}">AI 总结</button>
         <button class="better-settings__tab" type="button" role="tab" data-settings-tab="${SETTINGS_TABS.AIBOT}" aria-selected="${activeSettingsTab === SETTINGS_TABS.AIBOT ? "true" : "false"}">AI Bot</button>
       </div>
       ${activeSettingsTab === SETTINGS_TABS.AI
         ? renderAiSettingsPanelContent()
-        : (activeSettingsTab === SETTINGS_TABS.AIBOT
-          ? renderAiBotSettingsPanelContent()
-          : (activeSettingsTab === SETTINGS_TABS.AIBOT_LOGS ? renderAiBotLogsPanelContent() : renderBlockedSettingsPanelContent()))}
+        : (activeSettingsTab === SETTINGS_TABS.GENERAL
+          ? renderFeedLayoutSettingsPanelContent()
+          : (activeSettingsTab === SETTINGS_TABS.AIBOT
+            ? renderAiBotSettingsPanelContent()
+            : (activeSettingsTab === SETTINGS_TABS.AIBOT_LOGS ? renderAiBotLogsPanelContent() : renderBlockedSettingsPanelContent())))}
     `;
     syncSettingsAutoHeightTextareas(panel);
     if (activeSettingsTab === SETTINGS_TABS.AI) {

@@ -46,6 +46,7 @@
   const SETTINGS_TABS = {
     FEED: "feed",
     COMMENT: "comment",
+    GENERAL: "general",
     AI: "ai",
     AIBOT: "aibot",
     AIBOT_LOGS: "aibot-logs"
@@ -64,6 +65,14 @@
     [BLOCKED_KEYWORD_SCOPES.COMMENT]: "评论",
     [BLOCKED_KEYWORD_SCOPES.FEED]: "帖子"
   };
+  const DEFAULT_FEED_LAYOUT = {
+    totalWidth: 92,
+    postWidth: 70
+  };
+  const FEED_LAYOUT_TOTAL_WIDTH_MIN = 60;
+  const FEED_LAYOUT_TOTAL_WIDTH_MAX = 100;
+  const FEED_LAYOUT_POST_WIDTH_MIN = 45;
+  const FEED_LAYOUT_POST_WIDTH_MAX = 80;
   const ROW_CLASS = "better-xiaoheihe-feed-row";
   const PREVIEW_CLASS = "better-xiaoheihe-comment-preview";
   const IMAGE_VIEWER_CLASS = "better-xiaoheihe-image-viewer";
@@ -124,6 +133,7 @@
   let aiSettings = normalizeAiSettings();
   let aiBotSettings = normalizeAiBotSettings();
   let uiState = normalizeUiState();
+  let feedLayoutSettings = normalizeFeedLayoutSettings();
   let aiBotLogs = [];
   let aiBotMessageLogs = [];
   let aiBotReplyQueue = [];
@@ -210,6 +220,72 @@
   function isCommunityHomePage() {
     return window.location.pathname === "/app/bbs/home"
       || window.location.pathname === "/app/bbs/home/";
+  }
+
+  function clampFeedLayoutValue(value, min, max, fallback) {
+    const parsed = Number.parseInt(value, 10);
+    return Math.min(max, Math.max(min, Number.isFinite(parsed) ? parsed : fallback));
+  }
+
+  function normalizeFeedLayout(layout) {
+    return {
+      totalWidth: clampFeedLayoutValue(
+        layout?.totalWidth,
+        FEED_LAYOUT_TOTAL_WIDTH_MIN,
+        FEED_LAYOUT_TOTAL_WIDTH_MAX,
+        DEFAULT_FEED_LAYOUT.totalWidth
+      ),
+      postWidth: clampFeedLayoutValue(
+        layout?.postWidth,
+        FEED_LAYOUT_POST_WIDTH_MIN,
+        FEED_LAYOUT_POST_WIDTH_MAX,
+        DEFAULT_FEED_LAYOUT.postWidth
+      )
+    };
+  }
+
+  function normalizeFeedLayoutSettings(settings) {
+    if (settings?.totalWidth !== undefined || settings?.postWidth !== undefined) {
+      return normalizeFeedLayout(settings);
+    }
+    return normalizeFeedLayout(settings?.home);
+  }
+
+  function applyFeedLayoutSettings() {
+    const layout = feedLayoutSettings;
+    const root = document.documentElement;
+    root.style.setProperty("--better-feed-total-width", `${layout.totalWidth}vw`);
+    root.style.setProperty("--better-feed-post-column", `${layout.postWidth}fr`);
+    root.style.setProperty("--better-feed-comment-column", `${100 - layout.postWidth}fr`);
+  }
+
+  function updateFeedLayoutSetting(nextLayout, options = {}) {
+    feedLayoutSettings = normalizeFeedLayoutSettings({
+      ...feedLayoutSettings,
+      ...nextLayout
+    });
+    applyFeedLayoutSettings();
+    if (options.persist !== false) {
+      saveLocalSettings({
+        [FEED_LAYOUT_SETTINGS_STORAGE_KEY]: feedLayoutSettings
+      });
+    }
+    if (options.render === true) {
+      renderSettingsPanel();
+    }
+  }
+
+  function syncFeedLayoutSettings(savedSettings) {
+    const normalizedSettings = normalizeFeedLayoutSettings(savedSettings);
+    if (JSON.stringify(normalizedSettings) === JSON.stringify(feedLayoutSettings)) {
+      applyFeedLayoutSettings();
+      return;
+    }
+    feedLayoutSettings = normalizedSettings;
+    applyFeedLayoutSettings();
+    if (activeSettingsTab === SETTINGS_TABS.GENERAL) {
+      renderSettingsPanel();
+    }
   }
 
   function captureInlineStyle(element, property) {
@@ -746,6 +822,8 @@
     aiBotReplyQueue = normalizeAiBotReplyQueue(values[AI_BOT_REPLY_QUEUE_STORAGE_KEY]);
     aiBotConsentAccepted = values[AI_BOT_CONSENT_STORAGE_KEY] === true;
     emojiUsageStats = normalizeEmojiUsageStats(values[COMMENT_EMOJI_USAGE_STORAGE_KEY]);
+    feedLayoutSettings = normalizeFeedLayoutSettings(values[FEED_LAYOUT_SETTINGS_STORAGE_KEY]);
+    applyFeedLayoutSettings();
   }
 
   async function loadLocalSettingsState() {
@@ -817,6 +895,9 @@
     nextValues[COMMENT_EMOJI_USAGE_STORAGE_KEY] = keysPresent[COMMENT_EMOJI_USAGE_STORAGE_KEY]
       ? normalizeEmojiUsageStats(values[COMMENT_EMOJI_USAGE_STORAGE_KEY])
       : {};
+    nextValues[FEED_LAYOUT_SETTINGS_STORAGE_KEY] = keysPresent[FEED_LAYOUT_SETTINGS_STORAGE_KEY]
+      ? normalizeFeedLayoutSettings(values[FEED_LAYOUT_SETTINGS_STORAGE_KEY])
+      : normalizeFeedLayoutSettings();
 
     applyLocalSettingsValues(nextValues);
 

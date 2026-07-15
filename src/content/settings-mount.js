@@ -48,6 +48,14 @@
         return;
       }
 
+      const layoutResetButton = event.target.closest(".better-settings__layout-reset");
+      if (layoutResetButton && panel.contains(layoutResetButton)) {
+        updateFeedLayoutSetting(DEFAULT_FEED_LAYOUT, {
+          render: true
+        });
+        return;
+      }
+
       const resetAiBotPromptButton = event.target.closest(".better-settings__ai-bot-reset-prompt");
       if (resetAiBotPromptButton && panel.contains(resetAiBotPromptButton)) {
         const promptInput = panel.querySelector(".better-settings__ai-bot-comment-prompt");
@@ -246,6 +254,31 @@
         }
       }
 
+      if (event.target.matches(".better-settings__layout-total-range, .better-settings__layout-post-range")) {
+        const isTotalWidth = event.target.matches(".better-settings__layout-total-range");
+        updateFeedLayoutSetting(isTotalWidth
+          ? { totalWidth: event.target.value }
+          : { postWidth: event.target.value }, {
+          persist: false
+        });
+        const layout = feedLayoutSettings;
+        const totalValue = panel.querySelector(".better-settings__layout-total-value");
+        const ratioValue = panel.querySelector(".better-settings__layout-ratio-value");
+        const preview = panel.querySelector(".better-settings__layout-preview");
+        if (totalValue) {
+          totalValue.textContent = `${layout.totalWidth}%`;
+        }
+        if (ratioValue) {
+          ratioValue.textContent = `帖子 ${layout.postWidth}% · 评论 ${100 - layout.postWidth}%`;
+        }
+        if (preview) {
+          preview.style.setProperty("--better-layout-preview-total", `${layout.totalWidth}%`);
+          preview.style.setProperty("--better-layout-preview-post", `${layout.postWidth}%`);
+          preview.style.setProperty("--better-layout-preview-comment", `${100 - layout.postWidth}%`);
+        }
+        return;
+      }
+
       if (event.target.matches(".better-settings__ai-base-url, .better-settings__ai-model, .better-settings__ai-api-key, .better-settings__ai-summary-prompt")) {
         if (event.target.matches(".better-settings__ai-summary-prompt")) {
           syncAutoHeightTextarea(event.target);
@@ -277,6 +310,14 @@
 
       if (event.target.matches(".better-settings__ai-enabled, .better-settings__ai-allow-emoji, .better-settings__ai-auto-popup")) {
         saveAiSettingsFromPanel(panel);
+        return;
+      }
+
+      if (event.target.matches(".better-settings__layout-total-range, .better-settings__layout-post-range")) {
+        const isTotalWidth = event.target.matches(".better-settings__layout-total-range");
+        updateFeedLayoutSetting(isTotalWidth
+          ? { totalWidth: event.target.value }
+          : { postWidth: event.target.value });
         return;
       }
 
@@ -442,7 +483,8 @@
   }
 
   function openSettingsPanelTab(tab) {
-    activeSettingsTab = tab === SETTINGS_TABS.AI || tab === SETTINGS_TABS.AIBOT || tab === SETTINGS_TABS.AIBOT_LOGS ? tab : normalizeBlockedKeywordScope(tab);
+    const standaloneTabs = [SETTINGS_TABS.GENERAL, SETTINGS_TABS.AI, SETTINGS_TABS.AIBOT, SETTINGS_TABS.AIBOT_LOGS];
+    activeSettingsTab = standaloneTabs.includes(tab) ? tab : normalizeBlockedKeywordScope(tab);
     const button = document.querySelector(`.${SETTINGS_ENTRY_CLASS}`);
     if (!button) {
       return;
@@ -453,7 +495,7 @@
     button.setAttribute("aria-expanded", "true");
     renderSettingsPanel();
     positionSettingsPanel(panel, button);
-    panel.querySelector(activeSettingsTab === SETTINGS_TABS.AI ? ".better-settings__ai-base-url" : (activeSettingsTab === SETTINGS_TABS.AIBOT ? ".better-settings__ai-bot-base-url" : (activeSettingsTab === SETTINGS_TABS.AIBOT_LOGS ? ".better-settings__ai-bot-refresh-logs" : ".better-settings__input")))?.focus();
+    panel.querySelector(activeSettingsTab === SETTINGS_TABS.AI ? ".better-settings__ai-base-url" : (activeSettingsTab === SETTINGS_TABS.AIBOT ? ".better-settings__ai-bot-base-url" : (activeSettingsTab === SETTINGS_TABS.AIBOT_LOGS ? ".better-settings__ai-bot-refresh-logs" : (activeSettingsTab === SETTINGS_TABS.GENERAL ? ".better-settings__layout-total-range" : ".better-settings__input"))))?.focus();
     if (activeSettingsTab === SETTINGS_TABS.AIBOT_LOGS) {
       startAiBotLogAutoRefresh();
     } else {

@@ -15,8 +15,9 @@
   }
 
   function setActiveSettingsTab(tab) {
-    activeSettingsTab = tab === SETTINGS_TABS.AI || tab === SETTINGS_TABS.AIBOT || tab === SETTINGS_TABS.AIBOT_LOGS ? tab : normalizeBlockedKeywordScope(tab);
-    if (activeSettingsTab !== SETTINGS_TABS.AI && activeSettingsTab !== SETTINGS_TABS.AIBOT && activeSettingsTab !== SETTINGS_TABS.AIBOT_LOGS) {
+    const standaloneTabs = [SETTINGS_TABS.GENERAL, SETTINGS_TABS.AI, SETTINGS_TABS.AIBOT, SETTINGS_TABS.AIBOT_LOGS];
+    activeSettingsTab = standaloneTabs.includes(tab) ? tab : normalizeBlockedKeywordScope(tab);
+    if (!standaloneTabs.includes(activeSettingsTab)) {
       activeBlockedKeywordScope = activeSettingsTab;
     }
     renderSettingsPanel();
