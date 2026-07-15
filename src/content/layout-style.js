@@ -255,17 +255,6 @@
         fill: currentColor;
       }
 
-      .${FAVORITE_ENTRY_CLASS}.is-loading::after {
-        position: absolute;
-        right: 6px;
-        bottom: 6px;
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background: #2775d1;
-        content: "";
-      }
-
       .${HEADER_SEARCH_CLASS} {
         box-sizing: border-box;
         display: inline-flex;
@@ -529,17 +518,6 @@
         stroke-linecap: round;
         stroke-linejoin: round;
         stroke-width: 2;
-      }
-
-      .${HEADER_MESSAGE_CLASS}.is-loading::after {
-        position: absolute;
-        right: 6px;
-        bottom: 6px;
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background: #2775d1;
-        content: "";
       }
 
       .${MESSAGE_POPOVER_CLASS} {
