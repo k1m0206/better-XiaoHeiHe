@@ -760,6 +760,17 @@
         object-fit: cover;
       }
 
+      .${FAVORITE_POPOVER_CLASS} .better-favorite-popover__stat {
+        gap: 3px;
+      }
+
+      .${FAVORITE_POPOVER_CLASS} .better-favorite-popover__stat-icon {
+        width: 14px;
+        height: 14px;
+        flex: 0 0 auto;
+        fill: currentColor;
+      }
+
       .${FAVORITE_POPOVER_CLASS} .better-message-popover__footer-state {
         padding: 10px 0 2px;
         color: #8a9299;

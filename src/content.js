@@ -1750,6 +1750,17 @@
         object-fit: cover;
       }
 
+      .${FAVORITE_POPOVER_CLASS} .better-favorite-popover__stat {
+        gap: 3px;
+      }
+
+      .${FAVORITE_POPOVER_CLASS} .better-favorite-popover__stat-icon {
+        width: 14px;
+        height: 14px;
+        flex: 0 0 auto;
+        fill: currentColor;
+      }
+
       .${FAVORITE_POPOVER_CLASS} .better-message-popover__footer-state {
         padding: 10px 0 2px;
         color: #8a9299;
@@ -14334,8 +14345,18 @@
               </span>
             ` : ""}
             <span class="better-favorite-popover__meta">${escapeHtml(formatCommentTime(item.timestamp))}</span>
-            <span class="better-favorite-popover__meta">赞 ${escapeHtml(item.awardCount)}</span>
-            <span class="better-favorite-popover__meta">评 ${escapeHtml(item.commentCount)}</span>
+            <span class="better-favorite-popover__meta better-favorite-popover__stat" aria-label="点赞 ${escapeHtml(item.awardCount)}">
+              <svg class="better-favorite-popover__stat-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M2 21h4V9H2v12Zm19.5-11.8c-.2-.7-.8-1.2-1.6-1.2h-5.7l.9-4.1v-.3c0-.4-.2-.8-.5-1.1L13.6 1 7 7.6V19c0 1.1.9 2 2 2h8.4c.8 0 1.5-.5 1.8-1.2l3-7.1c.1-.2.1-.5.1-.7v-1.1c0-.6-.3-1.2-.8-1.7Z"></path>
+              </svg>
+              ${escapeHtml(item.awardCount)}
+            </span>
+            <span class="better-favorite-popover__meta better-favorite-popover__stat" aria-label="评论 ${escapeHtml(item.commentCount)}">
+              <svg class="better-favorite-popover__stat-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M19 3H5a3 3 0 0 0-3 3v9a3 3 0 0 0 3 3h1v3a1 1 0 0 0 1.6.8l5.07-3.8H19a3 3 0 0 0 3-3V6a3 3 0 0 0-3-3Z"></path>
+              </svg>
+              ${escapeHtml(item.commentCount)}
+            </span>
           </div>
         </div>
       </a>
