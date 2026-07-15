@@ -349,6 +349,7 @@
   let activeImageViewerImages = [];
   let activeImageViewerIndex = 0;
   let imageViewerLoadToken = 0;
+  const imageViewerPreloadCache = new Map();
 
   function isEnhancedPage() {
     return window.location.hostname === "www.xiaoheihe.cn"
@@ -8884,6 +8885,49 @@
     });
   }
 
+  function getImageViewerPreload(imageUrl) {
+    if (imageViewerPreloadCache.has(imageUrl)) {
+      return imageViewerPreloadCache.get(imageUrl);
+    }
+
+    const preloadImage = new Image();
+    preloadImage.decoding = "async";
+    preloadImage.addEventListener("error", () => {
+      if (imageViewerPreloadCache.get(imageUrl) === preloadImage) {
+        imageViewerPreloadCache.delete(imageUrl);
+      }
+    }, { once: true });
+    imageViewerPreloadCache.set(imageUrl, preloadImage);
+    preloadImage.src = imageUrl;
+    return preloadImage;
+  }
+
+  function preloadNearbyImageViewerImages() {
+    const imageCount = activeImageViewerImages.length;
+    if (imageCount <= 1) {
+      return;
+    }
+
+    const preloadIndexes = new Set();
+    const preloadAheadCount = Math.min(3, imageCount - 1);
+    for (let offset = 1; offset <= preloadAheadCount; offset += 1) {
+      preloadIndexes.add((activeImageViewerIndex + offset) % imageCount);
+    }
+    preloadIndexes.add((activeImageViewerIndex - 1 + imageCount) % imageCount);
+    preloadIndexes.forEach((preloadIndex) => {
+      getImageViewerPreload(activeImageViewerImages[preloadIndex]);
+    });
+  }
+
+  function pruneImageViewerPreloadCache() {
+    const activeImageUrls = new Set(activeImageViewerImages);
+    Array.from(imageViewerPreloadCache.keys()).forEach((imageUrl) => {
+      if (!activeImageUrls.has(imageUrl)) {
+        imageViewerPreloadCache.delete(imageUrl);
+      }
+    });
+  }
+
   function showImageViewerAt(index) {
     if (!activeImageViewerImages.length) {
       return;
@@ -8900,6 +8944,7 @@
     activeImageViewerIndex = (index + activeImageViewerImages.length) % activeImageViewerImages.length;
     const imageUrl = activeImageViewerImages[activeImageViewerIndex];
     const loadToken = ++imageViewerLoadToken;
+    pruneImageViewerPreloadCache();
     counter.textContent = activeImageViewerImages.length > 1
       ? `${activeImageViewerIndex + 1} / ${activeImageViewerImages.length}`
       : "";
@@ -8930,6 +8975,7 @@
           image.classList.remove(transitionClass);
         }
       }, 320);
+      preloadNearbyImageViewerImages();
     };
 
     if (image.src === imageUrl && image.complete) {
@@ -8937,10 +8983,13 @@
       return;
     }
 
-    const preloadImage = new Image();
+    const preloadImage = getImageViewerPreload(imageUrl);
+    if (preloadImage.complete) {
+      revealImage();
+      return;
+    }
     preloadImage.addEventListener("load", revealImage, { once: true });
     preloadImage.addEventListener("error", revealImage, { once: true });
-    preloadImage.src = imageUrl;
   }
 
   function closeImageViewer() {

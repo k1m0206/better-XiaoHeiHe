@@ -186,6 +186,7 @@
   let activeImageViewerImages = [];
   let activeImageViewerIndex = 0;
   let imageViewerLoadToken = 0;
+  const imageViewerPreloadCache = new Map();
 
   function isEnhancedPage() {
     return window.location.hostname === "www.xiaoheihe.cn"
