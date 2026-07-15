@@ -1628,11 +1628,181 @@
         white-space: nowrap;
       }
 
+      .${FAVORITE_POPOVER_CLASS} .better-favorite-popover__all-link {
+        display: inline-flex;
+        height: 26px;
+        flex: 0 0 auto;
+        align-items: center;
+        gap: 3px;
+        padding: 0 9px;
+        border: 1px solid #d9e5f2;
+        border-radius: 6px;
+        background: #f7fbff;
+        color: #2775d1;
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 24px;
+        text-decoration: none;
+        transition: border-color 0.16s ease, background-color 0.16s ease;
+      }
+
+      .${FAVORITE_POPOVER_CLASS} .better-favorite-popover__all-link:hover {
+        border-color: #2775d1;
+        background: #eef6ff;
+      }
+
       .${FAVORITE_POPOVER_CLASS} .better-message-popover__body {
         max-height: min(540px, calc(100vh - 112px));
         overflow-y: auto;
         padding: 10px;
         background: #f6f8fa;
+      }
+
+      .${FAVORITE_POPOVER_CLASS} .better-message-popover__loading-state,
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__loading-state {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .${FAVORITE_POPOVER_CLASS} .better-message-popover__visually-hidden,
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
+
+      .${FAVORITE_POPOVER_CLASS} .better-message-popover__skeleton-card,
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__skeleton-card {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        gap: 9px;
+        padding: 11px;
+        border: 1px solid #e9edf1;
+        border-radius: 9px;
+        background: #fff;
+      }
+
+      .${FAVORITE_POPOVER_CLASS} .better-message-popover__skeleton-author,
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__skeleton-author,
+      .${FAVORITE_POPOVER_CLASS} .better-message-popover__skeleton-content,
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__skeleton-content,
+      .${FAVORITE_POPOVER_CLASS} .better-message-popover__skeleton-footer,
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__skeleton-footer {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        gap: 7px;
+      }
+
+      .${FAVORITE_POPOVER_CLASS} .better-message-popover__skeleton-copy,
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__skeleton-copy {
+        display: flex;
+        min-width: 0;
+        flex: 1 1 auto;
+        flex-direction: column;
+        gap: 7px;
+      }
+
+      .${FAVORITE_POPOVER_CLASS} .better-message-popover__skeleton,
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__skeleton {
+        display: block;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #edf1f4 22%, #f8fafb 46%, #edf1f4 70%);
+        background-size: 240% 100%;
+        animation: better-popover-skeleton-shimmer 1.25s ease-in-out infinite;
+      }
+
+      .${FAVORITE_POPOVER_CLASS} .better-message-popover__skeleton--avatar,
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__skeleton--avatar {
+        width: 20px;
+        height: 20px;
+        flex: 0 0 auto;
+        border-radius: 50%;
+      }
+
+      .${FAVORITE_POPOVER_CLASS} .better-message-popover__skeleton--name,
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__skeleton--name {
+        width: 88px;
+        height: 10px;
+      }
+
+      .${FAVORITE_POPOVER_CLASS} .better-message-popover__skeleton--title,
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__skeleton--title {
+        width: 88%;
+        height: 13px;
+      }
+
+      .${FAVORITE_POPOVER_CLASS} .better-message-popover__skeleton--text,
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__skeleton--text {
+        width: 100%;
+        height: 9px;
+      }
+
+      .${FAVORITE_POPOVER_CLASS} .better-message-popover__skeleton--text-short,
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__skeleton--text-short {
+        width: 66%;
+        height: 9px;
+      }
+
+      .${FAVORITE_POPOVER_CLASS} .better-message-popover__skeleton--thumbnail,
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__skeleton--thumbnail {
+        width: 84px;
+        height: 68px;
+        flex: 0 0 auto;
+        border-radius: 7px;
+      }
+
+      .${FAVORITE_POPOVER_CLASS} .better-message-popover__skeleton--pill,
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__skeleton--pill {
+        width: 58px;
+        height: 18px;
+      }
+
+      .${FAVORITE_POPOVER_CLASS} .better-message-popover__skeleton--pill-short,
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__skeleton--pill-short {
+        width: 42px;
+        height: 18px;
+      }
+
+      .${FAVORITE_POPOVER_CLASS} .better-message-popover__item--enter,
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__item--enter {
+        animation: better-popover-card-enter 0.3s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+        animation-delay: calc(var(--better-popover-enter-index, 0) * 36ms);
+      }
+
+      @keyframes better-popover-skeleton-shimmer {
+        0% {
+          background-position: 120% 0;
+        }
+        100% {
+          background-position: -120% 0;
+        }
+      }
+
+      @keyframes better-popover-card-enter {
+        from {
+          opacity: 0;
+          transform: translateY(8px) scale(0.99);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .${FAVORITE_POPOVER_CLASS} .better-message-popover__skeleton,
+        .${MESSAGE_POPOVER_CLASS} .better-message-popover__skeleton,
+        .${FAVORITE_POPOVER_CLASS} .better-message-popover__item--enter,
+        .${MESSAGE_POPOVER_CLASS} .better-message-popover__item--enter {
+          animation: none;
+        }
       }
 
       .${FAVORITE_POPOVER_CLASS} .better-message-popover__state {
@@ -1711,6 +1881,89 @@
         vertical-align: top;
       }
 
+      .${FAVORITE_POPOVER_CLASS} .better-message-popover__post-content-row,
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__post-content-row {
+        display: flex;
+        min-width: 0;
+        align-items: flex-start;
+        gap: 10px;
+      }
+
+      .${FAVORITE_POPOVER_CLASS} .better-message-popover__post-copy,
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__post-copy {
+        display: flex;
+        min-width: 0;
+        flex: 1 1 auto;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .${FAVORITE_POPOVER_CLASS} .better-message-popover__post-thumbnail,
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__post-thumbnail {
+        position: relative;
+        display: block;
+        width: 84px;
+        height: 68px;
+        flex: 0 0 auto;
+        overflow: hidden;
+        border-radius: 7px;
+        background: #eef1f4;
+      }
+
+      .${FAVORITE_POPOVER_CLASS} .better-message-popover__post-thumbnail > img,
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__post-thumbnail > img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .${FAVORITE_POPOVER_CLASS} .better-message-popover__post-image-count,
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__post-image-count {
+        position: absolute;
+        right: 4px;
+        bottom: 4px;
+        min-width: 20px;
+        padding: 1px 5px;
+        border-radius: 999px;
+        background: rgba(20, 25, 30, 0.72);
+        color: #fff;
+        font-size: 11px;
+        font-weight: 700;
+        line-height: 16px;
+        text-align: center;
+      }
+
+      .${FAVORITE_POPOVER_CLASS} [data-better-profile-id],
+      .${MESSAGE_POPOVER_CLASS} [data-better-profile-id] {
+        cursor: pointer;
+      }
+
+      .${FAVORITE_POPOVER_CLASS} [data-better-image-urls],
+      .${MESSAGE_POPOVER_CLASS} [data-better-image-urls] {
+        cursor: zoom-in;
+      }
+
+      .${FAVORITE_POPOVER_CLASS} [data-better-profile-id]:focus-visible,
+      .${FAVORITE_POPOVER_CLASS} [data-better-image-urls]:focus-visible,
+      .${MESSAGE_POPOVER_CLASS} [data-better-profile-id]:focus-visible,
+      .${MESSAGE_POPOVER_CLASS} [data-better-image-urls]:focus-visible {
+        outline: 2px solid rgba(39, 117, 209, 0.72);
+        outline-offset: 2px;
+      }
+
+      .${FAVORITE_POPOVER_CLASS} .better-favorite-popover__author-name[data-better-profile-id]:hover,
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__user[data-better-profile-id]:hover,
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__post-author-name[data-better-profile-id]:hover {
+        text-decoration: underline;
+      }
+
+      .${FAVORITE_POPOVER_CLASS} .better-message-popover__post-thumbnail[data-better-image-urls]:hover > img,
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__post-thumbnail[data-better-image-urls]:hover > img,
+      .${MESSAGE_POPOVER_CLASS} .better-message-popover__target-image[data-better-image-urls]:hover {
+        opacity: 0.88;
+      }
+
       .${FAVORITE_POPOVER_CLASS} .better-message-popover__link-title {
         display: -webkit-box;
         overflow: hidden;
@@ -1759,6 +2012,11 @@
         gap: 6px;
       }
 
+      .${FAVORITE_POPOVER_CLASS} .better-message-popover__media-row .better-message-popover__topic {
+        max-width: 55%;
+        margin-left: auto;
+      }
+
       .${FAVORITE_POPOVER_CLASS} .better-message-popover__topic,
       .${FAVORITE_POPOVER_CLASS} .better-favorite-popover__meta {
         display: inline-flex;
@@ -1776,7 +2034,7 @@
         white-space: nowrap;
       }
 
-      .${FAVORITE_POPOVER_CLASS} .better-favorite-popover__topic-icon {
+      .${FAVORITE_POPOVER_CLASS} .better-message-popover__topic-icon {
         width: 16px;
         height: 16px;
         flex: 0 0 auto;
@@ -2018,12 +2276,12 @@
       .${MESSAGE_POPOVER_CLASS} .better-message-popover__link-title {
         display: -webkit-box;
         overflow: hidden;
-        color: #26313b;
-        font-size: 12px;
+        color: #14191e;
+        font-size: 14px;
         font-weight: 800;
-        line-height: 18px;
+        line-height: 20px;
         -webkit-box-orient: vertical;
-        -webkit-line-clamp: 1;
+        -webkit-line-clamp: 2;
       }
 
       .${MESSAGE_POPOVER_CLASS} .better-message-popover__link-desc {
@@ -2070,18 +2328,20 @@
       .${MESSAGE_POPOVER_CLASS} .better-message-popover__link-title .better-comment-preview__emoji,
       .${MESSAGE_POPOVER_CLASS} .better-message-popover__link-desc .better-comment-preview__emoji {
         display: inline-block;
-        width: 1.35em;
-        height: 1.35em;
-        margin: 0 1px;
+        width: 18px;
+        height: 18px;
+        margin: -2px 2px 0;
+        border-radius: 4px;
         object-fit: contain;
-        vertical-align: -0.28em;
+        vertical-align: middle;
       }
 
       .${MESSAGE_POPOVER_CLASS} .better-message-popover__link-title .better-comment-preview__emoji--big,
       .${MESSAGE_POPOVER_CLASS} .better-message-popover__link-desc .better-comment-preview__emoji--big {
-        width: 1.7em;
-        height: 1.7em;
-        vertical-align: -0.42em;
+        width: 20px;
+        height: 20px;
+        margin: -3px 2px 0;
+        border-radius: 5px;
       }
 
       .${MESSAGE_POPOVER_CLASS} .better-message-popover__comment-target {
@@ -2128,9 +2388,10 @@
         flex-direction: column;
         align-items: stretch;
         gap: 6px;
-        padding: 8px 9px;
+        padding: 10px;
+        border: 1px solid #e9edf1;
         border-radius: 8px;
-        background: #fafbfc;
+        background: #fff;
       }
 
       .${MESSAGE_POPOVER_CLASS} .better-message-popover__post-author {
@@ -2178,71 +2439,28 @@
         gap: 7px;
       }
 
-      .${MESSAGE_POPOVER_CLASS} .better-message-popover__thumbs {
-        display: flex;
-        min-width: 0;
-        max-width: calc(100% - 96px);
-        gap: 6px;
-        overflow-x: auto;
-        padding-bottom: 1px;
-        scrollbar-width: none;
-      }
-
       .${MESSAGE_POPOVER_CLASS} .better-message-popover__media-row {
         display: flex;
         min-width: 0;
+        flex-wrap: wrap;
         align-items: center;
-        gap: 8px;
-      }
-
-      .${MESSAGE_POPOVER_CLASS} .better-message-popover__media-row--with-images {
-        position: relative;
-        min-height: 56px;
-        align-items: flex-start;
-      }
-
-      .${MESSAGE_POPOVER_CLASS} .better-message-popover__media-row--with-images .better-message-popover__thumbs {
-        max-width: 100%;
-      }
-
-      .${MESSAGE_POPOVER_CLASS} .better-message-popover__media-row--with-images .better-message-popover__topic {
-        position: absolute;
-        right: 2px;
-        bottom: 2px;
-        z-index: 1;
-        max-width: calc(100% - 8px);
-        border: 1px solid rgba(220, 231, 243, 0.92);
-        background: rgba(248, 251, 255, 0.94);
-        box-shadow: 0 1px 4px rgba(39, 78, 120, 0.16);
-        color: #4f6477;
-      }
-
-      .${MESSAGE_POPOVER_CLASS} .better-message-popover__thumbs::-webkit-scrollbar {
-        display: none;
-      }
-
-      .${MESSAGE_POPOVER_CLASS} .better-message-popover__thumb {
-        width: 56px;
-        height: 56px;
-        flex: 0 0 auto;
-        border-radius: 7px;
-        background: #eef1f4;
-        object-fit: cover;
+        gap: 6px;
       }
 
       .${MESSAGE_POPOVER_CLASS} .better-message-popover__topic {
         display: inline-flex;
         flex: 0 0 auto;
-        max-width: 130px;
+        max-width: 55%;
         align-items: center;
         gap: 4px;
         overflow: hidden;
-        padding: 1px 6px;
+        margin-left: auto;
+        padding: 2px 6px;
         border-radius: 999px;
-        background: #f1f3f5;
-        color: #9aa3ad;
-        font-size: 11px;
-        line-height: 16px;
+        background: #f1f4f7;
+        color: #6f7b87;
+        font-size: 12px;
+        line-height: 18px;
         text-overflow: ellipsis;
         white-space: nowrap;
       }
@@ -7037,6 +7255,10 @@
     ).trim();
   }
 
+  function getReplyMessageUserId(message) {
+    return String(getUserProfileId(message?.user_a || {}) || message?.user_a_id || "").trim();
+  }
+
   function getReplyMessageTitle(message) {
     return stripMessageHtml(message?.link_title || findFirstFieldDeep(message, [
       "title",
@@ -7159,6 +7381,19 @@
     ).trim();
   }
 
+  function getReplyMessageLinkAuthorId(message) {
+    const author = message?.link_user && typeof message.link_user === "object"
+      ? message.link_user
+      : message?.link?.user || message?.link?.author || {};
+    return String(
+      getUserProfileId(author)
+      || message?.link_user_id
+      || message?.link_userid
+      || message?.link_author_id
+      || ""
+    ).trim();
+  }
+
   function getReplyMessageLinkAuthorLevel(message) {
     const author = message?.link_user && typeof message.link_user === "object"
       ? message.link_user
@@ -7192,6 +7427,7 @@
       ? message.user_as
       : [message?.user_a].filter(Boolean);
     return users.map((user) => ({
+      id: String(getUserProfileId(user) || "").trim(),
       name: getMessageUserName(user),
       avatar: getMessageUserAvatar(user),
       avatarFallback: Array.from(getMessageUserName(user) || "盒")[0] || "盒",
@@ -7294,6 +7530,7 @@
           id: String(findFirstFieldDeep(message, ["id", "message_id", "messageId"]) || `${getReplyMessageLinkId(message)}-${getReplyMessageTimestamp(message)}-${tab === "award" ? getAwardMessageContent(message, awardKind) : getReplyMessageContent(message)}`),
           linkId: getReplyMessageLinkId(message),
           userName,
+          userId: tab === "award" ? (actors[0]?.id || "") : getReplyMessageUserId(message),
           userLevel: tab === "award" ? (actors[0]?.level || "") : getMessageUserLevel(message?.user_a),
           avatar,
           avatarFallback: Array.from(userName || "盒")[0] || "盒",
@@ -7313,6 +7550,7 @@
           linkImages: getReplyMessageLinkImages(message),
           targetImages: tab === "award" && awardKind === "comment" ? getAwardMessageTargetImages(message) : [],
           linkAuthor: getReplyMessageLinkAuthor(message),
+          linkAuthorId: getReplyMessageLinkAuthorId(message),
           linkAuthorAvatar: tab === "award"
             ? String(message?.link_user_avatar || message?.author_avatar || "").trim()
             : getReplyMessageLinkAuthorAvatar(message),
@@ -9096,12 +9334,20 @@
     }
   }
 
+  function openImageViewerFromUrls(imageUrls, index = 0) {
+    activeImageViewerImages = (Array.isArray(imageUrls) ? imageUrls : []).filter(isSafeCommentImageUrl);
+    if (!activeImageViewerImages.length) {
+      return false;
+    }
+    showImageViewerAt(Math.max(0, Number(index) || 0));
+    return true;
+  }
+
   function openCommentImageViewer(imageLink) {
     const imageGroup = imageLink.closest(".better-comment-preview__images");
     const links = Array.from(imageGroup?.querySelectorAll(".better-comment-preview__image-link") || [imageLink]);
-    activeImageViewerImages = links.map((link) => link.dataset.previewSrc || link.href).filter(isSafeCommentImageUrl);
     const index = Math.max(0, links.indexOf(imageLink));
-    showImageViewerAt(index);
+    openImageViewerFromUrls(links.map((link) => link.dataset.previewSrc || link.href), index);
   }
 
   function openFeedFallbackImageViewer(imageWrap) {
@@ -9127,8 +9373,7 @@
       return;
     }
 
-    activeImageViewerImages = imageUrls;
-    showImageViewerAt(Math.max(0, visibleWraps.indexOf(imageWrap)));
+    openImageViewerFromUrls(imageUrls, Math.max(0, visibleWraps.indexOf(imageWrap)));
   }
 
   function openFeedNativeImageViewer(imageWrap, item) {
@@ -9141,18 +9386,14 @@
     const linkId = getLinkIdFromItem(item);
     const cachedImageUrls = commentCache.get(linkId)?.linkDetail?.feedImageUrls || [];
     const imageUrls = cachedImageUrls.filter(isSafeCommentImageUrl);
-    activeImageViewerImages = imageUrls.length
+    const viewerImageUrls = imageUrls.length
       ? imageUrls
       : visibleWraps
         .map((wrap) => wrap.querySelector(".hb-cpt__image-elem")?.currentSrc
           || wrap.querySelector(".hb-cpt__image-elem")?.src
           || "")
         .filter(isSafeCommentImageUrl);
-    if (!activeImageViewerImages.length) {
-      return;
-    }
-
-    showImageViewerAt(Math.max(0, visibleWraps.indexOf(imageWrap)));
+    openImageViewerFromUrls(viewerImageUrls, Math.max(0, visibleWraps.indexOf(imageWrap)));
   }
 
   function findCachedComment(linkId, commentId) {
@@ -14190,6 +14431,10 @@
         <div class="better-message-popover__title">
           <strong>收藏</strong>
         </div>
+        <a class="better-favorite-popover__all-link" href="/app/user/favour/content" title="打开收藏详情页">
+          查看全部
+          <span aria-hidden="true">›</span>
+        </a>
       </div>
       <div class="better-message-popover__body">
         <div class="better-message-popover__state">点击刷新查看收藏</div>
@@ -14205,6 +14450,7 @@
         fetchAndRenderFavouritePosts({ append: true });
       }
     });
+    bindHeaderPopoverInteractions(popover);
     document.body.appendChild(popover);
     return popover;
   }
@@ -14256,6 +14502,7 @@
         fetchAndRenderReplyMessages({ append: true });
       }
     });
+    bindHeaderPopoverInteractions(popover);
     document.body.appendChild(popover);
     return popover;
   }
@@ -14293,6 +14540,103 @@
     }
   }
 
+  function renderHeaderPopoverLoading(label) {
+    return `
+      <div class="better-message-popover__loading-state" role="status" aria-live="polite">
+        <span class="better-message-popover__visually-hidden">${escapeHtml(label)}</span>
+        ${Array.from({ length: 3 }, () => `
+          <div class="better-message-popover__skeleton-card" aria-hidden="true">
+            <div class="better-message-popover__skeleton-author">
+              <span class="better-message-popover__skeleton better-message-popover__skeleton--avatar"></span>
+              <span class="better-message-popover__skeleton better-message-popover__skeleton--name"></span>
+            </div>
+            <div class="better-message-popover__skeleton-content">
+              <div class="better-message-popover__skeleton-copy">
+                <span class="better-message-popover__skeleton better-message-popover__skeleton--title"></span>
+                <span class="better-message-popover__skeleton better-message-popover__skeleton--text"></span>
+                <span class="better-message-popover__skeleton better-message-popover__skeleton--text-short"></span>
+              </div>
+              <span class="better-message-popover__skeleton better-message-popover__skeleton--thumbnail"></span>
+            </div>
+            <div class="better-message-popover__skeleton-footer">
+              <span class="better-message-popover__skeleton better-message-popover__skeleton--pill"></span>
+              <span class="better-message-popover__skeleton better-message-popover__skeleton--pill-short"></span>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    `;
+  }
+
+  function normalizeHeaderProfileId(value) {
+    const profileId = String(value || "").trim();
+    return /^\d+$/.test(profileId) ? profileId : "";
+  }
+
+  function renderHeaderProfileAttributes(profileId, label = "查看用户主页") {
+    const normalizedProfileId = normalizeHeaderProfileId(profileId);
+    return normalizedProfileId
+      ? ` data-better-profile-id="${escapeHtml(normalizedProfileId)}" role="link" tabindex="0" title="${escapeHtml(label)}"`
+      : "";
+  }
+
+  function renderHeaderImageViewerAttributes(imageUrls, index = 0, label = "查看图片") {
+    const urls = (Array.isArray(imageUrls) ? imageUrls : []).filter(isSafeCommentImageUrl);
+    return urls.length
+      ? ` data-better-image-urls="${escapeHtml(JSON.stringify(urls))}" data-better-image-index="${escapeHtml(index)}" role="button" tabindex="0" aria-label="${escapeHtml(label)}"`
+      : "";
+  }
+
+  function activateHeaderPopoverInteraction(event) {
+    if (!(event.target instanceof Element)) {
+      return false;
+    }
+
+    const profileTarget = event.target.closest("[data-better-profile-id]");
+    if (profileTarget) {
+      const profileId = normalizeHeaderProfileId(profileTarget.dataset.betterProfileId);
+      if (profileId) {
+        event.preventDefault();
+        event.stopPropagation();
+        window.location.href = `/app/user/profile/${profileId}`;
+        return true;
+      }
+    }
+
+    const imageTarget = event.target.closest("[data-better-image-urls]");
+    if (!imageTarget) {
+      return false;
+    }
+    let imageUrls = [];
+    try {
+      imageUrls = JSON.parse(imageTarget.dataset.betterImageUrls || "[]");
+    } catch {
+      imageUrls = [];
+    }
+    if (!Array.isArray(imageUrls) || !imageUrls.length) {
+      return false;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    return openImageViewerFromUrls(imageUrls, Number(imageTarget.dataset.betterImageIndex || 0));
+  }
+
+  function bindHeaderPopoverInteractions(popover) {
+    if (!popover || popover.dataset.interactionsBound === "1") {
+      return;
+    }
+    popover.dataset.interactionsBound = "1";
+    popover.addEventListener("click", activateHeaderPopoverInteraction);
+    popover.addEventListener("keydown", (event) => {
+      if (!["Enter", " "].includes(event.key) || !(event.target instanceof Element)) {
+        return;
+      }
+      if (event.target.closest("[data-better-profile-id], [data-better-image-urls]")) {
+        activateHeaderPopoverInteraction(event);
+      }
+    });
+  }
+
   function getFavouritePostLinkId(item) {
     return String(item?.linkid || item?.link_id || item?.id || item?.link?.linkid || item?.link?.id || "").trim();
   }
@@ -14310,6 +14654,18 @@
       || author?.user_name
       || author?.nickname
       || author?.name
+      || ""
+    ).trim();
+  }
+
+  function getFavouritePostAuthorId(item) {
+    const author = item?.user || item?.author || item?.link_user || item?.link?.user || item?.link?.author || {};
+    return String(
+      getUserProfileId(author)
+      || item?.userid
+      || item?.user_id
+      || item?.author_id
+      || item?.link_user_id
       || ""
     ).trim();
   }
@@ -14348,11 +14704,14 @@
     return (Array.isArray(items) ? items : []).map((item) => {
       const topic = Array.isArray(item?.topics) ? item.topics[0] : item?.topic;
       const author = getFavouritePostAuthor(item);
+      const images = Array.isArray(item?.imgs) ? item.imgs.filter(Boolean) : [];
+      const thumbnails = Array.isArray(item?.thumbs) ? item.thumbs.filter(Boolean) : [];
       return {
         id: getFavouritePostLinkId(item),
         title: String(item?.title || item?.link?.title || "未命名帖子"),
         description: String(item?.description || item?.desc || item?.link?.description || ""),
         author,
+        authorId: getFavouritePostAuthorId(item),
         authorAvatar: getFavouritePostAuthorAvatar(item),
         authorAvatarFallback: Array.from(author || "作")[0] || "作",
         authorLevel: getFavouritePostAuthorLevel(item),
@@ -14360,37 +14719,45 @@
         awardCount: Number(item?.link_award_num || item?.up || item?.support_num || 0),
         commentCount: Number(item?.comment_num || item?.reply_num || 0),
         topicName: String(topic?.name || ""),
-        topicIcon: String(topic?.pic_url || topic?.icon || "")
+        topicIcon: String(topic?.pic_url || topic?.icon || ""),
+        thumbnailUrl: String(thumbnails[0] || images[0] || ""),
+        imageCount: Math.max(thumbnails.length, images.length),
+        imageUrls: images.length ? images : thumbnails
       };
     }).filter((item) => item.id);
   }
 
-  function renderFavouritePosts(state = favoritePopoverState) {
+  function renderFavouritePosts(state = favoritePopoverState, options = {}) {
     const items = state.items || [];
     if (!items.length) {
       setFavoritePopoverState('<div class="better-message-popover__state">暂时没有收藏帖子</div>');
       return;
     }
 
-    setFavoritePopoverState(items.map((item) => `
-      <a class="better-message-popover__item better-favorite-popover__item" href="/app/bbs/link/${escapeHtml(item.id)}">
+    const animateFrom = Number.isFinite(options.animateFrom) ? Math.max(0, options.animateFrom) : items.length;
+    setFavoritePopoverState(items.map((item, index) => `
+      <a class="better-message-popover__item better-favorite-popover__item${index >= animateFrom ? " better-message-popover__item--enter" : ""}" href="/app/bbs/link/${escapeHtml(item.id)}"${index >= animateFrom ? ` style="--better-popover-enter-index: ${Math.min(index - animateFrom, 8)}"` : ""}>
         <div class="better-message-popover__context">
           ${item.author ? `
             <div class="better-favorite-popover__author">
-              ${item.authorAvatar ? `<img class="better-favorite-popover__author-avatar" src="${escapeHtml(item.authorAvatar)}" alt="">` : `<span class="better-favorite-popover__author-avatar" aria-hidden="true">${escapeHtml(item.authorAvatarFallback)}</span>`}
-              <span class="better-favorite-popover__author-name">${escapeHtml(item.author)}</span>
+              ${item.authorAvatar ? `<img class="better-favorite-popover__author-avatar" src="${escapeHtml(item.authorAvatar)}" alt=""${renderHeaderProfileAttributes(item.authorId)}>` : `<span class="better-favorite-popover__author-avatar"${renderHeaderProfileAttributes(item.authorId)}>${escapeHtml(item.authorAvatarFallback)}</span>`}
+              <span class="better-favorite-popover__author-name"${renderHeaderProfileAttributes(item.authorId)}>${escapeHtml(item.author)}</span>
               ${renderUserLevel(item.authorLevel)}
             </div>
           ` : ""}
-          <span class="better-message-popover__link-title">${renderEmojiTokensInHtml(escapeHtml(item.title))}</span>
-          ${item.description ? `<span class="better-message-popover__link-desc">${renderEmojiTokensInHtml(escapeHtml(item.description))}</span>` : ""}
-          <div class="better-message-popover__media-row">
-            ${item.topicName ? `
-              <span class="better-message-popover__topic">
-                ${item.topicIcon ? `<img class="better-favorite-popover__topic-icon" src="${escapeHtml(item.topicIcon)}" alt="">` : ""}
-                ${escapeHtml(item.topicName)}
+          <div class="better-message-popover__post-content-row">
+            <div class="better-message-popover__post-copy">
+              <span class="better-message-popover__link-title">${renderEmojiTokensInHtml(escapeHtml(item.title))}</span>
+              ${item.description ? `<span class="better-message-popover__link-desc">${renderEmojiTokensInHtml(escapeHtml(item.description))}</span>` : ""}
+            </div>
+            ${item.thumbnailUrl ? `
+              <span class="better-message-popover__post-thumbnail"${renderHeaderImageViewerAttributes(item.imageUrls, 0, `查看帖子图片，共 ${item.imageCount} 张`)}>
+                <img src="${escapeHtml(item.thumbnailUrl)}" alt="" loading="lazy" decoding="async">
+                ${item.imageCount > 1 ? `<span class="better-message-popover__post-image-count">+${escapeHtml(item.imageCount - 1)}</span>` : ""}
               </span>
             ` : ""}
+          </div>
+          <div class="better-message-popover__media-row">
             <span class="better-favorite-popover__meta">${escapeHtml(formatCommentTime(item.timestamp))}</span>
             <span class="better-favorite-popover__meta better-favorite-popover__stat" aria-label="点赞 ${escapeHtml(item.awardCount)}">
               <svg class="better-favorite-popover__stat-icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -14404,6 +14771,12 @@
               </svg>
               ${escapeHtml(item.commentCount)}
             </span>
+            ${item.topicName ? `
+              <span class="better-message-popover__topic">
+                ${item.topicIcon ? `<img class="better-message-popover__topic-icon" src="${escapeHtml(item.topicIcon)}" alt="">` : ""}
+                ${escapeHtml(item.topicName)}
+              </span>
+            ` : ""}
           </div>
         </div>
       </a>
@@ -14441,13 +14814,14 @@
       return Promise.resolve();
     }
     const append = options.append === true;
+    const previousItemCount = favoritePopoverState.items.length;
     favoritePopoverState.loading = true;
     button?.classList.add("is-loading");
     if (!append) {
       favoritePopoverState.items = [];
       favoritePopoverState.offset = 0;
       favoritePopoverState.hasMore = true;
-      setFavoritePopoverState('<div class="better-message-popover__state">正在拉取收藏...</div>');
+      setFavoritePopoverState(renderHeaderPopoverLoading("正在加载收藏"));
     } else {
       renderFavouritePosts();
     }
@@ -14467,7 +14841,7 @@
         favoritePopoverState.offset = favoritePopoverState.items.length;
         favoritePopoverState.hasMore = payload.hasMore;
         favoritePopoverState.loading = false;
-        renderFavouritePosts();
+        renderFavouritePosts(favoritePopoverState, { animateFrom: append ? previousItemCount : 0 });
       })
       .catch((error) => {
         favoritePopoverState.loading = false;
@@ -14505,7 +14879,7 @@
     fetchAndRenderReplyMessages();
   }
 
-  function renderReplyMessages(state = getActiveMessageTabState()) {
+  function renderReplyMessages(state = getActiveMessageTabState(), options = {}) {
     const messages = state.messages || [];
 
     if (!messages.length) {
@@ -14513,32 +14887,34 @@
       return;
     }
 
-    setMessagePopoverState(messages.map((message) => {
+    const animateFrom = Number.isFinite(options.animateFrom) ? Math.max(0, options.animateFrom) : messages.length;
+    setMessagePopoverState(messages.map((message, messageIndex) => {
       const actors = Array.isArray(message.actors) ? message.actors : [];
       const visibleActors = actors.slice(0, 3);
       const hiddenActorCount = Math.max(0, Number(message.awardCount || actors.length || 0) - visibleActors.length);
       const actorAvatarHtml = visibleActors.length ? `
-        <div class="better-message-popover__likers" aria-hidden="true">
+        <div class="better-message-popover__likers">
           ${visibleActors.map((actor) => actor.avatar
-            ? `<img class="better-message-popover__liker-avatar" src="${escapeHtml(actor.avatar)}" alt="">`
-            : `<span class="better-message-popover__liker-avatar">${escapeHtml(actor.avatarFallback)}</span>`).join("")}
+            ? `<img class="better-message-popover__liker-avatar" src="${escapeHtml(actor.avatar)}" alt=""${renderHeaderProfileAttributes(actor.id)}>`
+            : `<span class="better-message-popover__liker-avatar"${renderHeaderProfileAttributes(actor.id)}>${escapeHtml(actor.avatarFallback)}</span>`).join("")}
           ${hiddenActorCount > 0 ? `<span class="better-message-popover__liker-more">+${escapeHtml(hiddenActorCount)}</span>` : ""}
         </div>
       ` : (message.avatar
-        ? `<img class="better-message-popover__avatar" src="${escapeHtml(message.avatar)}" alt="">`
-        : `<div class="better-message-popover__avatar" aria-hidden="true">${escapeHtml(message.avatarFallback)}</div>`);
+        ? `<img class="better-message-popover__avatar" src="${escapeHtml(message.avatar)}" alt=""${renderHeaderProfileAttributes(message.userId)}>`
+        : `<div class="better-message-popover__avatar"${renderHeaderProfileAttributes(message.userId)}>${escapeHtml(message.avatarFallback)}</div>`);
       const itemClass = [
         "better-message-popover__item",
+        messageIndex >= animateFrom ? "better-message-popover__item--enter" : "",
         message.awardKind === "post" ? "better-message-popover__item--award-post" : "",
         message.awardKind === "comment" ? "better-message-popover__item--award-comment" : ""
       ].filter(Boolean).join(" ");
       return `
-      <a class="${itemClass}" href="/app/bbs/link/${escapeHtml(message.linkId)}">
+      <a class="${itemClass}" href="/app/bbs/link/${escapeHtml(message.linkId)}"${messageIndex >= animateFrom ? ` style="--better-popover-enter-index: ${Math.min(messageIndex - animateFrom, 8)}"` : ""}>
         <div class="better-message-popover__actor">
           ${actorAvatarHtml}
           <div class="better-message-popover__actor-main">
             <div class="better-message-popover__actor-line">
-              <span class="better-message-popover__user">${escapeHtml(message.userName)}</span>
+              <span class="better-message-popover__user"${renderHeaderProfileAttributes(message.userId)}>${escapeHtml(message.userName)}</span>
               ${renderUserLevel(message.userLevel)}
               <span class="better-message-popover__action">${escapeHtml(message.actionText)}</span>
               <span class="better-message-popover__type">${escapeHtml(message.typeLabel)}</span>
@@ -14546,13 +14922,13 @@
             <span class="better-message-popover__time">${escapeHtml(formatCommentTime(message.timestamp))}</span>
           </div>
         </div>
-        ${message.awardKind === "comment" ? `
+        ${message.awardKind === "post" ? "" : (message.awardKind === "comment" ? `
           <div class="better-message-popover__comment-target">
             <span class="better-message-popover__comment-target-label">被点赞的评论</span>
             <div class="better-message-popover__content">${renderEmojiTokensInHtml(escapeHtml(message.content))}</div>
             ${message.targetImages?.length ? `
               <div class="better-message-popover__target-images">
-                ${message.targetImages.map((url, index) => `<img class="better-message-popover__target-image" src="${escapeHtml(url)}" alt="评论图片 ${escapeHtml(index + 1)}" loading="lazy">`).join("")}
+                ${message.targetImages.map((url, index) => `<img class="better-message-popover__target-image" src="${escapeHtml(url)}" alt="评论图片 ${escapeHtml(index + 1)}" loading="lazy"${renderHeaderImageViewerAttributes(message.targetImages, index, `查看评论图片 ${index + 1}`)}>`).join("")}
               </div>
             ` : ""}
           </div>
@@ -14560,7 +14936,7 @@
           <div class="better-message-popover__content">${renderEmojiTokensInHtml(escapeHtml(message.content))}</div>
           ${message.contentImages?.length ? `
             <div class="better-message-popover__target-images">
-              ${message.contentImages.map((url, index) => `<img class="better-message-popover__target-image" src="${escapeHtml(url)}" alt="回复图片 ${escapeHtml(index + 1)}" loading="lazy">`).join("")}
+              ${message.contentImages.map((url, index) => `<img class="better-message-popover__target-image" src="${escapeHtml(url)}" alt="回复图片 ${escapeHtml(index + 1)}" loading="lazy"${renderHeaderImageViewerAttributes(message.contentImages, index, `查看回复图片 ${index + 1}`)}>`).join("")}
             </div>
           ` : ""}
           ${message.replyTargetContent ? `
@@ -14569,31 +14945,34 @@
               <div class="better-message-popover__content">${renderEmojiTokensInHtml(escapeHtml(message.replyTargetContent))}</div>
             </div>
           ` : ""}
-        `}
+        `)}
         <div class="better-message-popover__post">
           <div class="better-message-popover__context">
             ${message.linkAuthor ? `
               <div class="better-message-popover__post-author">
-                ${message.linkAuthorAvatar ? `<img class="better-message-popover__post-author-avatar" src="${escapeHtml(message.linkAuthorAvatar)}" alt="">` : `<span class="better-message-popover__post-author-avatar" aria-hidden="true">${escapeHtml(message.linkAuthorAvatarFallback)}</span>`}
-                <span class="better-message-popover__post-author-name">${escapeHtml(message.linkAuthor)}</span>
+                ${message.linkAuthorAvatar ? `<img class="better-message-popover__post-author-avatar" src="${escapeHtml(message.linkAuthorAvatar)}" alt=""${renderHeaderProfileAttributes(message.linkAuthorId)}>` : `<span class="better-message-popover__post-author-avatar"${renderHeaderProfileAttributes(message.linkAuthorId)}>${escapeHtml(message.linkAuthorAvatarFallback)}</span>`}
+                <span class="better-message-popover__post-author-name"${renderHeaderProfileAttributes(message.linkAuthorId)}>${escapeHtml(message.linkAuthor)}</span>
                 ${renderUserLevel(message.linkAuthorLevel)}
               </div>
             ` : ""}
-            <span class="better-message-popover__link-title">${renderEmojiTokensInHtml(escapeHtml(message.title))}</span>
-            ${message.description ? `<span class="better-message-popover__link-desc">${renderEmojiTokensInHtml(escapeHtml(message.description))}</span>` : ""}
-            ${(message.linkImages?.length || message.topicName) ? `
-              <div class="better-message-popover__media-row${message.linkImages?.length ? " better-message-popover__media-row--with-images" : ""}">
-                ${message.linkImages?.length ? `
-                  <div class="better-message-popover__thumbs">
-                    ${message.linkImages.map((url, index) => `<img class="better-message-popover__thumb" src="${escapeHtml(url)}" alt="帖子图片 ${escapeHtml(index + 1)}" loading="lazy">`).join("")}
-                  </div>
-                ` : ""}
-                ${message.topicName ? `
-                  <span class="better-message-popover__topic">
-                    ${message.topicIcon ? `<img class="better-message-popover__topic-icon" src="${escapeHtml(message.topicIcon)}" alt="">` : ""}
-                    ${escapeHtml(message.topicName)}
-                  </span>
-                ` : ""}
+            <div class="better-message-popover__post-content-row">
+              <div class="better-message-popover__post-copy">
+                <span class="better-message-popover__link-title">${renderEmojiTokensInHtml(escapeHtml(message.title))}</span>
+                ${message.description ? `<span class="better-message-popover__link-desc">${renderEmojiTokensInHtml(escapeHtml(message.description))}</span>` : ""}
+              </div>
+              ${message.linkImages?.length ? `
+                <span class="better-message-popover__post-thumbnail"${renderHeaderImageViewerAttributes(message.linkImages, 0, `查看帖子图片，共 ${message.linkImages.length} 张`)}>
+                  <img src="${escapeHtml(message.linkImages[0])}" alt="" loading="lazy" decoding="async">
+                  ${message.linkImages.length > 1 ? `<span class="better-message-popover__post-image-count">+${escapeHtml(message.linkImages.length - 1)}</span>` : ""}
+                </span>
+              ` : ""}
+            </div>
+            ${message.topicName ? `
+              <div class="better-message-popover__media-row">
+                <span class="better-message-popover__topic">
+                  ${message.topicIcon ? `<img class="better-message-popover__topic-icon" src="${escapeHtml(message.topicIcon)}" alt="">` : ""}
+                  ${escapeHtml(message.topicName)}
+                </span>
               </div>
             ` : ""}
           </div>
@@ -14638,13 +15017,14 @@
       return Promise.resolve();
     }
     const append = options.append === true;
+    const previousMessageCount = activeState.messages.length;
     activeState.loading = true;
     button?.classList.add("is-loading");
     if (!append) {
       activeState.messages = [];
       activeState.offset = 0;
       activeState.hasMore = true;
-      setMessagePopoverState(`<div class="better-message-popover__state">正在拉取${activeTab === "award" ? "点赞" : "回复"}消息...</div>`);
+      setMessagePopoverState(renderHeaderPopoverLoading(`正在加载${activeTab === "award" ? "点赞" : "回复"}消息`));
     } else {
       renderReplyMessages(activeState);
     }
@@ -14665,7 +15045,7 @@
         activeState.offset = activeState.messages.length;
         activeState.hasMore = payload.hasMore;
         activeState.loading = false;
-        renderReplyMessages(activeState);
+        renderReplyMessages(activeState, { animateFrom: append ? previousMessageCount : 0 });
       })
       .catch((error) => {
         activeState.loading = false;
@@ -14703,7 +15083,7 @@
       if (!(event.target instanceof Element)) {
         return;
       }
-      if (event.target.closest(`.${MESSAGE_POPOVER_CLASS}, .${HEADER_MESSAGE_CLASS}`)) {
+      if (event.target.closest(`.${MESSAGE_POPOVER_CLASS}, .${HEADER_MESSAGE_CLASS}, .${IMAGE_VIEWER_CLASS}`)) {
         return;
       }
       closeMessagePopover();
@@ -14751,7 +15131,7 @@
       if (!(event.target instanceof Element)) {
         return;
       }
-      if (event.target.closest(`.${FAVORITE_POPOVER_CLASS}, .${FAVORITE_ENTRY_CLASS}`)) {
+      if (event.target.closest(`.${FAVORITE_POPOVER_CLASS}, .${FAVORITE_ENTRY_CLASS}, .${IMAGE_VIEWER_CLASS}`)) {
         return;
       }
       closeFavoritePopover();

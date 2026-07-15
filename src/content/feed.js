@@ -595,12 +595,20 @@
     }
   }
 
+  function openImageViewerFromUrls(imageUrls, index = 0) {
+    activeImageViewerImages = (Array.isArray(imageUrls) ? imageUrls : []).filter(isSafeCommentImageUrl);
+    if (!activeImageViewerImages.length) {
+      return false;
+    }
+    showImageViewerAt(Math.max(0, Number(index) || 0));
+    return true;
+  }
+
   function openCommentImageViewer(imageLink) {
     const imageGroup = imageLink.closest(".better-comment-preview__images");
     const links = Array.from(imageGroup?.querySelectorAll(".better-comment-preview__image-link") || [imageLink]);
-    activeImageViewerImages = links.map((link) => link.dataset.previewSrc || link.href).filter(isSafeCommentImageUrl);
     const index = Math.max(0, links.indexOf(imageLink));
-    showImageViewerAt(index);
+    openImageViewerFromUrls(links.map((link) => link.dataset.previewSrc || link.href), index);
   }
 
   function openFeedFallbackImageViewer(imageWrap) {
@@ -626,8 +634,7 @@
       return;
     }
 
-    activeImageViewerImages = imageUrls;
-    showImageViewerAt(Math.max(0, visibleWraps.indexOf(imageWrap)));
+    openImageViewerFromUrls(imageUrls, Math.max(0, visibleWraps.indexOf(imageWrap)));
   }
 
   function openFeedNativeImageViewer(imageWrap, item) {
@@ -640,18 +647,14 @@
     const linkId = getLinkIdFromItem(item);
     const cachedImageUrls = commentCache.get(linkId)?.linkDetail?.feedImageUrls || [];
     const imageUrls = cachedImageUrls.filter(isSafeCommentImageUrl);
-    activeImageViewerImages = imageUrls.length
+    const viewerImageUrls = imageUrls.length
       ? imageUrls
       : visibleWraps
         .map((wrap) => wrap.querySelector(".hb-cpt__image-elem")?.currentSrc
           || wrap.querySelector(".hb-cpt__image-elem")?.src
           || "")
         .filter(isSafeCommentImageUrl);
-    if (!activeImageViewerImages.length) {
-      return;
-    }
-
-    showImageViewerAt(Math.max(0, visibleWraps.indexOf(imageWrap)));
+    openImageViewerFromUrls(viewerImageUrls, Math.max(0, visibleWraps.indexOf(imageWrap)));
   }
 
   function findCachedComment(linkId, commentId) {

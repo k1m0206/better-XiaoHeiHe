@@ -73,6 +73,10 @@
     ).trim();
   }
 
+  function getReplyMessageUserId(message) {
+    return String(getUserProfileId(message?.user_a || {}) || message?.user_a_id || "").trim();
+  }
+
   function getReplyMessageTitle(message) {
     return stripMessageHtml(message?.link_title || findFirstFieldDeep(message, [
       "title",
@@ -195,6 +199,19 @@
     ).trim();
   }
 
+  function getReplyMessageLinkAuthorId(message) {
+    const author = message?.link_user && typeof message.link_user === "object"
+      ? message.link_user
+      : message?.link?.user || message?.link?.author || {};
+    return String(
+      getUserProfileId(author)
+      || message?.link_user_id
+      || message?.link_userid
+      || message?.link_author_id
+      || ""
+    ).trim();
+  }
+
   function getReplyMessageLinkAuthorLevel(message) {
     const author = message?.link_user && typeof message.link_user === "object"
       ? message.link_user
@@ -228,6 +245,7 @@
       ? message.user_as
       : [message?.user_a].filter(Boolean);
     return users.map((user) => ({
+      id: String(getUserProfileId(user) || "").trim(),
       name: getMessageUserName(user),
       avatar: getMessageUserAvatar(user),
       avatarFallback: Array.from(getMessageUserName(user) || "盒")[0] || "盒",
@@ -330,6 +348,7 @@
           id: String(findFirstFieldDeep(message, ["id", "message_id", "messageId"]) || `${getReplyMessageLinkId(message)}-${getReplyMessageTimestamp(message)}-${tab === "award" ? getAwardMessageContent(message, awardKind) : getReplyMessageContent(message)}`),
           linkId: getReplyMessageLinkId(message),
           userName,
+          userId: tab === "award" ? (actors[0]?.id || "") : getReplyMessageUserId(message),
           userLevel: tab === "award" ? (actors[0]?.level || "") : getMessageUserLevel(message?.user_a),
           avatar,
           avatarFallback: Array.from(userName || "盒")[0] || "盒",
@@ -349,6 +368,7 @@
           linkImages: getReplyMessageLinkImages(message),
           targetImages: tab === "award" && awardKind === "comment" ? getAwardMessageTargetImages(message) : [],
           linkAuthor: getReplyMessageLinkAuthor(message),
+          linkAuthorId: getReplyMessageLinkAuthorId(message),
           linkAuthorAvatar: tab === "award"
             ? String(message?.link_user_avatar || message?.author_avatar || "").trim()
             : getReplyMessageLinkAuthorAvatar(message),
