@@ -1388,7 +1388,7 @@
     runAfterIdentityCookiesRestored(async () => {
       const imageUrls = await uploadReplyFormImages(images);
       setReplyFormStatus(form, "发送中");
-      return postCommentApiForm(buildCommentCreateApiUrl(), {
+      return postCommentApiForm(await buildCommentCreateApiUrl(), {
         is_cy: "0",
         link_id: linkId,
         reply_id: submitReplyCommentId,

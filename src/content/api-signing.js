@@ -322,13 +322,26 @@
     return `https://api.xiaoheihe.cn${COMMENT_SUPPORT_API_PATH}?${params.toString()}`;
   }
 
-  function buildCommentCreateApiUrl() {
+  // 新版评论创建接口使用 Workshop 域名、web_version=3.0 和版本 15 的 _rnd 附加签名。
+  async function buildCommentCreateApiUrl() {
+    const baseParams = getBaseApiParams();
+    const signedParams = createSignedParams(COMMENT_CREATE_API_PATH);
     const params = new URLSearchParams({
-      ...getBaseApiParams(),
-      ...createSignedParams(COMMENT_CREATE_API_PATH)
+      app: "heybox",
+      heybox_id: baseParams.heybox_id || "",
+      os_type: "web",
+      x_app: "heybox_website",
+      x_client_type: "web",
+      x_os_type: baseParams.x_os_type || "Windows",
+      x_client_version: "",
+      client_type: "web",
+      web_version: "3.0",
+      version: "999.0.4",
+      ...signedParams,
+      _rnd: await createWorkshopRndParam(signedParams)
     });
 
-    return `https://api.xiaoheihe.cn${COMMENT_CREATE_API_PATH}?${params.toString()}`;
+    return `${WORKSHOP_API_ORIGIN}${COMMENT_CREATE_API_PATH}?${params.toString()}`;
   }
 
   function buildCommentUploadInfoApiUrl() {

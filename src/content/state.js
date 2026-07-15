@@ -84,6 +84,7 @@
   const FEEDS_API_PATH = "/bbs/app/feeds";
   const SEARCH_WELCOME_API_PATH = "/bbs/app/api/search/welcome_page/v2";
   const API_ORIGIN = "https://api.xiaoheihe.cn";
+  const WORKSHOP_API_ORIGIN = "https://workshopapi.xiaoheihe.cn";
   const COMMENT_PAGE_LIMIT = 20;
   const SUB_COMMENT_PAGE_LIMIT = 20;
   const COMMENT_REPLY_TEXT_MAX_LENGTH = 1000;
@@ -99,6 +100,7 @@
     "version",
     "web_version",
     "x_client_type",
+    "x_client_version",
     "x_app",
     "heybox_id",
     "x_os_type",

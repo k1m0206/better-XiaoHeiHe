@@ -16,6 +16,7 @@
     FEED: "feed"
   };
   const API_ORIGIN = "https://api.xiaoheihe.cn";
+  const WORKSHOP_API_ORIGIN = "https://workshopapi.xiaoheihe.cn";
   const WEB_ORIGIN = "https://www.xiaoheihe.cn";
   const COMMUNITY_HOME_URL = `${WEB_ORIGIN}/app/bbs/home`;
   const MESSAGE_API_PATH = "/bbs/app/user/message";

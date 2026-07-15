@@ -160,6 +160,38 @@
     };
   }
   // END src\shared\normalizers.js
+  // BEGIN src\shared\workshop-signing.js
+// Workshop 写接口附加签名。当前网页端以版本 15 的 HMAC-SHA256 生成 _rnd。
+// 本文件由 content 和 background 入口共同复用，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
+  const WORKSHOP_RND_VERSION = "15";
+  const WORKSHOP_RND_SECRET = "Z7mFG4tQp9Ws2LxB8H";
+
+  async function createWorkshopRndParam(signedParams) {
+    const nonce = String(signedParams?.nonce || "");
+    const time = String(signedParams?._time || "");
+    if (!nonce || !time || !globalThis.crypto?.subtle) {
+      throw new Error("无法生成 Workshop 接口签名");
+    }
+
+    const encoder = new TextEncoder();
+    const key = await globalThis.crypto.subtle.importKey(
+      "raw",
+      encoder.encode(WORKSHOP_RND_SECRET),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"]
+    );
+    const signature = await globalThis.crypto.subtle.sign(
+      "HMAC",
+      key,
+      encoder.encode(`${WORKSHOP_RND_SECRET}${nonce}${time}:${nonce}`)
+    );
+    const hex = Array.from(new Uint8Array(signature))
+      .map((value) => value.toString(16).padStart(2, "0"))
+      .join("");
+    return `${WORKSHOP_RND_VERSION}:${hex}`;
+  }
+  // END src\shared\workshop-signing.js
   // BEGIN src\background\state.js
 // 后台常量、设置归一化、storage、模型缓存和 action 入口。
 // 本文件由原入口文件等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
@@ -179,6 +211,7 @@
     FEED: "feed"
   };
   const API_ORIGIN = "https://api.xiaoheihe.cn";
+  const WORKSHOP_API_ORIGIN = "https://workshopapi.xiaoheihe.cn";
   const WEB_ORIGIN = "https://www.xiaoheihe.cn";
   const COMMUNITY_HOME_URL = `${WEB_ORIGIN}/app/bbs/home`;
   const MESSAGE_API_PATH = "/bbs/app/user/message";
@@ -679,6 +712,7 @@
       "version",
       "web_version",
       "x_client_type",
+      "x_client_version",
       "x_app",
       "heybox_id",
       "x_os_type",
@@ -717,6 +751,28 @@
       ...createSignedParams(path)
     });
     return `${API_ORIGIN}${path}?${query.toString()}`;
+  }
+
+  // 新版 Workshop 写接口在常规 hkey 参数之外，还要求版本 15 的 _rnd 附加签名。
+  async function buildWorkshopApiUrl(path, params = {}) {
+    const reusedParams = normalizeCachedApiParams(cachedApiParams);
+    const signedParams = createSignedParams(path);
+    const query = new URLSearchParams({
+      app: "heybox",
+      heybox_id: params.heybox_id || reusedParams.heybox_id || "",
+      os_type: "web",
+      x_app: "heybox_website",
+      x_client_type: "web",
+      x_os_type: reusedParams.x_os_type || "Windows",
+      x_client_version: "",
+      client_type: "web",
+      web_version: "3.0",
+      version: "999.0.4",
+      ...params,
+      ...signedParams,
+      _rnd: await createWorkshopRndParam(signedParams)
+    });
+    return `${WORKSHOP_API_ORIGIN}${path}?${query.toString()}`;
   }
 
   // END src\background\xiaoheihe-api.js
@@ -1463,8 +1519,8 @@
     });
   }
 
-  function buildCommentCreateUrl(heyboxId) {
-    return buildApiUrl(COMMENT_CREATE_API_PATH, {
+  async function buildCommentCreateUrl(heyboxId) {
+    return buildWorkshopApiUrl(COMMENT_CREATE_API_PATH, {
       heybox_id: heyboxId
     });
   }
@@ -1943,7 +1999,7 @@
   async function submitAiBotCommentNow(heyboxId, linkId, replyCommentId, rootCommentId, text) {
     await waitForAiBotCommentCooldown();
     await markAiBotCommentAttempt();
-    const commentUrl = buildCommentCreateUrl(heyboxId);
+    const commentUrl = await buildCommentCreateUrl(heyboxId);
     const body = new URLSearchParams({
       is_cy: "0",
       link_id: String(linkId),
@@ -3556,7 +3612,7 @@
             ]
           },
           condition: {
-            regexFilter: "^https://api\\.xiaoheihe\\.cn/bbs/app/comment/create(\\?|$)",
+            regexFilter: "^https://workshopapi\\.xiaoheihe\\.cn/bbs/app/comment/create(\\?|$)",
             requestMethods: ["post"],
             resourceTypes: ["xmlhttprequest"]
           }

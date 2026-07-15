@@ -64,7 +64,7 @@
             ]
           },
           condition: {
-            regexFilter: "^https://api\\.xiaoheihe\\.cn/bbs/app/comment/create(\\?|$)",
+            regexFilter: "^https://workshopapi\\.xiaoheihe\\.cn/bbs/app/comment/create(\\?|$)",
             requestMethods: ["post"],
             resourceTypes: ["xmlhttprequest"]
           }

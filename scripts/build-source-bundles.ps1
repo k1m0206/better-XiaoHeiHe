@@ -43,6 +43,7 @@ Join-SourceBundle `
   -Files @(
     "src\shared\constants.js",
     "src\shared\normalizers.js",
+    "src\shared\workshop-signing.js",
     "src\content\state.js",
     "src\content\layout-style.js",
     "src\content\hot-search-sidebar.js",
@@ -73,6 +74,7 @@ Join-SourceBundle `
   -Files @(
     "src\shared\constants.js",
     "src\shared\normalizers.js",
+    "src\shared\workshop-signing.js",
     "src\background\state.js",
     "src\background\xiaoheihe-api.js",
     "src\background\ai-service.js",

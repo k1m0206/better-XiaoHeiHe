@@ -79,7 +79,7 @@
       return;
     }
 
-    if (parsed.origin !== API_ORIGIN) {
+    if (parsed.origin !== API_ORIGIN && parsed.origin !== WORKSHOP_API_ORIGIN) {
       return;
     }
 

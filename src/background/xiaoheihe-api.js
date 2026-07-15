@@ -255,6 +255,7 @@
       "version",
       "web_version",
       "x_client_type",
+      "x_client_version",
       "x_app",
       "heybox_id",
       "x_os_type",
@@ -293,5 +294,27 @@
       ...createSignedParams(path)
     });
     return `${API_ORIGIN}${path}?${query.toString()}`;
+  }
+
+  // 新版 Workshop 写接口在常规 hkey 参数之外，还要求版本 15 的 _rnd 附加签名。
+  async function buildWorkshopApiUrl(path, params = {}) {
+    const reusedParams = normalizeCachedApiParams(cachedApiParams);
+    const signedParams = createSignedParams(path);
+    const query = new URLSearchParams({
+      app: "heybox",
+      heybox_id: params.heybox_id || reusedParams.heybox_id || "",
+      os_type: "web",
+      x_app: "heybox_website",
+      x_client_type: "web",
+      x_os_type: reusedParams.x_os_type || "Windows",
+      x_client_version: "",
+      client_type: "web",
+      web_version: "3.0",
+      version: "999.0.4",
+      ...params,
+      ...signedParams,
+      _rnd: await createWorkshopRndParam(signedParams)
+    });
+    return `${WORKSHOP_API_ORIGIN}${path}?${query.toString()}`;
   }
 

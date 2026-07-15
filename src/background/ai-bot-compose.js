@@ -344,7 +344,7 @@
   async function submitAiBotCommentNow(heyboxId, linkId, replyCommentId, rootCommentId, text) {
     await waitForAiBotCommentCooldown();
     await markAiBotCommentAttempt();
-    const commentUrl = buildCommentCreateUrl(heyboxId);
+    const commentUrl = await buildCommentCreateUrl(heyboxId);
     const body = new URLSearchParams({
       is_cy: "0",
       link_id: String(linkId),

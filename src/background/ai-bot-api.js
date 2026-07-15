@@ -87,8 +87,8 @@
     });
   }
 
-  function buildCommentCreateUrl(heyboxId) {
-    return buildApiUrl(COMMENT_CREATE_API_PATH, {
+  async function buildCommentCreateUrl(heyboxId) {
+    return buildWorkshopApiUrl(COMMENT_CREATE_API_PATH, {
       heybox_id: heyboxId
     });
   }
