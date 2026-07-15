@@ -9,9 +9,7 @@
     "alarms",
     "notifications",
     "cookies",
-    "declarativeNetRequestWithHostAccess"
-  ],
-  "host_permissions": [
+    "declarativeNetRequestWithHostAccess",
     "<all_urls>"
   ],
   "browser_action": {},
