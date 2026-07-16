@@ -463,6 +463,7 @@
     bindFeedAwardCapture();
     bindFeedImageCapture();
     bindHeyboxWebLinkCapture();
+    bindTopicSearchCapture();
     bindTopicBlockContextMenu();
     bindReplyEmojiOutsideClick();
     installLocalSettingsStateSync();

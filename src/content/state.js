@@ -177,6 +177,7 @@
   let feedImageCaptureBound = false;
   let heyboxWebLinkCaptureBound = false;
   let homeFeedFocusRefreshGuardBound = false;
+  let topicSearchCaptureBound = false;
   let topicBlockContextMenuBound = false;
   let imageViewerKeydownBound = false;
   let replyEmojiOutsideClickBound = false;

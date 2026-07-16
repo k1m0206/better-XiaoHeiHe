@@ -374,6 +374,7 @@
   let feedImageCaptureBound = false;
   let heyboxWebLinkCaptureBound = false;
   let homeFeedFocusRefreshGuardBound = false;
+  let topicSearchCaptureBound = false;
   let topicBlockContextMenuBound = false;
   let imageViewerKeydownBound = false;
   let replyEmojiOutsideClickBound = false;
@@ -10946,6 +10947,33 @@
     return normalizeBlockedKeyword(textNode.textContent);
   }
 
+  function getFeedTopicTextFromClickTarget(target) {
+    const item = target?.closest?.(FEED_ITEM_SELECTOR);
+    if (!item) {
+      return "";
+    }
+
+    const richStack = target.closest(".bbs-new-style-bottom__rich-stack");
+    if (richStack && item.contains(richStack)) {
+      const backgroundColor = (richStack.style.backgroundColor || window.getComputedStyle(richStack).backgroundColor)
+        .replace(/\s+/g, "")
+        .toLowerCase();
+      if (backgroundColor !== "rgba(0,75,150,0.1)") {
+        return "";
+      }
+
+      return normalizeBlockedKeyword(richStack.querySelector(".bbs-new-style-bottom__rich-node")?.textContent);
+    }
+
+    const topicTag = target.closest(".content-list__tag-item, .hb-cpt__content-tag, .content-tag-text");
+    if (!topicTag || !item.contains(topicTag)) {
+      return "";
+    }
+
+    const textNode = topicTag.querySelector?.(".content-tag-text") || topicTag;
+    return normalizeBlockedKeyword(textNode.textContent);
+  }
+
   function getFeedItemBlockedTargetKey(item, scope) {
     return `${normalizeBlockedKeywordScope(scope)}:${getLinkIdFromItem(item) || item.getAttribute("href") || getFeedItemContentText(item)}`;
   }
@@ -12049,6 +12077,32 @@
       event.preventDefault();
       event.stopPropagation();
       openTopicBlockMenu(topicText, event.clientX, event.clientY);
+    }, true);
+  }
+
+  function bindTopicSearchCapture() {
+    if (topicSearchCaptureBound) {
+      return;
+    }
+
+    topicSearchCaptureBound = true;
+    document.addEventListener("click", (event) => {
+      if (!(event.target instanceof Element) || !document.documentElement.classList.contains(HOME_LAYOUT_CLASS)) {
+        return;
+      }
+
+      const topicText = getFeedTopicTextFromClickTarget(event.target);
+      if (!topicText) {
+        return;
+      }
+
+      const searchUrl = new URL("https://www.xiaoheihe.cn/app/search/list");
+      searchUrl.searchParams.set("q", topicText);
+      searchUrl.searchParams.set("search_type", "link");
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      window.open(searchUrl.href, "_blank", "noopener,noreferrer");
     }, true);
   }
 
@@ -16871,6 +16925,7 @@
     bindFeedAwardCapture();
     bindFeedImageCapture();
     bindHeyboxWebLinkCapture();
+    bindTopicSearchCapture();
     bindTopicBlockContextMenu();
     bindReplyEmojiOutsideClick();
     installLocalSettingsStateSync();

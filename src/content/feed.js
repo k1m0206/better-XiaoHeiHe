@@ -1850,6 +1850,33 @@
     return normalizeBlockedKeyword(textNode.textContent);
   }
 
+  function getFeedTopicTextFromClickTarget(target) {
+    const item = target?.closest?.(FEED_ITEM_SELECTOR);
+    if (!item) {
+      return "";
+    }
+
+    const richStack = target.closest(".bbs-new-style-bottom__rich-stack");
+    if (richStack && item.contains(richStack)) {
+      const backgroundColor = (richStack.style.backgroundColor || window.getComputedStyle(richStack).backgroundColor)
+        .replace(/\s+/g, "")
+        .toLowerCase();
+      if (backgroundColor !== "rgba(0,75,150,0.1)") {
+        return "";
+      }
+
+      return normalizeBlockedKeyword(richStack.querySelector(".bbs-new-style-bottom__rich-node")?.textContent);
+    }
+
+    const topicTag = target.closest(".content-list__tag-item, .hb-cpt__content-tag, .content-tag-text");
+    if (!topicTag || !item.contains(topicTag)) {
+      return "";
+    }
+
+    const textNode = topicTag.querySelector?.(".content-tag-text") || topicTag;
+    return normalizeBlockedKeyword(textNode.textContent);
+  }
+
   function getFeedItemBlockedTargetKey(item, scope) {
     return `${normalizeBlockedKeywordScope(scope)}:${getLinkIdFromItem(item) || item.getAttribute("href") || getFeedItemContentText(item)}`;
   }

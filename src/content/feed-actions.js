@@ -91,6 +91,32 @@
     }, true);
   }
 
+  function bindTopicSearchCapture() {
+    if (topicSearchCaptureBound) {
+      return;
+    }
+
+    topicSearchCaptureBound = true;
+    document.addEventListener("click", (event) => {
+      if (!(event.target instanceof Element) || !document.documentElement.classList.contains(HOME_LAYOUT_CLASS)) {
+        return;
+      }
+
+      const topicText = getFeedTopicTextFromClickTarget(event.target);
+      if (!topicText) {
+        return;
+      }
+
+      const searchUrl = new URL("https://www.xiaoheihe.cn/app/search/list");
+      searchUrl.searchParams.set("q", topicText);
+      searchUrl.searchParams.set("search_type", "link");
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      window.open(searchUrl.href, "_blank", "noopener,noreferrer");
+    }, true);
+  }
+
   function closeTopicBlockMenu() {
     document.querySelector(`.${TOPIC_BLOCK_MENU_CLASS}`)?.remove();
   }
