@@ -202,7 +202,7 @@
   const imageViewerPreloadCache = new Map();
 
   function isEnhancedPage() {
-    return window.location.hostname === "www.xiaoheihe.cn"
+    return ["xiaoheihe.cn", "www.xiaoheihe.cn"].includes(window.location.hostname)
       && ENHANCED_PATH_PREFIXES.some((prefix) => window.location.pathname.startsWith(prefix));
   }
 

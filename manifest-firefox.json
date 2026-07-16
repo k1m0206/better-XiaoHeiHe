@@ -28,6 +28,7 @@
   "content_scripts": [
     {
       "matches": [
+        "https://xiaoheihe.cn/*",
         "https://www.xiaoheihe.cn/*"
       ],
       "js": [
@@ -37,6 +38,7 @@
     },
     {
       "matches": [
+        "https://xiaoheihe.cn/*",
         "https://www.xiaoheihe.cn/*"
       ],
       "js": [
