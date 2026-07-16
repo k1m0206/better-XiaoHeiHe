@@ -3858,6 +3858,22 @@
         overscroll-behavior: contain;
       }
 
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__list--refreshed {
+        will-change: opacity, transform;
+        animation: better-comment-preview-refresh-in 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+      }
+
+      @keyframes better-comment-preview-refresh-in {
+        from {
+          opacity: 0;
+          transform: translate3d(0, 5px, 0);
+        }
+        to {
+          opacity: 1;
+          transform: translate3d(0, 0, 0);
+        }
+      }
+
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__list::-webkit-scrollbar {
         width: 4px;
       }
@@ -4784,6 +4800,26 @@
         color: #fff;
         font-size: 13px;
         line-height: 20px;
+      }
+
+      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__list:not(:has(.better-comment-preview__group)) > .better-comment-preview__loading-more {
+        animation: better-comment-preview-loading-pulse 1.15s ease-in-out infinite;
+      }
+
+      @keyframes better-comment-preview-loading-pulse {
+        0%, 100% {
+          opacity: 0.48;
+        }
+        50% {
+          opacity: 1;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__list--refreshed,
+        .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__list:not(:has(.better-comment-preview__group)) > .better-comment-preview__loading-more {
+          animation: none;
+        }
       }
 
       .${AI_SUMMARY_MODAL_CLASS} {

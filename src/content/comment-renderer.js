@@ -973,6 +973,10 @@
     const totalHiddenCount = countCommentGroupItems(allCommentGroups) - countCommentGroupItems(commentGroups);
     const cyHiddenCount = hideCyComments ? countCyCommentGroupItems(allCommentGroups) : 0;
     const failed = state?.failed;
+    const wasWaitingForFirstPage = Boolean(
+      preview.querySelector(".better-comment-preview__loading, .better-comment-preview__loading-more")
+      && !preview.querySelector(".better-comment-preview__group")
+    );
 
     if (!state) {
       preview.innerHTML = '<div class="better-comment-preview__loading">评论加载中</div>';
@@ -1004,6 +1008,13 @@
       ${renderPostCommentForm(state)}
     `;
     preview.querySelectorAll(".better-comment-preview__text, .better-comment-preview__reply-text").forEach(updateExpandButton);
+    const refreshedList = preview.querySelector(".better-comment-preview__list");
+    if (wasWaitingForFirstPage && refreshedList && !state.loadingMore) {
+      refreshedList.classList.add("better-comment-preview__list--refreshed");
+      refreshedList.addEventListener("animationend", () => {
+        refreshedList.classList.remove("better-comment-preview__list--refreshed");
+      }, { once: true });
+    }
     syncCyToggleControls();
     bindPreviewActions(preview);
     bindPreviewListScroll(preview);
