@@ -10,15 +10,18 @@
 
   function setActiveBlockedKeywordScope(scope) {
     activeBlockedKeywordScope = normalizeBlockedKeywordScope(scope);
-    activeSettingsTab = activeBlockedKeywordScope;
+    activeSettingsTab = SETTINGS_TABS.BLOCKED;
     renderSettingsPanel();
   }
 
   function setActiveSettingsTab(tab) {
-    const standaloneTabs = [SETTINGS_TABS.GENERAL, SETTINGS_TABS.AI, SETTINGS_TABS.AIBOT, SETTINGS_TABS.AIBOT_LOGS];
-    activeSettingsTab = standaloneTabs.includes(tab) ? tab : normalizeBlockedKeywordScope(tab);
-    if (!standaloneTabs.includes(activeSettingsTab)) {
-      activeBlockedKeywordScope = activeSettingsTab;
+    const blockedScopes = [SETTINGS_TABS.FEED, SETTINGS_TABS.COMMENT];
+    const standaloneTabs = [SETTINGS_TABS.BLOCKED, SETTINGS_TABS.GENERAL, SETTINGS_TABS.AI, SETTINGS_TABS.AIBOT, SETTINGS_TABS.AIBOT_LOGS];
+    if (blockedScopes.includes(tab)) {
+      activeBlockedKeywordScope = normalizeBlockedKeywordScope(tab);
+      activeSettingsTab = SETTINGS_TABS.BLOCKED;
+    } else {
+      activeSettingsTab = standaloneTabs.includes(tab) ? tab : SETTINGS_TABS.GENERAL;
     }
     renderSettingsPanel();
     if (activeSettingsTab === SETTINGS_TABS.AIBOT_LOGS) {

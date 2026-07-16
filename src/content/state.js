@@ -44,6 +44,7 @@
     FEED: "feed"
   };
   const SETTINGS_TABS = {
+    BLOCKED: "blocked",
     FEED: "feed",
     COMMENT: "comment",
     GENERAL: "general",
@@ -151,7 +152,7 @@
   let useLegacyLocalSettingsSync = true;
   const aiPendingRequests = new Map();
   let activeBlockedKeywordScope = BLOCKED_KEYWORD_SCOPES.FEED;
-  let activeSettingsTab = SETTINGS_TABS.FEED;
+  let activeSettingsTab = SETTINGS_TABS.GENERAL;
   let hotSearchPromise = null;
   let leftMenuOriginalPosition = null;
   let emojiPromise = null;

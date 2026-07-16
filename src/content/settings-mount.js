@@ -48,6 +48,13 @@
         return;
       }
 
+      const blockedScopeTab = event.target.closest(".better-settings__scope-tab");
+      if (blockedScopeTab && panel.contains(blockedScopeTab)) {
+        setActiveBlockedKeywordScope(blockedScopeTab.dataset.blockedScope);
+        panel.querySelector(".better-settings__input")?.focus();
+        return;
+      }
+
       const layoutResetButton = event.target.closest(".better-settings__layout-reset");
       if (layoutResetButton && panel.contains(layoutResetButton)) {
         updateFeedLayoutSetting(DEFAULT_FEED_LAYOUT, {
@@ -483,8 +490,14 @@
   }
 
   function openSettingsPanelTab(tab) {
-    const standaloneTabs = [SETTINGS_TABS.GENERAL, SETTINGS_TABS.AI, SETTINGS_TABS.AIBOT, SETTINGS_TABS.AIBOT_LOGS];
-    activeSettingsTab = standaloneTabs.includes(tab) ? tab : normalizeBlockedKeywordScope(tab);
+    const blockedScopes = [SETTINGS_TABS.FEED, SETTINGS_TABS.COMMENT];
+    const standaloneTabs = [SETTINGS_TABS.BLOCKED, SETTINGS_TABS.GENERAL, SETTINGS_TABS.AI, SETTINGS_TABS.AIBOT, SETTINGS_TABS.AIBOT_LOGS];
+    if (blockedScopes.includes(tab)) {
+      activeBlockedKeywordScope = normalizeBlockedKeywordScope(tab);
+      activeSettingsTab = SETTINGS_TABS.BLOCKED;
+    } else {
+      activeSettingsTab = standaloneTabs.includes(tab) ? tab : SETTINGS_TABS.GENERAL;
+    }
     const button = document.querySelector(`.${SETTINGS_ENTRY_CLASS}`);
     if (!button) {
       return;

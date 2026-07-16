@@ -21,6 +21,10 @@
       : `<div class="better-settings__empty">暂无${escapeHtml(BLOCKED_KEYWORD_SCOPE_LABELS[activeScope])}屏蔽关键词</div>`;
 
     return `
+      <div class="better-settings__scope-tabs" role="tablist" aria-label="屏蔽类型">
+        <button class="better-settings__scope-tab" type="button" role="tab" data-blocked-scope="${BLOCKED_KEYWORD_SCOPES.FEED}" aria-selected="${activeScope === BLOCKED_KEYWORD_SCOPES.FEED ? "true" : "false"}">帖子</button>
+        <button class="better-settings__scope-tab" type="button" role="tab" data-blocked-scope="${BLOCKED_KEYWORD_SCOPES.COMMENT}" aria-selected="${activeScope === BLOCKED_KEYWORD_SCOPES.COMMENT ? "true" : "false"}">评论</button>
+      </div>
       <div class="better-settings__section">
         <div class="better-settings__level-row">
           <span class="better-settings__section-title">等级过滤</span>
@@ -87,9 +91,8 @@
 
     panel.innerHTML = `
       <div class="better-settings__tabs" role="tablist" aria-label="设置分类">
-        <button class="better-settings__tab" type="button" role="tab" data-settings-tab="${SETTINGS_TABS.FEED}" aria-selected="${activeSettingsTab === SETTINGS_TABS.FEED ? "true" : "false"}">帖子</button>
-        <button class="better-settings__tab" type="button" role="tab" data-settings-tab="${SETTINGS_TABS.COMMENT}" aria-selected="${activeSettingsTab === SETTINGS_TABS.COMMENT ? "true" : "false"}">评论</button>
         <button class="better-settings__tab" type="button" role="tab" data-settings-tab="${SETTINGS_TABS.GENERAL}" aria-selected="${activeSettingsTab === SETTINGS_TABS.GENERAL ? "true" : "false"}">通用</button>
+        <button class="better-settings__tab" type="button" role="tab" data-settings-tab="${SETTINGS_TABS.BLOCKED}" aria-selected="${activeSettingsTab === SETTINGS_TABS.BLOCKED ? "true" : "false"}">屏蔽</button>
         <button class="better-settings__tab" type="button" role="tab" data-settings-tab="${SETTINGS_TABS.AI}" aria-selected="${activeSettingsTab === SETTINGS_TABS.AI ? "true" : "false"}">AI 总结</button>
         <button class="better-settings__tab" type="button" role="tab" data-settings-tab="${SETTINGS_TABS.AIBOT}" aria-selected="${activeSettingsTab === SETTINGS_TABS.AIBOT ? "true" : "false"}">AI Bot</button>
       </div>

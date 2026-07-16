@@ -241,6 +241,7 @@
     FEED: "feed"
   };
   const SETTINGS_TABS = {
+    BLOCKED: "blocked",
     FEED: "feed",
     COMMENT: "comment",
     GENERAL: "general",
@@ -348,7 +349,7 @@
   let useLegacyLocalSettingsSync = true;
   const aiPendingRequests = new Map();
   let activeBlockedKeywordScope = BLOCKED_KEYWORD_SCOPES.FEED;
-  let activeSettingsTab = SETTINGS_TABS.FEED;
+  let activeSettingsTab = SETTINGS_TABS.GENERAL;
   let hotSearchPromise = null;
   let leftMenuOriginalPosition = null;
   let emojiPromise = null;
@@ -3035,7 +3036,7 @@
 
       .${SETTINGS_PANEL_CLASS} .better-settings__tabs {
         display: grid;
-        grid-template-columns: repeat(5, minmax(0, 1fr));
+        grid-template-columns: repeat(4, minmax(0, 1fr));
         gap: 4px;
         margin-bottom: 10px;
         padding: 3px;
@@ -3060,6 +3061,33 @@
         color: #14191e;
         font-weight: 600;
         box-shadow: 0 1px 4px rgba(20, 25, 30, 0.08);
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__scope-tabs {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 4px;
+        margin-bottom: 10px;
+        padding: 3px;
+        border: 1px solid #e3e7eb;
+        border-radius: 8px;
+        background: #fbfcfd;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__scope-tab {
+        height: 30px;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        color: #59636e;
+        cursor: pointer;
+        font-size: 13px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__scope-tab[aria-selected="true"] {
+        background: #eaf3ff;
+        color: #1f66b8;
+        font-weight: 600;
       }
 
       .${SETTINGS_PANEL_CLASS} .better-settings__input {
@@ -12363,15 +12391,18 @@
 
   function setActiveBlockedKeywordScope(scope) {
     activeBlockedKeywordScope = normalizeBlockedKeywordScope(scope);
-    activeSettingsTab = activeBlockedKeywordScope;
+    activeSettingsTab = SETTINGS_TABS.BLOCKED;
     renderSettingsPanel();
   }
 
   function setActiveSettingsTab(tab) {
-    const standaloneTabs = [SETTINGS_TABS.GENERAL, SETTINGS_TABS.AI, SETTINGS_TABS.AIBOT, SETTINGS_TABS.AIBOT_LOGS];
-    activeSettingsTab = standaloneTabs.includes(tab) ? tab : normalizeBlockedKeywordScope(tab);
-    if (!standaloneTabs.includes(activeSettingsTab)) {
-      activeBlockedKeywordScope = activeSettingsTab;
+    const blockedScopes = [SETTINGS_TABS.FEED, SETTINGS_TABS.COMMENT];
+    const standaloneTabs = [SETTINGS_TABS.BLOCKED, SETTINGS_TABS.GENERAL, SETTINGS_TABS.AI, SETTINGS_TABS.AIBOT, SETTINGS_TABS.AIBOT_LOGS];
+    if (blockedScopes.includes(tab)) {
+      activeBlockedKeywordScope = normalizeBlockedKeywordScope(tab);
+      activeSettingsTab = SETTINGS_TABS.BLOCKED;
+    } else {
+      activeSettingsTab = standaloneTabs.includes(tab) ? tab : SETTINGS_TABS.GENERAL;
     }
     renderSettingsPanel();
     if (activeSettingsTab === SETTINGS_TABS.AIBOT_LOGS) {
@@ -13367,6 +13398,10 @@
       : `<div class="better-settings__empty">暂无${escapeHtml(BLOCKED_KEYWORD_SCOPE_LABELS[activeScope])}屏蔽关键词</div>`;
 
     return `
+      <div class="better-settings__scope-tabs" role="tablist" aria-label="屏蔽类型">
+        <button class="better-settings__scope-tab" type="button" role="tab" data-blocked-scope="${BLOCKED_KEYWORD_SCOPES.FEED}" aria-selected="${activeScope === BLOCKED_KEYWORD_SCOPES.FEED ? "true" : "false"}">帖子</button>
+        <button class="better-settings__scope-tab" type="button" role="tab" data-blocked-scope="${BLOCKED_KEYWORD_SCOPES.COMMENT}" aria-selected="${activeScope === BLOCKED_KEYWORD_SCOPES.COMMENT ? "true" : "false"}">评论</button>
+      </div>
       <div class="better-settings__section">
         <div class="better-settings__level-row">
           <span class="better-settings__section-title">等级过滤</span>
@@ -13433,9 +13468,8 @@
 
     panel.innerHTML = `
       <div class="better-settings__tabs" role="tablist" aria-label="设置分类">
-        <button class="better-settings__tab" type="button" role="tab" data-settings-tab="${SETTINGS_TABS.FEED}" aria-selected="${activeSettingsTab === SETTINGS_TABS.FEED ? "true" : "false"}">帖子</button>
-        <button class="better-settings__tab" type="button" role="tab" data-settings-tab="${SETTINGS_TABS.COMMENT}" aria-selected="${activeSettingsTab === SETTINGS_TABS.COMMENT ? "true" : "false"}">评论</button>
         <button class="better-settings__tab" type="button" role="tab" data-settings-tab="${SETTINGS_TABS.GENERAL}" aria-selected="${activeSettingsTab === SETTINGS_TABS.GENERAL ? "true" : "false"}">通用</button>
+        <button class="better-settings__tab" type="button" role="tab" data-settings-tab="${SETTINGS_TABS.BLOCKED}" aria-selected="${activeSettingsTab === SETTINGS_TABS.BLOCKED ? "true" : "false"}">屏蔽</button>
         <button class="better-settings__tab" type="button" role="tab" data-settings-tab="${SETTINGS_TABS.AI}" aria-selected="${activeSettingsTab === SETTINGS_TABS.AI ? "true" : "false"}">AI 总结</button>
         <button class="better-settings__tab" type="button" role="tab" data-settings-tab="${SETTINGS_TABS.AIBOT}" aria-selected="${activeSettingsTab === SETTINGS_TABS.AIBOT ? "true" : "false"}">AI Bot</button>
       </div>
@@ -14183,6 +14217,13 @@
         return;
       }
 
+      const blockedScopeTab = event.target.closest(".better-settings__scope-tab");
+      if (blockedScopeTab && panel.contains(blockedScopeTab)) {
+        setActiveBlockedKeywordScope(blockedScopeTab.dataset.blockedScope);
+        panel.querySelector(".better-settings__input")?.focus();
+        return;
+      }
+
       const layoutResetButton = event.target.closest(".better-settings__layout-reset");
       if (layoutResetButton && panel.contains(layoutResetButton)) {
         updateFeedLayoutSetting(DEFAULT_FEED_LAYOUT, {
@@ -14618,8 +14659,14 @@
   }
 
   function openSettingsPanelTab(tab) {
-    const standaloneTabs = [SETTINGS_TABS.GENERAL, SETTINGS_TABS.AI, SETTINGS_TABS.AIBOT, SETTINGS_TABS.AIBOT_LOGS];
-    activeSettingsTab = standaloneTabs.includes(tab) ? tab : normalizeBlockedKeywordScope(tab);
+    const blockedScopes = [SETTINGS_TABS.FEED, SETTINGS_TABS.COMMENT];
+    const standaloneTabs = [SETTINGS_TABS.BLOCKED, SETTINGS_TABS.GENERAL, SETTINGS_TABS.AI, SETTINGS_TABS.AIBOT, SETTINGS_TABS.AIBOT_LOGS];
+    if (blockedScopes.includes(tab)) {
+      activeBlockedKeywordScope = normalizeBlockedKeywordScope(tab);
+      activeSettingsTab = SETTINGS_TABS.BLOCKED;
+    } else {
+      activeSettingsTab = standaloneTabs.includes(tab) ? tab : SETTINGS_TABS.GENERAL;
+    }
     const button = document.querySelector(`.${SETTINGS_ENTRY_CLASS}`);
     if (!button) {
       return;

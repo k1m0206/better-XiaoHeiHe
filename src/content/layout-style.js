@@ -1928,7 +1928,7 @@
 
       .${SETTINGS_PANEL_CLASS} .better-settings__tabs {
         display: grid;
-        grid-template-columns: repeat(5, minmax(0, 1fr));
+        grid-template-columns: repeat(4, minmax(0, 1fr));
         gap: 4px;
         margin-bottom: 10px;
         padding: 3px;
@@ -1953,6 +1953,33 @@
         color: #14191e;
         font-weight: 600;
         box-shadow: 0 1px 4px rgba(20, 25, 30, 0.08);
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__scope-tabs {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 4px;
+        margin-bottom: 10px;
+        padding: 3px;
+        border: 1px solid #e3e7eb;
+        border-radius: 8px;
+        background: #fbfcfd;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__scope-tab {
+        height: 30px;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        color: #59636e;
+        cursor: pointer;
+        font-size: 13px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__scope-tab[aria-selected="true"] {
+        background: #eaf3ff;
+        color: #1f66b8;
+        font-weight: 600;
       }
 
       .${SETTINGS_PANEL_CLASS} .better-settings__input {
