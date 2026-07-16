@@ -80,6 +80,23 @@
         </div>
         <button class="better-settings__text-button better-settings__layout-reset" type="button">恢复默认值</button>
       </div>
+      <a class="better-settings__project-link" href="https://github.com/k1m0206/better-XiaoHeiHe" target="_blank" rel="noopener noreferrer" aria-label="在 GitHub 查看 better-XiaoHeiHe 开源项目">
+        <span class="better-settings__project-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 .7a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2.02c-3.22.7-3.9-1.36-3.9-1.36-.52-1.34-1.28-1.7-1.28-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.57-.3-5.27-1.29-5.27-5.69 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.47.11-3.05 0 0 .97-.31 3.16 1.18a10.9 10.9 0 0 1 5.76 0c2.2-1.5 3.16-1.18 3.16-1.18.63 1.58.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.42-2.71 5.39-5.29 5.68.42.36.79 1.07.79 2.16v3.03c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .7Z"/>
+          </svg>
+        </span>
+        <span class="better-settings__project-content">
+          <span class="better-settings__project-title">开源项目</span>
+          <span class="better-settings__project-repo">k1m0206/better-XiaoHeiHe</span>
+          <span class="better-settings__project-desc">查看源码、提交反馈或参与贡献</span>
+        </span>
+        <span class="better-settings__project-arrow" aria-hidden="true">
+          <svg viewBox="0 0 20 20" fill="none">
+            <path d="M7 5h8v8M15 5 6 14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
+      </a>
     `;
   }
 

@@ -1947,6 +1947,106 @@
         background: #f7fafc;
       }
 
+      .${SETTINGS_PANEL_CLASS} .better-settings__project-link {
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-height: 76px;
+        padding: 12px 14px;
+        border: 1px solid #dce7f3;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #f8fbff 0%, #f3f7fc 100%);
+        color: #14191e;
+        text-decoration: none;
+        box-shadow: 0 1px 2px rgba(28, 55, 84, 0.04);
+        transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__project-link:hover {
+        border-color: #b8cfe8;
+        box-shadow: 0 7px 18px rgba(31, 102, 184, 0.11);
+        transform: translateY(-1px);
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__project-link:focus-visible {
+        outline: 2px solid rgba(39, 117, 209, 0.35);
+        outline-offset: 2px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__project-icon {
+        display: inline-flex;
+        width: 38px;
+        height: 38px;
+        flex: 0 0 auto;
+        align-items: center;
+        justify-content: center;
+        border-radius: 10px;
+        background: #24292f;
+        color: #fff;
+        box-shadow: 0 4px 10px rgba(36, 41, 47, 0.18);
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__project-icon svg {
+        width: 22px;
+        height: 22px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__project-content {
+        display: grid;
+        min-width: 0;
+        flex: 1;
+        grid-template-columns: auto minmax(0, 1fr);
+        align-items: baseline;
+        column-gap: 8px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__project-title {
+        color: #14191e;
+        font-weight: 700;
+        line-height: 20px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__project-repo {
+        min-width: 0;
+        overflow: hidden;
+        color: #2775d1;
+        font-size: 12px;
+        line-height: 20px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__project-desc {
+        grid-column: 1 / -1;
+        color: #7b858f;
+        font-size: 12px;
+        line-height: 18px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__project-arrow {
+        display: inline-flex;
+        width: 28px;
+        height: 28px;
+        flex: 0 0 auto;
+        align-items: center;
+        justify-content: center;
+        border-radius: 7px;
+        background: rgba(39, 117, 209, 0.08);
+        color: #2775d1;
+        transition: background-color 0.16s ease, transform 0.16s ease;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__project-arrow svg {
+        width: 17px;
+        height: 17px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__project-link:hover .better-settings__project-arrow {
+        background: rgba(39, 117, 209, 0.14);
+        transform: translate(1px, -1px);
+      }
+
       .${SETTINGS_PANEL_CLASS} .better-settings__tabs {
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
