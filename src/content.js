@@ -1285,7 +1285,8 @@
         display: none !important;
       }
 
-      .${HOME_LAYOUT_CLASS} #page-bbs-community::before {
+      .${HOME_LAYOUT_CLASS} #page-bbs-community::before,
+      .${HOME_LAYOUT_CLASS} #page-topic-link::before {
         content: none !important;
         display: none !important;
       }
@@ -4301,8 +4302,42 @@
         transform: translateX(-50%);
       }
 
+      .${HOME_LAYOUT_CLASS} #page-user-profile > .content > .list {
+        box-sizing: border-box !important;
+        position: relative !important;
+        left: 50% !important;
+        flex: 0 0 var(--better-feed-total-width, 92vw) !important;
+        min-width: 0 !important;
+        width: var(--better-feed-total-width, 92vw) !important;
+        max-width: calc(100vw - 24px) !important;
+        transform: translateX(-50%) !important;
+      }
+
+      .${HOME_LAYOUT_CLASS} #page-topic-link .topic-link__panel {
+        box-sizing: border-box !important;
+        position: relative !important;
+        left: 50% !important;
+        flex: 0 0 var(--better-feed-total-width, 92vw) !important;
+        min-width: 0 !important;
+        width: var(--better-feed-total-width, 92vw) !important;
+        max-width: calc(100vw - 24px) !important;
+        transform: translateX(-50%) !important;
+      }
+
+      .${HOME_LAYOUT_CLASS} #page-user-profile > .content > .list > .user-profile-page-header,
+      .${HOME_LAYOUT_CLASS} #page-user-profile > .content > .list > .user-profile-wrapper,
+      .${HOME_LAYOUT_CLASS} #page-user-profile > .content > .list > .post-link-wrapper,
+      .${HOME_LAYOUT_CLASS} #page-user-profile .user-profile__list {
+        box-sizing: border-box !important;
+        min-width: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+      }
+
       .${HOME_LAYOUT_CLASS} .hb-cpt__scroll-list.hb-bbs-home .${ROW_CLASS},
-      .${HOME_LAYOUT_CLASS} .search-result__list.general > .search-result__link.${ROW_CLASS} {
+      .${HOME_LAYOUT_CLASS} .search-result__list.general > .search-result__link.${ROW_CLASS},
+      .${HOME_LAYOUT_CLASS} #page-user-profile .user-profile__list > .${ROW_CLASS},
+      .${HOME_LAYOUT_CLASS} #page-topic-link .topic-link__list .${ROW_CLASS} {
         left: auto;
         width: 100% !important;
         max-width: 100% !important;
