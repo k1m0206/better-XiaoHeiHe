@@ -264,8 +264,8 @@
     [BLOCKED_KEYWORD_SCOPES.FEED]: "帖子"
   };
   const DEFAULT_FEED_LAYOUT = {
-    totalWidth: 92,
-    postWidth: 70
+    totalWidth: 65,
+    postWidth: 60
   };
   const FEED_LAYOUT_TOTAL_WIDTH_MIN = 60;
   const FEED_LAYOUT_TOTAL_WIDTH_MAX = 100;
