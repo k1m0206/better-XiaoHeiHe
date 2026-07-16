@@ -121,6 +121,9 @@
             ? renderAiBotSettingsPanelContent()
             : (activeSettingsTab === SETTINGS_TABS.AIBOT_LOGS ? renderAiBotLogsPanelContent() : renderBlockedSettingsPanelContent())))}
     `;
+    if (activeSettingsTab === SETTINGS_TABS.GENERAL) {
+      bindFeedLayoutRangeInputs(panel);
+    }
     syncSettingsAutoHeightTextareas(panel);
     if (activeSettingsTab === SETTINGS_TABS.AI) {
       syncAiConnectionDot("ai", aiSettings);

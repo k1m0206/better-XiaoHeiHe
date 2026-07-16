@@ -135,6 +135,7 @@
   let aiBotSettings = normalizeAiBotSettings();
   let uiState = normalizeUiState();
   let feedLayoutSettings = normalizeFeedLayoutSettings();
+  let feedLayoutPreviewFrame = 0;
   let aiBotLogs = [];
   let aiBotMessageLogs = [];
   let aiBotReplyQueue = [];

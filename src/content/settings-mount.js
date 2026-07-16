@@ -1,5 +1,42 @@
 // 设置面板挂载、关闭、定位和外部事件绑定。
 // 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
+  function syncFeedLayoutRangeInput(panel, range) {
+    const isTotalWidth = range.matches(".better-settings__layout-total-range");
+    feedLayoutSettings = normalizeFeedLayoutSettings({
+      ...feedLayoutSettings,
+      ...(isTotalWidth
+        ? { totalWidth: range.value }
+        : { postWidth: range.value })
+    });
+    const layout = feedLayoutSettings;
+    const totalValue = panel.querySelector(".better-settings__layout-total-value");
+    const ratioValue = panel.querySelector(".better-settings__layout-ratio-value");
+    const preview = panel.querySelector(".better-settings__layout-preview");
+    if (totalValue) {
+      totalValue.textContent = `${layout.totalWidth}%`;
+    }
+    if (ratioValue) {
+      ratioValue.textContent = `帖子 ${layout.postWidth}% · 评论 ${100 - layout.postWidth}%`;
+    }
+    if (preview) {
+      preview.style.setProperty("--better-layout-preview-total", `${layout.totalWidth}%`);
+      preview.style.setProperty("--better-layout-preview-post", `${layout.postWidth}%`);
+      preview.style.setProperty("--better-layout-preview-comment", `${100 - layout.postWidth}%`);
+    }
+    if (!feedLayoutPreviewFrame) {
+      feedLayoutPreviewFrame = window.requestAnimationFrame(() => {
+        feedLayoutPreviewFrame = 0;
+        applyFeedLayoutSettings();
+      });
+    }
+  }
+
+  function bindFeedLayoutRangeInputs(panel) {
+    panel.querySelectorAll(".better-settings__layout-total-range, .better-settings__layout-post-range").forEach((range) => {
+      range.addEventListener("input", () => syncFeedLayoutRangeInput(panel, range));
+    });
+  }
+
   function ensureSettingsPanel() {
     let panel = document.querySelector(`.${SETTINGS_PANEL_CLASS}`);
     if (panel) {
@@ -259,31 +296,6 @@
         if (valueLabel) {
           valueLabel.textContent = `展示 ${getLevelFilterLabel(Number.parseInt(event.target.value, 10) || LEVEL_FILTER_MIN)} 及以上${BLOCKED_KEYWORD_SCOPE_LABELS[scope]}`;
         }
-      }
-
-      if (event.target.matches(".better-settings__layout-total-range, .better-settings__layout-post-range")) {
-        const isTotalWidth = event.target.matches(".better-settings__layout-total-range");
-        updateFeedLayoutSetting(isTotalWidth
-          ? { totalWidth: event.target.value }
-          : { postWidth: event.target.value }, {
-          persist: false
-        });
-        const layout = feedLayoutSettings;
-        const totalValue = panel.querySelector(".better-settings__layout-total-value");
-        const ratioValue = panel.querySelector(".better-settings__layout-ratio-value");
-        const preview = panel.querySelector(".better-settings__layout-preview");
-        if (totalValue) {
-          totalValue.textContent = `${layout.totalWidth}%`;
-        }
-        if (ratioValue) {
-          ratioValue.textContent = `帖子 ${layout.postWidth}% · 评论 ${100 - layout.postWidth}%`;
-        }
-        if (preview) {
-          preview.style.setProperty("--better-layout-preview-total", `${layout.totalWidth}%`);
-          preview.style.setProperty("--better-layout-preview-post", `${layout.postWidth}%`);
-          preview.style.setProperty("--better-layout-preview-comment", `${100 - layout.postWidth}%`);
-        }
-        return;
       }
 
       if (event.target.matches(".better-settings__ai-base-url, .better-settings__ai-model, .better-settings__ai-api-key, .better-settings__ai-summary-prompt")) {
