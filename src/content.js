@@ -1248,8 +1248,7 @@
         transform: none !important;
       }
 
-      .${HOME_LAYOUT_CLASS} .search-result__list.general,
-      .${HOME_LAYOUT_CLASS} .hb-page__app .search-result__list.general {
+      .${HOME_LAYOUT_CLASS} #page-bbs-list > .content > .list {
         box-sizing: border-box !important;
         position: relative !important;
         left: 50% !important;
@@ -1260,6 +1259,26 @@
         margin-right: 0 !important;
         margin-left: 0 !important;
         transform: translateX(-50%) !important;
+      }
+
+      .${HOME_LAYOUT_CLASS} #page-bbs-list > .content > .list > .hb-search-result,
+      .${HOME_LAYOUT_CLASS} #page-bbs-list .search-result__list.general {
+        box-sizing: border-box !important;
+        position: relative !important;
+        left: auto !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        flex: 0 1 100% !important;
+        margin-right: 0 !important;
+        margin-left: 0 !important;
+        transform: none !important;
+      }
+
+      .${HOME_LAYOUT_CLASS} .hb-cpt__scroll-list.hb-bbs-home,
+      .${HOME_LAYOUT_CLASS} #page-bbs-community .hb-cpt__scroll-list.hb-bbs-home,
+      .${HOME_LAYOUT_CLASS} #page-bbs-list > .content > .list {
+        flex-shrink: 0 !important;
       }
 
       .${HOME_LAYOUT_CLASS} .bbs-home__topic-list-wrapper,
@@ -1287,12 +1306,14 @@
       }
 
       .${HOME_LAYOUT_CLASS} #page-bbs-community::before,
-      .${HOME_LAYOUT_CLASS} #page-topic-link::before {
+      .${HOME_LAYOUT_CLASS} #page-topic-link::before,
+      .${HOME_LAYOUT_CLASS} #page-bbs-list::before {
         content: none !important;
         display: none !important;
       }
 
-      .${HOME_LAYOUT_CLASS} #page-bbs-community .list::before {
+      .${HOME_LAYOUT_CLASS} #page-bbs-community .list::before,
+      .${HOME_LAYOUT_CLASS} #page-bbs-list > .content > .list::before {
         content: none !important;
         display: none !important;
       }
