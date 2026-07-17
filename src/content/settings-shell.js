@@ -81,11 +81,15 @@
         <button class="better-settings__text-button better-settings__layout-reset" type="button">恢复默认值</button>
       </div>
       <div class="better-settings__section better-settings__hot-search-section">
-        <div class="better-settings__section-title">黑盒热搜</div>
-        <div class="better-settings__desc">控制首页和搜索页左侧的悬浮热搜入口。</div>
-        <button class="better-settings__hot-search-toggle${hotSearchDisabled ? " is-disabled" : ""}" type="button">
-          ${hotSearchDisabled ? "恢复显示热搜" : "永久关闭热搜"}
-        </button>
+        <div class="better-settings__hot-search-row">
+          <div class="better-settings__hot-search-copy">
+            <div class="better-settings__section-title">黑盒热搜</div>
+            <div class="better-settings__desc">控制首页和搜索页左侧的悬浮热搜入口。</div>
+          </div>
+          <button class="better-settings__hot-search-toggle" type="button" role="switch" aria-checked="${hotSearchDisabled ? "false" : "true"}" aria-label="${hotSearchDisabled ? "恢复显示黑盒热搜" : "永久关闭黑盒热搜"}" title="${hotSearchDisabled ? "恢复显示热搜" : "永久关闭热搜"}">
+            <span class="better-settings__level-switch" aria-hidden="true"></span>
+          </button>
+        </div>
       </div>
       <div class="better-settings__external-links">
         <a class="better-settings__project-link better-settings__project-link--community" href="https://www.xiaoheihe.cn/jm56gbaa" target="_blank" rel="noopener noreferrer" aria-label="加入小黑盒插件沟通群">

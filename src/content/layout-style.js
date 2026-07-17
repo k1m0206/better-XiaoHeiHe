@@ -1970,35 +1970,41 @@
         background: #f7fafc;
       }
 
+      .${SETTINGS_PANEL_CLASS} .better-settings__hot-search-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__hot-search-copy {
+        min-width: 0;
+      }
+
       .${SETTINGS_PANEL_CLASS} .better-settings__hot-search-toggle {
-        box-sizing: border-box;
-        width: 100%;
-        height: 34px;
-        margin-top: 12px;
-        border: 1px solid #efc3c8;
-        border-radius: 7px;
-        background: #fff7f8;
-        color: #cf3f4e;
+        display: inline-flex;
+        flex: 0 0 auto;
+        padding: 0;
+        border: 0;
+        background: transparent;
         cursor: pointer;
-        font-size: 13px;
-        font-weight: 600;
-        transition: border-color 0.16s ease, background 0.16s ease, color 0.16s ease;
       }
 
-      .${SETTINGS_PANEL_CLASS} .better-settings__hot-search-toggle:hover {
-        border-color: #e997a0;
-        background: #ffedef;
+      .${SETTINGS_PANEL_CLASS} .better-settings__hot-search-toggle[aria-checked="true"] .better-settings__level-switch {
+        background: #2775d1;
       }
 
-      .${SETTINGS_PANEL_CLASS} .better-settings__hot-search-toggle.is-disabled {
-        border-color: #b8cfe8;
-        background: #f3f8fe;
-        color: #2775d1;
+      .${SETTINGS_PANEL_CLASS} .better-settings__hot-search-toggle[aria-checked="true"] .better-settings__level-switch::after {
+        transform: translateX(20px);
       }
 
-      .${SETTINGS_PANEL_CLASS} .better-settings__hot-search-toggle.is-disabled:hover {
-        border-color: #8eb5df;
-        background: #eaf3fd;
+      .${SETTINGS_PANEL_CLASS} .better-settings__hot-search-toggle:focus-visible {
+        outline: none;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__hot-search-toggle:focus-visible .better-settings__level-switch {
+        outline: 2px solid rgba(39, 117, 209, 0.35);
+        outline-offset: 2px;
       }
 
       .${SETTINGS_PANEL_CLASS} .better-settings__external-links {
@@ -3407,36 +3413,88 @@
       }
 
       .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} .better-hot-search__footer {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
         margin-top: 16px;
         padding-top: 14px;
         border-top: 1px solid #edf1f5;
       }
 
       .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} .${HOT_SEARCH_CLOSE_BUTTON_CLASS} {
-        box-sizing: border-box;
-        width: 100%;
-        height: 34px;
-        border: 1px solid #efc3c8;
-        border-radius: 7px;
-        background: #fff7f8;
-        color: #cf3f4e;
+        display: block;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: #8a9299;
         cursor: pointer;
-        font-size: 13px;
-        font-weight: 600;
-        transition: border-color 0.16s ease, background 0.16s ease;
+        font-size: 11px;
+        font-weight: 400;
+        line-height: 16px;
+        transition: color 0.16s ease;
       }
 
       .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} .${HOT_SEARCH_CLOSE_BUTTON_CLASS}:hover {
-        border-color: #e997a0;
-        background: #ffedef;
+        color: #59636e;
+        text-decoration: underline;
+      }
+
+      .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} .${HOT_SEARCH_CLOSE_BUTTON_CLASS}:focus-visible {
+        outline: 2px solid rgba(89, 99, 110, 0.25);
+        outline-offset: 2px;
       }
 
       .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} .better-hot-search__footer-hint {
-        margin-top: 6px;
+        display: flex;
+        position: relative;
+        width: 14px;
+        height: 14px;
+        margin: 0;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid #c7cdd3;
+        border-radius: 50%;
         color: #a1a8b0;
+        cursor: help;
         font-size: 11px;
-        line-height: 16px;
+        line-height: 14px;
         text-align: center;
+      }
+
+      .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} .better-hot-search__footer-hint::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        bottom: calc(100% + 7px);
+        left: 50%;
+        z-index: 4;
+        width: max-content;
+        max-width: 210px;
+        padding: 5px 8px;
+        border-radius: 5px;
+        background: rgba(38, 43, 49, 0.94);
+        color: #fff;
+        box-shadow: 0 4px 12px rgba(20, 25, 30, 0.16);
+        font-size: 11px;
+        font-weight: 400;
+        line-height: 16px;
+        opacity: 0;
+        pointer-events: none;
+        transform: translate(-50%, 3px);
+        transition: opacity 0.14s ease, transform 0.14s ease;
+        white-space: nowrap;
+      }
+
+      .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} .better-hot-search__footer-hint:hover::after,
+      .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} .better-hot-search__footer-hint:focus-visible::after {
+        opacity: 1;
+        transform: translate(-50%, 0);
+      }
+
+      .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} .better-hot-search__footer-hint:focus-visible {
+        outline: 2px solid rgba(89, 99, 110, 0.25);
+        outline-offset: 2px;
       }
 
       .${HOME_LAYOUT_CLASS} .${ROW_CLASS} {

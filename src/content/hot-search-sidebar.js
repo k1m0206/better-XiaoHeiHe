@@ -85,7 +85,10 @@
 
       const hint = document.createElement("div");
       hint.className = "better-hot-search__footer-hint";
-      hint.textContent = "关闭后可在通用设置中恢复";
+      hint.textContent = "?";
+      hint.tabIndex = 0;
+      hint.dataset.tooltip = "关闭后可在通用设置中恢复";
+      hint.setAttribute("aria-label", "说明：关闭后可在通用设置中恢复");
       footer.appendChild(hint);
     }
     panel.appendChild(footer);
