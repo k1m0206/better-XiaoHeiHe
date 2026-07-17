@@ -57,6 +57,7 @@
       empty.className = "better-hot-search__empty";
       empty.textContent = "暂无热搜";
       panel.appendChild(empty);
+      ensureHotSearchPermanentCloseButton(panel);
       return;
     }
 
@@ -107,6 +108,7 @@
       list.appendChild(link);
     });
     panel.appendChild(list);
+    ensureHotSearchPermanentCloseButton(panel);
   }
 
   function renderHotSearchFallback(panel) {
@@ -119,6 +121,7 @@
     loading.className = "better-hot-search__loading";
     loading.textContent = "热搜加载中";
     panel.replaceChildren(loading);
+    ensureHotSearchPermanentCloseButton(panel);
 
     fetchSearchWelcomeData()
       .then((ranks) => {
@@ -131,16 +134,20 @@
         error.className = "better-hot-search__error";
         error.textContent = "热搜加载失败";
         panel.replaceChildren(error);
+        ensureHotSearchPermanentCloseButton(panel);
       });
   }
 
   function moveSearchHotListToLeftSidebar() {
-    if (!isSearchPage() && !isCommunityHomePage()) {
+    if (hotSearchDisabled || (!isSearchPage() && !isCommunityHomePage())) {
       removeHotSearchSidebar();
       return;
     }
 
     const sidebar = ensureHotSearchSidebar();
+    if (!sidebar) {
+      return;
+    }
     const panel = sidebar.querySelector(`.${HOT_SEARCH_SIDEBAR_PANEL_CLASS}`);
     if (!panel) {
       return;
@@ -148,6 +155,7 @@
 
     const hotSearch = findSearchHotList();
     if (hotSearch && panel.contains(hotSearch)) {
+      ensureHotSearchPermanentCloseButton(panel);
       return;
     }
 
@@ -155,6 +163,7 @@
       panel.dataset.betterHotSearchFallback = "";
       panel.replaceChildren();
       panel.appendChild(hotSearch);
+      ensureHotSearchPermanentCloseButton(panel);
       return;
     }
 

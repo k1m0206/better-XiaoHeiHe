@@ -100,6 +100,12 @@
         return;
       }
 
+      const hotSearchToggleButton = event.target.closest(".better-settings__hot-search-toggle");
+      if (hotSearchToggleButton && panel.contains(hotSearchToggleButton)) {
+        setHotSearchDisabled(!hotSearchDisabled);
+        return;
+      }
+
       const resetAiBotPromptButton = event.target.closest(".better-settings__ai-bot-reset-prompt");
       if (resetAiBotPromptButton && panel.contains(resetAiBotPromptButton)) {
         const promptInput = panel.querySelector(".better-settings__ai-bot-comment-prompt");

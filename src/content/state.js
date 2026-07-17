@@ -36,6 +36,7 @@
   const HOT_SEARCH_SIDEBAR_OPEN_CLASS = "better-xiaoheihe-hot-search-sidebar--open";
   const HOT_SEARCH_SIDEBAR_TOGGLE_CLASS = "better-xiaoheihe-hot-search-sidebar__toggle";
   const HOT_SEARCH_SIDEBAR_PANEL_CLASS = "better-xiaoheihe-hot-search-sidebar__panel";
+  const HOT_SEARCH_CLOSE_BUTTON_CLASS = "better-xiaoheihe-hot-search-close";
   const DEFAULT_USER_LEVEL = 6;
   const LEVEL_FILTER_MIN = 7;
   const LEVEL_FILTER_MAX = 25;
@@ -155,6 +156,7 @@
   let activeBlockedKeywordScope = BLOCKED_KEYWORD_SCOPES.FEED;
   let activeSettingsTab = SETTINGS_TABS.GENERAL;
   let hotSearchPromise = null;
+  let hotSearchDisabled = false;
   let leftMenuOriginalPosition = null;
   let emojiPromise = null;
   let scheduled = false;
@@ -826,6 +828,7 @@
     aiBotConsentAccepted = values[AI_BOT_CONSENT_STORAGE_KEY] === true;
     emojiUsageStats = normalizeEmojiUsageStats(values[COMMENT_EMOJI_USAGE_STORAGE_KEY]);
     feedLayoutSettings = normalizeFeedLayoutSettings(values[FEED_LAYOUT_SETTINGS_STORAGE_KEY]);
+    hotSearchDisabled = values[HOT_SEARCH_DISABLED_STORAGE_KEY] === true;
     applyFeedLayoutSettings();
   }
 
@@ -901,6 +904,9 @@
     nextValues[FEED_LAYOUT_SETTINGS_STORAGE_KEY] = keysPresent[FEED_LAYOUT_SETTINGS_STORAGE_KEY]
       ? normalizeFeedLayoutSettings(values[FEED_LAYOUT_SETTINGS_STORAGE_KEY])
       : normalizeFeedLayoutSettings();
+    nextValues[HOT_SEARCH_DISABLED_STORAGE_KEY] = keysPresent[HOT_SEARCH_DISABLED_STORAGE_KEY]
+      ? values[HOT_SEARCH_DISABLED_STORAGE_KEY] === true
+      : false;
 
     applyLocalSettingsValues(nextValues);
 

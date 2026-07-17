@@ -25,6 +25,7 @@
   const UI_STATE_STORAGE_KEY = "better-xiaoheihe-ui-state";
   const COMMENT_EMOJI_USAGE_STORAGE_KEY = "better-xiaoheihe-comment-emoji-usage";
   const FEED_LAYOUT_SETTINGS_STORAGE_KEY = "better-xiaoheihe-feed-layout-settings";
+  const HOT_SEARCH_DISABLED_STORAGE_KEY = "better-xiaoheihe-hot-search-disabled";
 
   const LOCAL_SETTINGS_STORAGE_KEYS = [
     HIDE_CY_COMMENTS_STORAGE_KEY,
@@ -39,7 +40,8 @@
     API_PARAMS_STORAGE_KEY,
     UI_STATE_STORAGE_KEY,
     COMMENT_EMOJI_USAGE_STORAGE_KEY,
-    FEED_LAYOUT_SETTINGS_STORAGE_KEY
+    FEED_LAYOUT_SETTINGS_STORAGE_KEY,
+    HOT_SEARCH_DISABLED_STORAGE_KEY
   ];
 
   const LOCAL_SETTINGS_REQUEST_EVENT = "better-xiaoheihe-local-settings-request";
@@ -233,6 +235,7 @@
   const HOT_SEARCH_SIDEBAR_OPEN_CLASS = "better-xiaoheihe-hot-search-sidebar--open";
   const HOT_SEARCH_SIDEBAR_TOGGLE_CLASS = "better-xiaoheihe-hot-search-sidebar__toggle";
   const HOT_SEARCH_SIDEBAR_PANEL_CLASS = "better-xiaoheihe-hot-search-sidebar__panel";
+  const HOT_SEARCH_CLOSE_BUTTON_CLASS = "better-xiaoheihe-hot-search-close";
   const DEFAULT_USER_LEVEL = 6;
   const LEVEL_FILTER_MIN = 7;
   const LEVEL_FILTER_MAX = 25;
@@ -352,6 +355,7 @@
   let activeBlockedKeywordScope = BLOCKED_KEYWORD_SCOPES.FEED;
   let activeSettingsTab = SETTINGS_TABS.GENERAL;
   let hotSearchPromise = null;
+  let hotSearchDisabled = false;
   let leftMenuOriginalPosition = null;
   let emojiPromise = null;
   let scheduled = false;
@@ -1023,6 +1027,7 @@
     aiBotConsentAccepted = values[AI_BOT_CONSENT_STORAGE_KEY] === true;
     emojiUsageStats = normalizeEmojiUsageStats(values[COMMENT_EMOJI_USAGE_STORAGE_KEY]);
     feedLayoutSettings = normalizeFeedLayoutSettings(values[FEED_LAYOUT_SETTINGS_STORAGE_KEY]);
+    hotSearchDisabled = values[HOT_SEARCH_DISABLED_STORAGE_KEY] === true;
     applyFeedLayoutSettings();
   }
 
@@ -1098,6 +1103,9 @@
     nextValues[FEED_LAYOUT_SETTINGS_STORAGE_KEY] = keysPresent[FEED_LAYOUT_SETTINGS_STORAGE_KEY]
       ? normalizeFeedLayoutSettings(values[FEED_LAYOUT_SETTINGS_STORAGE_KEY])
       : normalizeFeedLayoutSettings();
+    nextValues[HOT_SEARCH_DISABLED_STORAGE_KEY] = keysPresent[HOT_SEARCH_DISABLED_STORAGE_KEY]
+      ? values[HOT_SEARCH_DISABLED_STORAGE_KEY] === true
+      : false;
 
     applyLocalSettingsValues(nextValues);
 
@@ -3080,6 +3088,37 @@
         background: #f7fafc;
       }
 
+      .${SETTINGS_PANEL_CLASS} .better-settings__hot-search-toggle {
+        box-sizing: border-box;
+        width: 100%;
+        height: 34px;
+        margin-top: 12px;
+        border: 1px solid #efc3c8;
+        border-radius: 7px;
+        background: #fff7f8;
+        color: #cf3f4e;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
+        transition: border-color 0.16s ease, background 0.16s ease, color 0.16s ease;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__hot-search-toggle:hover {
+        border-color: #e997a0;
+        background: #ffedef;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__hot-search-toggle.is-disabled {
+        border-color: #b8cfe8;
+        background: #f3f8fe;
+        color: #2775d1;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__hot-search-toggle.is-disabled:hover {
+        border-color: #8eb5df;
+        background: #eaf3fd;
+      }
+
       .${SETTINGS_PANEL_CLASS} .better-settings__project-link {
         box-sizing: border-box;
         display: flex;
@@ -4455,6 +4494,39 @@
         line-height: 17px;
         -webkit-box-orient: vertical;
 
+      }
+
+      .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} .better-hot-search__footer {
+        margin-top: 16px;
+        padding-top: 14px;
+        border-top: 1px solid #edf1f5;
+      }
+
+      .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} .${HOT_SEARCH_CLOSE_BUTTON_CLASS} {
+        box-sizing: border-box;
+        width: 100%;
+        height: 34px;
+        border: 1px solid #efc3c8;
+        border-radius: 7px;
+        background: #fff7f8;
+        color: #cf3f4e;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
+        transition: border-color 0.16s ease, background 0.16s ease;
+      }
+
+      .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} .${HOT_SEARCH_CLOSE_BUTTON_CLASS}:hover {
+        border-color: #e997a0;
+        background: #ffedef;
+      }
+
+      .${HOT_SEARCH_SIDEBAR_PANEL_CLASS} .better-hot-search__footer-hint {
+        margin-top: 6px;
+        color: #a1a8b0;
+        font-size: 11px;
+        line-height: 16px;
+        text-align: center;
       }
 
       .${HOME_LAYOUT_CLASS} .${ROW_CLASS} {
@@ -6754,7 +6826,59 @@
     });
   }
 
+  function syncHotSearchDisabledState(savedState) {
+    const isDisabled = savedState === true;
+    if (isDisabled === hotSearchDisabled) {
+      return;
+    }
+
+    hotSearchDisabled = isDisabled;
+    if (hotSearchDisabled) {
+      removeHotSearchSidebar();
+    } else {
+      scheduleHandlePage();
+    }
+    if (activeSettingsTab === SETTINGS_TABS.GENERAL) {
+      renderSettingsPanel();
+    }
+  }
+
+  function setHotSearchDisabled(isDisabled) {
+    syncHotSearchDisabledState(isDisabled);
+    saveLocalSettings({
+      [HOT_SEARCH_DISABLED_STORAGE_KEY]: isDisabled === true
+    });
+  }
+
+  function ensureHotSearchPermanentCloseButton(panel) {
+    let footer = panel.querySelector(".better-hot-search__footer");
+    if (!footer) {
+      footer = document.createElement("div");
+      footer.className = "better-hot-search__footer";
+
+      const button = document.createElement("button");
+      button.className = HOT_SEARCH_CLOSE_BUTTON_CLASS;
+      button.type = "button";
+      button.textContent = "永久关闭热搜";
+      button.addEventListener("click", () => {
+        setHotSearchDisabled(true);
+      });
+      footer.appendChild(button);
+
+      const hint = document.createElement("div");
+      hint.className = "better-hot-search__footer-hint";
+      hint.textContent = "关闭后可在通用设置中恢复";
+      footer.appendChild(hint);
+    }
+    panel.appendChild(footer);
+  }
+
   function ensureHotSearchSidebar() {
+    if (hotSearchDisabled) {
+      removeHotSearchSidebar();
+      return null;
+    }
+
     bindHotSearchSidebarOutsideClick();
 
     let sidebar = document.querySelector(`.${HOT_SEARCH_SIDEBAR_CLASS}`);
@@ -6850,6 +6974,7 @@
       empty.className = "better-hot-search__empty";
       empty.textContent = "暂无热搜";
       panel.appendChild(empty);
+      ensureHotSearchPermanentCloseButton(panel);
       return;
     }
 
@@ -6900,6 +7025,7 @@
       list.appendChild(link);
     });
     panel.appendChild(list);
+    ensureHotSearchPermanentCloseButton(panel);
   }
 
   function renderHotSearchFallback(panel) {
@@ -6912,6 +7038,7 @@
     loading.className = "better-hot-search__loading";
     loading.textContent = "热搜加载中";
     panel.replaceChildren(loading);
+    ensureHotSearchPermanentCloseButton(panel);
 
     fetchSearchWelcomeData()
       .then((ranks) => {
@@ -6924,16 +7051,20 @@
         error.className = "better-hot-search__error";
         error.textContent = "热搜加载失败";
         panel.replaceChildren(error);
+        ensureHotSearchPermanentCloseButton(panel);
       });
   }
 
   function moveSearchHotListToLeftSidebar() {
-    if (!isSearchPage() && !isCommunityHomePage()) {
+    if (hotSearchDisabled || (!isSearchPage() && !isCommunityHomePage())) {
       removeHotSearchSidebar();
       return;
     }
 
     const sidebar = ensureHotSearchSidebar();
+    if (!sidebar) {
+      return;
+    }
     const panel = sidebar.querySelector(`.${HOT_SEARCH_SIDEBAR_PANEL_CLASS}`);
     if (!panel) {
       return;
@@ -6941,6 +7072,7 @@
 
     const hotSearch = findSearchHotList();
     if (hotSearch && panel.contains(hotSearch)) {
+      ensureHotSearchPermanentCloseButton(panel);
       return;
     }
 
@@ -6948,6 +7080,7 @@
       panel.dataset.betterHotSearchFallback = "";
       panel.replaceChildren();
       panel.appendChild(hotSearch);
+      ensureHotSearchPermanentCloseButton(panel);
       return;
     }
 
@@ -13703,6 +13836,13 @@
         </div>
         <button class="better-settings__text-button better-settings__layout-reset" type="button">恢复默认值</button>
       </div>
+      <div class="better-settings__section better-settings__hot-search-section">
+        <div class="better-settings__section-title">黑盒热搜</div>
+        <div class="better-settings__desc">控制首页和搜索页左侧的悬浮热搜入口。</div>
+        <button class="better-settings__hot-search-toggle${hotSearchDisabled ? " is-disabled" : ""}" type="button">
+          ${hotSearchDisabled ? "恢复显示热搜" : "永久关闭热搜"}
+        </button>
+      </div>
       <a class="better-settings__project-link" href="https://github.com/k1m0206/better-XiaoHeiHe" target="_blank" rel="noopener noreferrer" aria-label="在 GitHub 查看 better-XiaoHeiHe 开源项目">
         <span class="better-settings__project-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="currentColor">
@@ -14532,6 +14672,12 @@
         updateFeedLayoutSetting(DEFAULT_FEED_LAYOUT, {
           render: true
         });
+        return;
+      }
+
+      const hotSearchToggleButton = event.target.closest(".better-settings__hot-search-toggle");
+      if (hotSearchToggleButton && panel.contains(hotSearchToggleButton)) {
+        setHotSearchDisabled(!hotSearchDisabled);
         return;
       }
 
@@ -16782,6 +16928,9 @@
       }
       if (Object.prototype.hasOwnProperty.call(values, FEED_LAYOUT_SETTINGS_STORAGE_KEY)) {
         syncFeedLayoutSettings(values[FEED_LAYOUT_SETTINGS_STORAGE_KEY]);
+      }
+      if (Object.prototype.hasOwnProperty.call(values, HOT_SEARCH_DISABLED_STORAGE_KEY)) {
+        syncHotSearchDisabledState(values[HOT_SEARCH_DISABLED_STORAGE_KEY]);
       }
       if (Object.prototype.hasOwnProperty.call(values, AI_BOT_SETTINGS_STORAGE_KEY)) {
         aiBotSettings = normalizeAiBotSettings(values[AI_BOT_SETTINGS_STORAGE_KEY]);

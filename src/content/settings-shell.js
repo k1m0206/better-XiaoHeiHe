@@ -80,6 +80,13 @@
         </div>
         <button class="better-settings__text-button better-settings__layout-reset" type="button">恢复默认值</button>
       </div>
+      <div class="better-settings__section better-settings__hot-search-section">
+        <div class="better-settings__section-title">黑盒热搜</div>
+        <div class="better-settings__desc">控制首页和搜索页左侧的悬浮热搜入口。</div>
+        <button class="better-settings__hot-search-toggle${hotSearchDisabled ? " is-disabled" : ""}" type="button">
+          ${hotSearchDisabled ? "恢复显示热搜" : "永久关闭热搜"}
+        </button>
+      </div>
       <a class="better-settings__project-link" href="https://github.com/k1m0206/better-XiaoHeiHe" target="_blank" rel="noopener noreferrer" aria-label="在 GitHub 查看 better-XiaoHeiHe 开源项目">
         <span class="better-settings__project-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="currentColor">

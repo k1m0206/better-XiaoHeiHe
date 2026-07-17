@@ -235,6 +235,9 @@
       if (Object.prototype.hasOwnProperty.call(values, FEED_LAYOUT_SETTINGS_STORAGE_KEY)) {
         syncFeedLayoutSettings(values[FEED_LAYOUT_SETTINGS_STORAGE_KEY]);
       }
+      if (Object.prototype.hasOwnProperty.call(values, HOT_SEARCH_DISABLED_STORAGE_KEY)) {
+        syncHotSearchDisabledState(values[HOT_SEARCH_DISABLED_STORAGE_KEY]);
+      }
       if (Object.prototype.hasOwnProperty.call(values, AI_BOT_SETTINGS_STORAGE_KEY)) {
         aiBotSettings = normalizeAiBotSettings(values[AI_BOT_SETTINGS_STORAGE_KEY]);
         const settingsPanel = document.querySelector(`.${SETTINGS_PANEL_CLASS}`);

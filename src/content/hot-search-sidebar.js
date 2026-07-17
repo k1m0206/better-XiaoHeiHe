@@ -44,7 +44,59 @@
     });
   }
 
+  function syncHotSearchDisabledState(savedState) {
+    const isDisabled = savedState === true;
+    if (isDisabled === hotSearchDisabled) {
+      return;
+    }
+
+    hotSearchDisabled = isDisabled;
+    if (hotSearchDisabled) {
+      removeHotSearchSidebar();
+    } else {
+      scheduleHandlePage();
+    }
+    if (activeSettingsTab === SETTINGS_TABS.GENERAL) {
+      renderSettingsPanel();
+    }
+  }
+
+  function setHotSearchDisabled(isDisabled) {
+    syncHotSearchDisabledState(isDisabled);
+    saveLocalSettings({
+      [HOT_SEARCH_DISABLED_STORAGE_KEY]: isDisabled === true
+    });
+  }
+
+  function ensureHotSearchPermanentCloseButton(panel) {
+    let footer = panel.querySelector(".better-hot-search__footer");
+    if (!footer) {
+      footer = document.createElement("div");
+      footer.className = "better-hot-search__footer";
+
+      const button = document.createElement("button");
+      button.className = HOT_SEARCH_CLOSE_BUTTON_CLASS;
+      button.type = "button";
+      button.textContent = "永久关闭热搜";
+      button.addEventListener("click", () => {
+        setHotSearchDisabled(true);
+      });
+      footer.appendChild(button);
+
+      const hint = document.createElement("div");
+      hint.className = "better-hot-search__footer-hint";
+      hint.textContent = "关闭后可在通用设置中恢复";
+      footer.appendChild(hint);
+    }
+    panel.appendChild(footer);
+  }
+
   function ensureHotSearchSidebar() {
+    if (hotSearchDisabled) {
+      removeHotSearchSidebar();
+      return null;
+    }
+
     bindHotSearchSidebarOutsideClick();
 
     let sidebar = document.querySelector(`.${HOT_SEARCH_SIDEBAR_CLASS}`);
