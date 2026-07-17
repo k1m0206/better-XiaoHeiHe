@@ -2,7 +2,6 @@
 // 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function findSearchHotList() {
     return document.querySelector(".game-rank__aside-hot-game")
-      || document.querySelector(".search__hot-rank")
       || null;
   }
 
@@ -49,6 +48,23 @@
     return `/app/search?q=${encodeURIComponent(text)}`;
   }
 
+  function getHotSearchRankLabel(rank) {
+    return rank?.is_hot ? "热搜" : (rank?.head_text || "榜单");
+  }
+
+  function prioritizeHotDiscussionRanks(ranks) {
+    const hotDiscussionIndex = ranks.findIndex((rank) => String(rank?.head_text || "").includes("黑盒热议"));
+    if (hotDiscussionIndex <= 0) {
+      return ranks;
+    }
+
+    return [
+      ranks[hotDiscussionIndex],
+      ...ranks.slice(0, hotDiscussionIndex),
+      ...ranks.slice(hotDiscussionIndex + 1)
+    ];
+  }
+
   function renderHotSearchRank(panel, ranks, activeTabType) {
     panel.replaceChildren();
 
@@ -61,19 +77,20 @@
       return;
     }
 
-    const activeRank = ranks.find((rank) => rank.tab_type === activeTabType) || ranks[0];
+    const orderedRanks = prioritizeHotDiscussionRanks(ranks);
+    const activeRank = orderedRanks.find((rank) => rank.tab_type === activeTabType) || orderedRanks[0];
     const tabs = document.createElement("div");
     tabs.className = "better-hot-search__tabs";
-    ranks.forEach((rank) => {
+    orderedRanks.forEach((rank) => {
       const tab = document.createElement("button");
       tab.className = "better-hot-search__tab";
       if (rank === activeRank) {
         tab.classList.add("better-hot-search__tab--active");
       }
       tab.type = "button";
-      tab.textContent = rank.is_hot ? "热搜" : (rank.head_text || "榜单");
+      tab.textContent = getHotSearchRankLabel(rank);
       tab.addEventListener("click", () => {
-        renderHotSearchRank(panel, ranks, rank.tab_type);
+        renderHotSearchRank(panel, orderedRanks, rank.tab_type);
       });
       tabs.appendChild(tab);
     });

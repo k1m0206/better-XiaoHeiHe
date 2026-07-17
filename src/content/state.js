@@ -7,6 +7,7 @@
     ".cpt-right-side",
     ".bbs-community-hot-topic",
     ".hot-search",
+    ".search__hot-rank",
     ".right-side-default.default-content"
   ].join(", ");
   const STYLE_ID = "better-xiaoheihe-bbs-layout-style";
