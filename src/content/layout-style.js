@@ -2001,6 +2001,11 @@
         background: #eaf3fd;
       }
 
+      .${SETTINGS_PANEL_CLASS} .better-settings__external-links {
+        display: grid;
+        gap: 8px;
+      }
+
       .${SETTINGS_PANEL_CLASS} .better-settings__project-link {
         box-sizing: border-box;
         display: flex;
@@ -2028,6 +2033,16 @@
         outline-offset: 2px;
       }
 
+      .${SETTINGS_PANEL_CLASS} .better-settings__project-link--community {
+        border-color: #cfe5dc;
+        background: linear-gradient(135deg, #f7fcfa 0%, #f0f8f5 100%);
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__project-link--community:hover {
+        border-color: #9bcdbb;
+        box-shadow: 0 7px 18px rgba(35, 145, 105, 0.11);
+      }
+
       .${SETTINGS_PANEL_CLASS} .better-settings__project-icon {
         display: inline-flex;
         width: 38px;
@@ -2039,6 +2054,19 @@
         background: #24292f;
         color: #fff;
         box-shadow: 0 4px 10px rgba(36, 41, 47, 0.18);
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__project-icon--community {
+        overflow: hidden;
+        background: #000;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.22);
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__project-icon--community img {
+        display: block;
+        width: 30px;
+        height: 30px;
+        object-fit: contain;
       }
 
       .${SETTINGS_PANEL_CLASS} .better-settings__project-icon svg {

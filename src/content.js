@@ -3119,6 +3119,11 @@
         background: #eaf3fd;
       }
 
+      .${SETTINGS_PANEL_CLASS} .better-settings__external-links {
+        display: grid;
+        gap: 8px;
+      }
+
       .${SETTINGS_PANEL_CLASS} .better-settings__project-link {
         box-sizing: border-box;
         display: flex;
@@ -3146,6 +3151,16 @@
         outline-offset: 2px;
       }
 
+      .${SETTINGS_PANEL_CLASS} .better-settings__project-link--community {
+        border-color: #cfe5dc;
+        background: linear-gradient(135deg, #f7fcfa 0%, #f0f8f5 100%);
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__project-link--community:hover {
+        border-color: #9bcdbb;
+        box-shadow: 0 7px 18px rgba(35, 145, 105, 0.11);
+      }
+
       .${SETTINGS_PANEL_CLASS} .better-settings__project-icon {
         display: inline-flex;
         width: 38px;
@@ -3157,6 +3172,19 @@
         background: #24292f;
         color: #fff;
         box-shadow: 0 4px 10px rgba(36, 41, 47, 0.18);
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__project-icon--community {
+        overflow: hidden;
+        background: #000;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.22);
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__project-icon--community img {
+        display: block;
+        width: 30px;
+        height: 30px;
+        object-fit: contain;
       }
 
       .${SETTINGS_PANEL_CLASS} .better-settings__project-icon svg {
@@ -13843,23 +13871,40 @@
           ${hotSearchDisabled ? "恢复显示热搜" : "永久关闭热搜"}
         </button>
       </div>
-      <a class="better-settings__project-link" href="https://github.com/k1m0206/better-XiaoHeiHe" target="_blank" rel="noopener noreferrer" aria-label="在 GitHub 查看 better-XiaoHeiHe 开源项目">
-        <span class="better-settings__project-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 .7a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2.02c-3.22.7-3.9-1.36-3.9-1.36-.52-1.34-1.28-1.7-1.28-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.57-.3-5.27-1.29-5.27-5.69 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.47.11-3.05 0 0 .97-.31 3.16 1.18a10.9 10.9 0 0 1 5.76 0c2.2-1.5 3.16-1.18 3.16-1.18.63 1.58.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.42-2.71 5.39-5.29 5.68.42.36.79 1.07.79 2.16v3.03c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .7Z"/>
-          </svg>
-        </span>
-        <span class="better-settings__project-content">
-          <span class="better-settings__project-title">开源项目</span>
-          <span class="better-settings__project-repo">k1m0206/better-XiaoHeiHe</span>
-          <span class="better-settings__project-desc">查看源码、提交反馈或参与贡献</span>
-        </span>
-        <span class="better-settings__project-arrow" aria-hidden="true">
-          <svg viewBox="0 0 20 20" fill="none">
-            <path d="M7 5h8v8M15 5 6 14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </span>
-      </a>
+      <div class="better-settings__external-links">
+        <a class="better-settings__project-link better-settings__project-link--community" href="https://www.xiaoheihe.cn/jm56gbaa" target="_blank" rel="noopener noreferrer" aria-label="加入小黑盒插件沟通群">
+          <span class="better-settings__project-icon better-settings__project-icon--community" aria-hidden="true">
+            <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAMAAACfWMssAAADAFBMVEUAAAD/syFt8YX/tST/tCL+sBtx7YX+tSNx8oK1jan/sh78pwdv8YSCzIl05oZv74X6tiCG6W7+rRP+tx6zkKmtlKiwkqh08H597XbTyCb+rxj+rha4jaZ35IZ57nr9tSL6ogiBz4mA04d+14aC7HKN5mf0uBjyuBbvuhPsuw/8tiH9rA/8pQT5tx1y7IZ54IaR5WSb4VzWxSHdwxz1mRr9qgyU5GHpvA+rl6iZqaBz6YZ273yK6Gqj3lOs2kvZxB/kvhP4nw2DyIr3nRLuuxH+sx/tvRS7lKG8lZWLu5KA1Yd83Iah31aw2Ee90jvNyiv3mxefoqeinqenm6eUr5zDzzbFzjLivxeP5mb+qA6lnKfAjpOExot63YbHj4XWkmKd4Fmo3E7slTHMyyz4th3fwRnxuhXlvRKcpaS8jZ2+jpiB7HSX412m3VG010T+tR957nupmaiRs5iHv4992Ybek1Dhk0i21UHolTnuuhK6jaOOt5aFwo3Djo3llEC71D3yliL8rRH4tx37tyD/siCq2k1573uD7HKd4VnEzzXdwxzxuRbtuxFy8ID/sh77pQ38uCCK52nVySb8th+GyIx584Nt7YaGz4b/qiSFxIx44YbZk1rck1a41UC/0DjIzTH5tx6B0YfylyLwuBODx4p824f6ow24jaV06IZx8IH8qAm4j59y6ofWkmK21ULPySnovBDPkXP7uB/2uBl54oWpmaiQtJl93YnIkoKb4lur3U290Tt25In8sxht84XNkXXQkW5w7IWql6min6jBjpKB0Yhw84PMkHvSkmr7tiD+sB2zkKjDjonztxqpmKi6jqCWrpyFw4tv8YZx64bKj33ck1XymCPylyP1txm1jamvk6jKkIH7pAORr5rTkmenmaiDy4qA1IeA0YedpKb1uBlt8oXklUP9rRKOtpbEkIh92YbOkHH1mhqtlqiyj6iExot534bLj4DWxiLkvxT4nwu/jpOBzomknKeC0If/tiT/sR3qljBt84bXklvUkmfkm0nItQ1lAAABAHRSTlMA4ODh4eHh4eHg4eA44eHh4eDgHOHh4eHh4eHh4ODg4ODh4eHh4eHh4eHg4OBwOOHh4eHh4eHg4OHh4eHh4eHh4eHg4ODEOBwO4eHh4eHh4eHg4ODg4ODgcBzh4eHh4eHh4eHh4eHh4eDg4ODg4OBwOOHh4eHh4eHh4eDg4ODg4ODFxIyMcXBwcHBwcHBjVFRGODg4HBwODg7h4eHh4eHh4eDg4NPExKmoqIx+fnBwcHBiVFRGODg4ODg4OCoq4ODg09LS0tLS0tLS0sXFxcTExMTExMTExMTEt7a2tqmpqKioqJqajIyMfn5+fn5wcHBwcHBwcGNjYmJiYlVURiocARxeRQAAA5tJREFUSMft0WVUVFEUhuE9BSgoAyMWoqJIKWILNsI4oRiEOohggC1ggCgqIl2SInZ3txJ2d3d3d/c+585lzRpqhr/y/n/Wt8+9UF55Zc4gOSYmJjY2ti8pLi4uOjp6w4b4+PiNGz8kJCR83LQpKSkpMTExFTLssMDA7xmM+6VXrVrb2tVHWhi1a9Ck1aim3doP7BAwv7vnwh41mnVs7t9paGsbF+shVpZbRdP9hELbOrq6vFQKH3P19FRk0wHtR3dwncDCPp1a29hMXGpl+QgiFwlt0fF4vCgKk7l7uCqSTrpOCPfszUB2ULTFz89WiE6Xz5lBYdYFLpeRFkZG7GRA+AIK/fsMtXGZaG1laZeNh9I9Pl/MfhxDViqP7Ya3zqcQn0gHLa+B3SIhYRw+n5MBytYZUqqUrUYNILd27z0YIT7RxRoHRSLyPpxDFwVsWft1mFF8p1E7ZjKAgXgpPRSm0+ch44hFUNA2HR0cpdICn4mTCD0H1+jYHC/FL3M6204oVN6JX0alVTpICyRODnQNJ9AfL11KfuFx3OMTVjEKVJvZGDPAgoKC0tLSdu/OycnNTU9P70LLh0hbdBxkFU+wh7LlFdCZUKgtuMehTvAD1FpVuXKbNvTc1YWcSMxjnEAgBvXyzMyQkpfqJYNakfg8soaJoFDv7JWUe0Tt2FQyR1jNmoFQuFnL7e3nUGqodqyYwxFQZhoBRbWza9f+9jiL1ABUCsQ1okxNjfOhyF7UH4+WzF7MUvky6AgzNjZ+WrTDY+tj49GarVM5VMCohg0jFFBM2+T15HI5wf13grIZFNFSoNgeLK7HJL8PTIqIljT9lvproPgyD5ubLzanfQHaGn22FQoooW+VlHVelglYilPduo2YUqDE7qHBvCfLbgN2paczUqzRLSi5zGWdvb1nTx4X5jFsO8D6qUtaIHVCrIBSekuYLMzD0e2MVLJ3XiiRzs5On6DUzo+TycZ6OPbycngDl3xDBk1rgXQFlN4OWRi6YW7uJlUku/bNm0qlAjToGXE4aFJlJbz0DSbyFWjSrHPo3NwdqlaY9Fl6bG5I6KCr2aBROxx7uXmNMUF4SLrZNzgk9Cdo2EMcpLDfc7gzN/gJaJr0oJe7A8JaI3x2/fG9/Bc07qv7GPw2CKfchPW/QYvu4iCFPptBqyQHWHgUtOs1hcP7+bwHLbvBwFOgbdsZKAGtW0vgWtA+6ckKtc5KoQxJrq+UwH/dP4Q+M8xKesy5AAAAAElFTkSuQmCC" alt="">
+          </span>
+          <span class="better-settings__project-content">
+            <span class="better-settings__project-title">插件沟通群</span>
+            <span class="better-settings__project-repo">小黑盒群</span>
+            <span class="better-settings__project-desc">交流使用问题、功能建议与插件动态</span>
+          </span>
+          <span class="better-settings__project-arrow" aria-hidden="true">
+            <svg viewBox="0 0 20 20" fill="none">
+              <path d="M7 5h8v8M15 5 6 14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+        </a>
+        <a class="better-settings__project-link" href="https://github.com/k1m0206/better-XiaoHeiHe" target="_blank" rel="noopener noreferrer" aria-label="在 GitHub 查看 better-XiaoHeiHe 开源项目">
+          <span class="better-settings__project-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 .7a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2.02c-3.22.7-3.9-1.36-3.9-1.36-.52-1.34-1.28-1.7-1.28-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.57-.3-5.27-1.29-5.27-5.69 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.47.11-3.05 0 0 .97-.31 3.16 1.18a10.9 10.9 0 0 1 5.76 0c2.2-1.5 3.16-1.18 3.16-1.18.63 1.58.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.42-2.71 5.39-5.29 5.68.42.36.79 1.07.79 2.16v3.03c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .7Z"/>
+            </svg>
+          </span>
+          <span class="better-settings__project-content">
+            <span class="better-settings__project-title">开源项目</span>
+            <span class="better-settings__project-repo">k1m0206/better-XiaoHeiHe</span>
+            <span class="better-settings__project-desc">查看源码、提交反馈或参与贡献</span>
+          </span>
+          <span class="better-settings__project-arrow" aria-hidden="true">
+            <svg viewBox="0 0 20 20" fill="none">
+              <path d="M7 5h8v8M15 5 6 14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+        </a>
+      </div>
     `;
   }
 
