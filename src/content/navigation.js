@@ -372,6 +372,24 @@
     }
 
     replyEmojiOutsideClickBound = true;
+    document.addEventListener("pointerdown", (event) => {
+      if (!(event.target instanceof Element)) {
+        return;
+      }
+
+      const emojiOption = event.target.closest(".better-comment-preview__emoji-option");
+      const emojiToggle = event.target.closest(".better-comment-preview__emoji-toggle");
+      const form = emojiOption
+        ? getOpenReplyEmojiForm()
+        : emojiToggle?.closest(".better-comment-preview__reply-form");
+      if (!form) {
+        return;
+      }
+
+      // 点击表情按钮时保留编辑器的选区，避免按钮获得焦点后插入位置退回开头。
+      saveReplyEditorSelection(form);
+      event.preventDefault();
+    }, true);
     document.addEventListener("click", (event) => {
       if (!(event.target instanceof Element)) {
         closeOtherReplyEmojiPanels();
