@@ -4838,8 +4838,20 @@
         max-width: min(92vw, 1280px);
         max-height: 88vh;
         object-fit: contain;
-        transition: opacity 0.14s ease;
+        cursor: zoom-in;
+        touch-action: none;
+        user-select: none;
+        transition: opacity 0.14s ease, transform 0.12s ease-out;
         will-change: opacity, transform;
+      }
+
+      .${IMAGE_VIEWER_CLASS}.better-image-viewer--zoomed .better-image-viewer__image {
+        cursor: grab;
+      }
+
+      .${IMAGE_VIEWER_CLASS}.better-image-viewer--dragging .better-image-viewer__image {
+        cursor: grabbing;
+        transition: opacity 0.14s ease;
       }
 
       .${IMAGE_VIEWER_CLASS}.better-image-viewer--loading .better-image-viewer__image {

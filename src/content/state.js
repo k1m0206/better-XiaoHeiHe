@@ -79,6 +79,9 @@
   const ROW_CLASS = "better-xiaoheihe-feed-row";
   const PREVIEW_CLASS = "better-xiaoheihe-comment-preview";
   const IMAGE_VIEWER_CLASS = "better-xiaoheihe-image-viewer";
+  const IMAGE_VIEWER_MIN_SCALE = 0.5;
+  const IMAGE_VIEWER_MAX_SCALE = 5;
+  const IMAGE_VIEWER_SCALE_STEP = 0.25;
   const FEED_ITEM_SELECTOR = 'a.hb-cpt__bbs-list-content[href*="/app/bbs/link/"], a.hb-cpt__bbs-content[href*="/app/bbs/link/"]';
   const LINK_AWARD_BUTTON_SELECTOR = ".content-list__like, .bbs-new-style-bottom__like";
   const LINK_AWARD_COUNT_SELECTOR = ".content-list__like-cnt, .bbs-new-style-bottom__like > span:last-child";
@@ -203,6 +206,10 @@
   let pageScrollLockState = null;
   let activeImageViewerImages = [];
   let activeImageViewerIndex = 0;
+  let imageViewerScale = 1;
+  let imageViewerOffsetX = 0;
+  let imageViewerOffsetY = 0;
+  let imageViewerDragState = null;
   let imageViewerLoadToken = 0;
   const imageViewerPreloadCache = new Map();
 

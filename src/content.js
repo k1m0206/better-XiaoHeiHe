@@ -278,6 +278,9 @@
   const ROW_CLASS = "better-xiaoheihe-feed-row";
   const PREVIEW_CLASS = "better-xiaoheihe-comment-preview";
   const IMAGE_VIEWER_CLASS = "better-xiaoheihe-image-viewer";
+  const IMAGE_VIEWER_MIN_SCALE = 0.5;
+  const IMAGE_VIEWER_MAX_SCALE = 5;
+  const IMAGE_VIEWER_SCALE_STEP = 0.25;
   const FEED_ITEM_SELECTOR = 'a.hb-cpt__bbs-list-content[href*="/app/bbs/link/"], a.hb-cpt__bbs-content[href*="/app/bbs/link/"]';
   const LINK_AWARD_BUTTON_SELECTOR = ".content-list__like, .bbs-new-style-bottom__like";
   const LINK_AWARD_COUNT_SELECTOR = ".content-list__like-cnt, .bbs-new-style-bottom__like > span:last-child";
@@ -402,6 +405,10 @@
   let pageScrollLockState = null;
   let activeImageViewerImages = [];
   let activeImageViewerIndex = 0;
+  let imageViewerScale = 1;
+  let imageViewerOffsetX = 0;
+  let imageViewerOffsetY = 0;
+  let imageViewerDragState = null;
   let imageViewerLoadToken = 0;
   const imageViewerPreloadCache = new Map();
 
@@ -5957,8 +5964,20 @@
         max-width: min(92vw, 1280px);
         max-height: 88vh;
         object-fit: contain;
-        transition: opacity 0.14s ease;
+        cursor: zoom-in;
+        touch-action: none;
+        user-select: none;
+        transition: opacity 0.14s ease, transform 0.12s ease-out;
         will-change: opacity, transform;
+      }
+
+      .${IMAGE_VIEWER_CLASS}.better-image-viewer--zoomed .better-image-viewer__image {
+        cursor: grab;
+      }
+
+      .${IMAGE_VIEWER_CLASS}.better-image-viewer--dragging .better-image-viewer__image {
+        cursor: grabbing;
+        transition: opacity 0.14s ease;
       }
 
       .${IMAGE_VIEWER_CLASS}.better-image-viewer--loading .better-image-viewer__image {
@@ -9823,9 +9842,113 @@
         showImageViewerAt(activeImageViewerIndex + 1);
       }
     });
+    viewer.addEventListener("wheel", (event) => {
+      if (viewer.hidden || !event.deltaY) {
+        return;
+      }
+
+      event.preventDefault();
+      const scaleDelta = event.deltaY < 0 ? IMAGE_VIEWER_SCALE_STEP : -IMAGE_VIEWER_SCALE_STEP;
+      setImageViewerScale(viewer, imageViewerScale + scaleDelta);
+    }, { passive: false });
+    const image = viewer.querySelector(".better-image-viewer__image");
+    image.addEventListener("dragstart", (event) => event.preventDefault());
+    image.addEventListener("pointerdown", (event) => startImageViewerDrag(viewer, event));
+    image.addEventListener("pointermove", (event) => moveImageViewerDrag(viewer, event));
+    image.addEventListener("pointerup", (event) => endImageViewerDrag(viewer, event.pointerId));
+    image.addEventListener("pointercancel", (event) => endImageViewerDrag(viewer, event.pointerId));
+    image.addEventListener("lostpointercapture", (event) => endImageViewerDrag(viewer, event.pointerId));
     document.body.appendChild(viewer);
     bindImageViewerKeydown();
     return viewer;
+  }
+
+  function getImageViewerOffsetBounds(image) {
+    return {
+      x: Math.max(0, (image.clientWidth * imageViewerScale - window.innerWidth) / 2),
+      y: Math.max(0, (image.clientHeight * imageViewerScale - window.innerHeight) / 2)
+    };
+  }
+
+  function renderImageViewerTransform(viewer) {
+    const image = viewer.querySelector(".better-image-viewer__image");
+    if (!image) {
+      return;
+    }
+
+    const bounds = getImageViewerOffsetBounds(image);
+    imageViewerOffsetX = Math.min(bounds.x, Math.max(-bounds.x, imageViewerOffsetX));
+    imageViewerOffsetY = Math.min(bounds.y, Math.max(-bounds.y, imageViewerOffsetY));
+    viewer.classList.toggle("better-image-viewer--zoomed", imageViewerScale > 1);
+    if (imageViewerScale === 1 && imageViewerOffsetX === 0 && imageViewerOffsetY === 0) {
+      image.style.removeProperty("transform");
+      return;
+    }
+    image.style.transform = `translate3d(${imageViewerOffsetX}px, ${imageViewerOffsetY}px, 0) scale(${imageViewerScale})`;
+  }
+
+  function setImageViewerScale(viewer, scale) {
+    const image = viewer.querySelector(".better-image-viewer__image");
+    if (!image) {
+      return;
+    }
+
+    imageViewerScale = Math.min(IMAGE_VIEWER_MAX_SCALE, Math.max(IMAGE_VIEWER_MIN_SCALE, scale));
+    if (imageViewerScale <= 1) {
+      imageViewerOffsetX = 0;
+      imageViewerOffsetY = 0;
+    }
+    renderImageViewerTransform(viewer);
+  }
+
+  function startImageViewerDrag(viewer, event) {
+    if (event.button !== 0 || imageViewerScale <= 1) {
+      return;
+    }
+
+    event.preventDefault();
+    imageViewerDragState = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      offsetX: imageViewerOffsetX,
+      offsetY: imageViewerOffsetY
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    viewer.classList.add("better-image-viewer--dragging");
+  }
+
+  function moveImageViewerDrag(viewer, event) {
+    if (!imageViewerDragState || imageViewerDragState.pointerId !== event.pointerId) {
+      return;
+    }
+
+    event.preventDefault();
+    imageViewerOffsetX = imageViewerDragState.offsetX + event.clientX - imageViewerDragState.startX;
+    imageViewerOffsetY = imageViewerDragState.offsetY + event.clientY - imageViewerDragState.startY;
+    renderImageViewerTransform(viewer);
+  }
+
+  function endImageViewerDrag(viewer, pointerId) {
+    if (!imageViewerDragState || imageViewerDragState.pointerId !== pointerId) {
+      return;
+    }
+
+    const image = viewer.querySelector(".better-image-viewer__image");
+    imageViewerDragState = null;
+    viewer.classList.remove("better-image-viewer--dragging");
+    if (image?.hasPointerCapture(pointerId)) {
+      image.releasePointerCapture(pointerId);
+    }
+  }
+
+  function resetImageViewerScale(viewer) {
+    imageViewerDragState = null;
+    imageViewerScale = 1;
+    imageViewerOffsetX = 0;
+    imageViewerOffsetY = 0;
+    viewer.classList.remove("better-image-viewer--zoomed", "better-image-viewer--dragging");
+    viewer.querySelector(".better-image-viewer__image")?.style.removeProperty("transform");
   }
 
   function bindImageViewerKeydown() {
@@ -9909,6 +10032,7 @@
     activeImageViewerIndex = (index + activeImageViewerImages.length) % activeImageViewerImages.length;
     const imageUrl = activeImageViewerImages[activeImageViewerIndex];
     const loadToken = ++imageViewerLoadToken;
+    resetImageViewerScale(viewer);
     pruneImageViewerPreloadCache();
     counter.textContent = activeImageViewerImages.length > 1
       ? `${activeImageViewerIndex + 1} / ${activeImageViewerImages.length}`
@@ -9968,6 +10092,7 @@
     viewer.classList.remove("better-image-viewer--loading");
     const image = viewer.querySelector(".better-image-viewer__image");
     if (image) {
+      resetImageViewerScale(viewer);
       image.classList.remove(
         "better-image-viewer__image--enter-open",
         "better-image-viewer__image--enter-prev",
