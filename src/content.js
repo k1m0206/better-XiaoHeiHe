@@ -10666,6 +10666,23 @@
     return Array.isArray(form._betterReplyImages) ? form._betterReplyImages : [];
   }
 
+  function getClipboardImageFiles(clipboardData) {
+    if (!clipboardData) {
+      return [];
+    }
+
+    const itemFiles = Array.from(clipboardData.items || [])
+      .filter((item) => item.kind === "file")
+      .map((item) => item.getAsFile())
+      .filter((file) => file?.type?.startsWith("image/"));
+    if (itemFiles.length) {
+      return itemFiles;
+    }
+
+    return Array.from(clipboardData.files || [])
+      .filter((file) => file?.type?.startsWith("image/"));
+  }
+
   function setReplyFormImages(form, images) {
     getReplyFormImages(form).forEach((image) => {
       if (!images.includes(image) && image.previewUrl) {
@@ -10965,6 +10982,25 @@
           saveReplyEditorSelection(form);
         }
       });
+    });
+
+    preview.addEventListener("paste", (event) => {
+      const editor = event.target instanceof Element
+        ? event.target.closest(".better-comment-preview__reply-input")
+        : null;
+      const form = editor?.closest(".better-comment-preview__reply-form");
+      if (!editor || !form || !preview.contains(editor)) {
+        return;
+      }
+
+      const imageFiles = getClipboardImageFiles(event.clipboardData);
+      if (!imageFiles.length) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      addReplyFormImageFiles(form, imageFiles);
     });
 
     preview.addEventListener("submit", (event) => {
