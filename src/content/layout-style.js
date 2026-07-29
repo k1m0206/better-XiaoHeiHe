@@ -3498,6 +3498,7 @@
       }
 
       .${HOME_LAYOUT_CLASS} .${ROW_CLASS} {
+        --better-row-min-height: 360px;
         box-sizing: border-box;
         display: grid;
         position: relative;
@@ -3565,6 +3566,7 @@
       .${HOME_LAYOUT_CLASS} .${ROW_CLASS} > .hb-cpt__bbs-list-content,
       .${HOME_LAYOUT_CLASS} .${ROW_CLASS} > .hb-cpt__bbs-content {
         box-sizing: border-box !important;
+        min-height: var(--better-row-min-height) !important;
         min-width: 0 !important;
         max-width: 100% !important;
         width: 100% !important;
@@ -3890,7 +3892,7 @@
         align-self: start;
         height: var(--better-row-height, auto);
         max-height: var(--better-row-height, none);
-        min-height: 0;
+        min-height: var(--better-row-min-height);
         overflow: hidden;
         padding: 14px 16px;
         border-left: 1px solid #f1f2f4;
