@@ -2137,7 +2137,8 @@
 
       .${SETTINGS_PANEL_CLASS} .better-settings__tabs {
         display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-auto-flow: column;
+        grid-auto-columns: minmax(0, 1fr);
         gap: 4px;
         margin-bottom: 10px;
         padding: 3px;
