@@ -3499,7 +3499,7 @@
       }
 
       .${HOME_LAYOUT_CLASS} .${ROW_CLASS} {
-        --better-row-min-height: 360px;
+        --better-row-min-height: 0px;
         box-sizing: border-box;
         display: grid;
         position: relative;
@@ -3516,6 +3516,10 @@
         box-shadow: 0 1px 2px rgba(20, 25, 30, 0.04);
         overflow: hidden;
         transform: translateX(-50%);
+      }
+
+      .${HOME_LAYOUT_CLASS} .${ROW_CLASS}.better-xiaoheihe-feed-row--no-images {
+        --better-row-min-height: 360px;
       }
 
       .${HOME_LAYOUT_CLASS} #page-user-profile > .content > .list {

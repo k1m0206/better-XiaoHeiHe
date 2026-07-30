@@ -266,11 +266,19 @@
   }
 
   function hasNativeFeedImages(item) {
-    return Array.from(item?.querySelectorAll("img") || []).some((image) => (
-      !image.closest(".better-feed-fallback-images")
-      && !image.closest(".bbs-list-content__header")
-      && !image.closest(".bbs-content__bottom-line")
+    return Boolean(item?.querySelector(
+      ".bbs-content__imgs-wrapper > .bbs-content__image"
     ));
+  }
+
+  function syncFeedItemImageState(item) {
+    const row = item?.closest(`.${ROW_CLASS}`);
+    if (!row) {
+      return;
+    }
+    const hasFeedImages = hasNativeFeedImages(item)
+      || Boolean(item.querySelector(".better-feed-fallback-image-wrap"));
+    row.classList.toggle("better-xiaoheihe-feed-row--no-images", !hasFeedImages);
   }
 
   function normalizeNativeFeedImageLayout(item) {
@@ -306,6 +314,7 @@
     const imageUrls = Array.isArray(detail?.feedImageUrls) ? detail.feedImageUrls.filter(isSafeCommentImageUrl) : [];
     if (!item || hasNativeFeedImages(item) || !imageUrls.length) {
       existing?.remove();
+      syncFeedItemImageState(item);
       return;
     }
 
@@ -313,6 +322,7 @@
     const visibleImages = imageUrls.slice(0, 3);
     const signature = JSON.stringify([imageUrls, thumbnailUrls]);
     if (existing?.dataset.signature === signature) {
+      syncFeedItemImageState(item);
       return;
     }
 
@@ -346,6 +356,7 @@
       image.addEventListener("load", () => scheduleRowHeightSync(item.closest(`.${ROW_CLASS}`)), { once: true });
       image.addEventListener("error", () => scheduleRowHeightSync(item.closest(`.${ROW_CLASS}`)), { once: true });
     });
+    syncFeedItemImageState(item);
     scheduleRowHeightSync(item.closest(`.${ROW_CLASS}`));
   }
 
