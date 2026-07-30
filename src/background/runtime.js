@@ -1,4 +1,4 @@
-// 后台安装、启动、storage、message 和 alarm 监听。
+// 后台安装、启动、storage、message 和 alarm 监听；AI Bot 熔断期间相关消息统一拒绝执行。
 // 本文件由原入口文件等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   chrome.runtime.onInstalled?.addListener(() => {
     syncAiBotAlarm({ reset: true });
@@ -57,6 +57,10 @@
     }
 
     if (message?.type === "better-xiaoheihe-ai-bot-test") {
+      if (!AI_BOT_FEATURE_ENABLED) {
+        sendResponse({ ok: false, disabled: true, error: "AI Bot 功能已停用" });
+        return false;
+      }
       requestChat({
         messages: [{ role: "user", content: "请回复 OK" }],
         temperature: 0
@@ -73,6 +77,10 @@
     }
 
     if (message?.type === "better-xiaoheihe-ai-bot-run-now") {
+      if (!AI_BOT_FEATURE_ENABLED) {
+        sendResponse({ ok: false, disabled: true, error: "AI Bot 功能已停用" });
+        return false;
+      }
       runAiBotPoll("manual").then(sendResponse);
       return true;
     }

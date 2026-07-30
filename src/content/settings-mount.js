@@ -509,7 +509,12 @@
 
   function openSettingsPanelTab(tab) {
     const blockedScopes = [SETTINGS_TABS.FEED, SETTINGS_TABS.COMMENT];
-    const standaloneTabs = [SETTINGS_TABS.BLOCKED, SETTINGS_TABS.GENERAL, SETTINGS_TABS.AI, SETTINGS_TABS.AIBOT, SETTINGS_TABS.AIBOT_LOGS];
+    const standaloneTabs = [
+      SETTINGS_TABS.BLOCKED,
+      SETTINGS_TABS.GENERAL,
+      SETTINGS_TABS.AI,
+      ...(AI_BOT_FEATURE_ENABLED ? [SETTINGS_TABS.AIBOT, SETTINGS_TABS.AIBOT_LOGS] : [])
+    ];
     if (blockedScopes.includes(tab)) {
       activeBlockedKeywordScope = normalizeBlockedKeywordScope(tab);
       activeSettingsTab = SETTINGS_TABS.BLOCKED;
@@ -539,6 +544,6 @@
   function handleOpenPageSettings(event) {
     const detail = parseEventDetail(event?.detail);
     ensureSettingsEntry();
-    openSettingsPanelTab(detail.tab || SETTINGS_TABS.AIBOT);
+    openSettingsPanelTab(detail.tab || SETTINGS_TABS.GENERAL);
   }
 

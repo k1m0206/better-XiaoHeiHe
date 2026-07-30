@@ -16,6 +16,8 @@
   const AI_BOT_REPLY_TARGET_RECORDS_STORAGE_KEY = "better-xiaoheihe-ai-bot-reply-target-records";
   const AI_BOT_REPLY_QUEUE_STORAGE_KEY = "better-xiaoheihe-ai-bot-reply-queue";
   const AI_BOT_RUNTIME_STORAGE_KEY = "better-xiaoheihe-ai-bot-runtime";
+  // AI Bot 移除前的统一熔断开关：关闭入口和所有后台执行链路，但保留用户原有配置字段。
+  const AI_BOT_FEATURE_ENABLED = false;
   const API_PARAMS_STORAGE_KEY = "better-xiaoheihe-api-params";
   const UI_STATE_STORAGE_KEY = "better-xiaoheihe-ui-state";
   const COMMENT_EMOJI_USAGE_STORAGE_KEY = "better-xiaoheihe-comment-emoji-usage";

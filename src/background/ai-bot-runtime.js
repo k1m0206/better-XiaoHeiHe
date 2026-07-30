@@ -14,6 +14,27 @@
     });
   }
 
+  async function disableAiBotFeature() {
+    const settings = await readAiBotSettings();
+    const disabledSettings = {
+      ...settings,
+      enabled: false,
+      replyMentions: false,
+      replyComments: false,
+      commentHomeFeed: false
+    };
+    const shouldPersist = settings.enabled
+      || settings.replyMentions
+      || settings.replyComments
+      || settings.commentHomeFeed;
+    if (shouldPersist) {
+      await writeAiBotSettings(disabledSettings);
+    }
+    await storageSet({ [AI_BOT_REPLY_QUEUE_STORAGE_KEY]: [] });
+    await clearAiBotAlarm();
+    await clearAiBotCommentRequestHeaderRule();
+  }
+
   function getAiBotAlarm(name) {
     return new Promise((resolve) => {
       if (!chrome.alarms?.get) {
@@ -35,6 +56,10 @@
   }
 
   async function syncAiBotAlarm(options = {}) {
+    if (!AI_BOT_FEATURE_ENABLED) {
+      await disableAiBotFeature();
+      return;
+    }
     const reset = options.reset === true;
     const settings = await readAiBotSettings();
     const consentAccepted = await hasAiBotConsent();
@@ -70,7 +95,7 @@
     const feedCommentRecords = await readFeedCommentRecords();
     return {
       ok: true,
-      enabled: settings.enabled,
+      enabled: AI_BOT_FEATURE_ENABLED && settings.enabled,
       commentHomeFeed: settings.commentHomeFeed,
       running: aiBotRunning,
       queueProcessing: aiBotQueueProcessing,

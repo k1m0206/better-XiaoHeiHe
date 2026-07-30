@@ -826,6 +826,9 @@
   }
 
   async function runAiBotQueueConsumer() {
+    if (!AI_BOT_FEATURE_ENABLED) {
+      return;
+    }
     if (aiBotQueueProcessing) {
       return;
     }
@@ -921,6 +924,9 @@
   let aiBotFeedRunning = false;
 
   async function runAiBotFeedComment() {
+    if (!AI_BOT_FEATURE_ENABLED) {
+      return { ok: false, disabled: true, error: "AI Bot 功能已停用" };
+    }
     if (aiBotFeedRunning) {
       return { ok: true, skipped: true };
     }
@@ -975,6 +981,9 @@
   }
 
   async function runAiBotPoll(reason = "alarm") {
+    if (!AI_BOT_FEATURE_ENABLED) {
+      return { ok: false, disabled: true, error: "AI Bot 功能已停用" };
+    }
     if (aiBotRunning) {
       return { ok: true, skipped: true };
     }

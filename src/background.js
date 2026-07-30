@@ -21,6 +21,8 @@
   const AI_BOT_REPLY_TARGET_RECORDS_STORAGE_KEY = "better-xiaoheihe-ai-bot-reply-target-records";
   const AI_BOT_REPLY_QUEUE_STORAGE_KEY = "better-xiaoheihe-ai-bot-reply-queue";
   const AI_BOT_RUNTIME_STORAGE_KEY = "better-xiaoheihe-ai-bot-runtime";
+  // AI Bot 移除前的统一熔断开关：关闭入口和所有后台执行链路，但保留用户原有配置字段。
+  const AI_BOT_FEATURE_ENABLED = false;
   const API_PARAMS_STORAGE_KEY = "better-xiaoheihe-api-params";
   const UI_STATE_STORAGE_KEY = "better-xiaoheihe-ui-state";
   const COMMENT_EMOJI_USAGE_STORAGE_KEY = "better-xiaoheihe-comment-emoji-usage";
@@ -2001,6 +2003,13 @@
   }
 
   async function submitAiBotCommentNow(heyboxId, linkId, replyCommentId, rootCommentId, text) {
+    if (!AI_BOT_FEATURE_ENABLED) {
+      throw new Error("AI Bot 功能已停用");
+    }
+    const latestSettings = await readAiBotSettings();
+    if (!latestSettings.enabled) {
+      throw new Error("AI Bot 已关闭");
+    }
     await waitForAiBotCommentCooldown();
     await markAiBotCommentAttempt();
     const commentUrl = await buildCommentCreateUrl(heyboxId);
@@ -3162,6 +3171,9 @@
   }
 
   async function runAiBotQueueConsumer() {
+    if (!AI_BOT_FEATURE_ENABLED) {
+      return;
+    }
     if (aiBotQueueProcessing) {
       return;
     }
@@ -3257,6 +3269,9 @@
   let aiBotFeedRunning = false;
 
   async function runAiBotFeedComment() {
+    if (!AI_BOT_FEATURE_ENABLED) {
+      return { ok: false, disabled: true, error: "AI Bot 功能已停用" };
+    }
     if (aiBotFeedRunning) {
       return { ok: true, skipped: true };
     }
@@ -3311,6 +3326,9 @@
   }
 
   async function runAiBotPoll(reason = "alarm") {
+    if (!AI_BOT_FEATURE_ENABLED) {
+      return { ok: false, disabled: true, error: "AI Bot 功能已停用" };
+    }
     if (aiBotRunning) {
       return { ok: true, skipped: true };
     }
@@ -3478,6 +3496,27 @@
     });
   }
 
+  async function disableAiBotFeature() {
+    const settings = await readAiBotSettings();
+    const disabledSettings = {
+      ...settings,
+      enabled: false,
+      replyMentions: false,
+      replyComments: false,
+      commentHomeFeed: false
+    };
+    const shouldPersist = settings.enabled
+      || settings.replyMentions
+      || settings.replyComments
+      || settings.commentHomeFeed;
+    if (shouldPersist) {
+      await writeAiBotSettings(disabledSettings);
+    }
+    await storageSet({ [AI_BOT_REPLY_QUEUE_STORAGE_KEY]: [] });
+    await clearAiBotAlarm();
+    await clearAiBotCommentRequestHeaderRule();
+  }
+
   function getAiBotAlarm(name) {
     return new Promise((resolve) => {
       if (!chrome.alarms?.get) {
@@ -3499,6 +3538,10 @@
   }
 
   async function syncAiBotAlarm(options = {}) {
+    if (!AI_BOT_FEATURE_ENABLED) {
+      await disableAiBotFeature();
+      return;
+    }
     const reset = options.reset === true;
     const settings = await readAiBotSettings();
     const consentAccepted = await hasAiBotConsent();
@@ -3534,7 +3577,7 @@
     const feedCommentRecords = await readFeedCommentRecords();
     return {
       ok: true,
-      enabled: settings.enabled,
+      enabled: AI_BOT_FEATURE_ENABLED && settings.enabled,
       commentHomeFeed: settings.commentHomeFeed,
       running: aiBotRunning,
       queueProcessing: aiBotQueueProcessing,
@@ -3721,7 +3764,7 @@
 
   // END src\background\dnr-rules.js
   // BEGIN src\background\runtime.js
-// 后台安装、启动、storage、message 和 alarm 监听。
+// 后台安装、启动、storage、message 和 alarm 监听；AI Bot 熔断期间相关消息统一拒绝执行。
 // 本文件由原入口文件等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   chrome.runtime.onInstalled?.addListener(() => {
     syncAiBotAlarm({ reset: true });
@@ -3780,6 +3823,10 @@
     }
 
     if (message?.type === "better-xiaoheihe-ai-bot-test") {
+      if (!AI_BOT_FEATURE_ENABLED) {
+        sendResponse({ ok: false, disabled: true, error: "AI Bot 功能已停用" });
+        return false;
+      }
       requestChat({
         messages: [{ role: "user", content: "请回复 OK" }],
         temperature: 0
@@ -3796,6 +3843,10 @@
     }
 
     if (message?.type === "better-xiaoheihe-ai-bot-run-now") {
+      if (!AI_BOT_FEATURE_ENABLED) {
+        sendResponse({ ok: false, disabled: true, error: "AI Bot 功能已停用" });
+        return false;
+      }
       runAiBotPoll("manual").then(sendResponse);
       return true;
     }

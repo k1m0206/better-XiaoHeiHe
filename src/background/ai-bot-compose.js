@@ -342,6 +342,13 @@
   }
 
   async function submitAiBotCommentNow(heyboxId, linkId, replyCommentId, rootCommentId, text) {
+    if (!AI_BOT_FEATURE_ENABLED) {
+      throw new Error("AI Bot 功能已停用");
+    }
+    const latestSettings = await readAiBotSettings();
+    if (!latestSettings.enabled) {
+      throw new Error("AI Bot 已关闭");
+    }
     await waitForAiBotCommentCooldown();
     await markAiBotCommentAttempt();
     const commentUrl = await buildCommentCreateUrl(heyboxId);
