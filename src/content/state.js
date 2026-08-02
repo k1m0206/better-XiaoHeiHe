@@ -268,6 +268,7 @@
     const layout = feedLayoutSettings;
     const root = document.documentElement;
     root.style.setProperty("--better-feed-total-width", `${layout.totalWidth}vw`);
+    root.style.setProperty("--better-feed-half-width", `${layout.totalWidth / 2}vw`);
     root.style.setProperty("--better-feed-post-column", `${layout.postWidth}fr`);
     root.style.setProperty("--better-feed-comment-column", `${100 - layout.postWidth}fr`);
   }

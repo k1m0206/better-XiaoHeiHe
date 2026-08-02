@@ -118,13 +118,13 @@
       .${HOME_LAYOUT_CLASS} .hb-cpt__scroll-list.hb-bbs-home,
       .${HOME_LAYOUT_CLASS} #page-bbs-community .hb-cpt__scroll-list.hb-bbs-home {
         position: relative !important;
-        left: 50% !important;
+        left: calc(50% - 50vw) !important;
         width: var(--better-feed-total-width, 92vw) !important;
         max-width: calc(100vw - 24px) !important;
         flex: 0 1 var(--better-feed-total-width, 92vw) !important;
         margin-right: 0 !important;
-        margin-left: 0 !important;
-        transform: translateX(-50%) !important;
+        margin-left: max(12px, calc(50vw - var(--better-feed-half-width, 46vw))) !important;
+        transform: none !important;
       }
 
       .${HOME_LAYOUT_CLASS} .hb-cpt__scroll-list.hb-bbs-home > .bbs-home__topic-list-wrapper,
@@ -143,14 +143,14 @@
       .${HOME_LAYOUT_CLASS} #page-bbs-list > .content > .list {
         box-sizing: border-box !important;
         position: relative !important;
-        left: 50% !important;
+        left: calc(50% - 50vw) !important;
         width: var(--better-feed-total-width, 92vw) !important;
         min-width: 0 !important;
         max-width: calc(100vw - 24px) !important;
         flex: 0 1 var(--better-feed-total-width, 92vw) !important;
         margin-right: 0 !important;
-        margin-left: 0 !important;
-        transform: translateX(-50%) !important;
+        margin-left: max(12px, calc(50vw - var(--better-feed-half-width, 46vw))) !important;
+        transform: none !important;
       }
 
       .${HOME_LAYOUT_CLASS} #page-bbs-list > .content > .list > .hb-search-result,
@@ -3503,19 +3503,19 @@
         box-sizing: border-box;
         display: grid;
         position: relative;
-        left: 50%;
+        left: calc(50% - 50vw);
         grid-template-columns: minmax(0, var(--better-feed-post-column, 70fr)) minmax(0, var(--better-feed-comment-column, 30fr));
         gap: 0;
         align-items: start;
         width: var(--better-feed-total-width, 92vw) !important;
         max-width: calc(100vw - 24px) !important;
-        margin: 0 auto 14px;
+        margin: 0 0 14px max(12px, calc(50vw - var(--better-feed-half-width, 46vw)));
         border: 1px solid #eef0f2;
         border-radius: 8px;
         background: #fff;
         box-shadow: 0 1px 2px rgba(20, 25, 30, 0.04);
         overflow: hidden;
-        transform: translateX(-50%);
+        transform: none;
       }
 
       .${HOME_LAYOUT_CLASS} .${ROW_CLASS}.better-xiaoheihe-feed-row--no-images {
@@ -3525,23 +3525,27 @@
       .${HOME_LAYOUT_CLASS} #page-user-profile > .content > .list {
         box-sizing: border-box !important;
         position: relative !important;
-        left: 50% !important;
+        left: calc(50% - 50vw) !important;
         flex: 0 0 var(--better-feed-total-width, 92vw) !important;
         min-width: 0 !important;
         width: var(--better-feed-total-width, 92vw) !important;
         max-width: calc(100vw - 24px) !important;
-        transform: translateX(-50%) !important;
+        margin-right: 0 !important;
+        margin-left: max(12px, calc(50vw - var(--better-feed-half-width, 46vw))) !important;
+        transform: none !important;
       }
 
       .${HOME_LAYOUT_CLASS} #page-topic-link .topic-link__panel {
         box-sizing: border-box !important;
         position: relative !important;
-        left: 50% !important;
+        left: calc(50% - 50vw) !important;
         flex: 0 0 var(--better-feed-total-width, 92vw) !important;
         min-width: 0 !important;
         width: var(--better-feed-total-width, 92vw) !important;
         max-width: calc(100vw - 24px) !important;
-        transform: translateX(-50%) !important;
+        margin-right: 0 !important;
+        margin-left: max(12px, calc(50vw - var(--better-feed-half-width, 46vw))) !important;
+        transform: none !important;
       }
 
       .${HOME_LAYOUT_CLASS} #page-user-profile > .content > .list > .user-profile-page-header,
@@ -3561,6 +3565,8 @@
         left: auto;
         width: 100% !important;
         max-width: 100% !important;
+        margin-right: 0;
+        margin-left: 0;
         transform: none;
       }
 
@@ -4036,22 +4042,6 @@
         gap: 10px;
         padding-right: 4px;
         overscroll-behavior: contain;
-      }
-
-      .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__list--refreshed {
-        will-change: opacity, transform;
-        animation: better-comment-preview-refresh-in 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
-      }
-
-      @keyframes better-comment-preview-refresh-in {
-        from {
-          opacity: 0;
-          transform: translate3d(0, 5px, 0);
-        }
-        to {
-          opacity: 1;
-          transform: translate3d(0, 0, 0);
-        }
       }
 
       .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__list::-webkit-scrollbar {
@@ -5008,7 +4998,6 @@
       }
 
       @media (prefers-reduced-motion: reduce) {
-        .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__list--refreshed,
         .${HOME_LAYOUT_CLASS} .${PREVIEW_CLASS} .better-comment-preview__list:not(:has(.better-comment-preview__group)) > .better-comment-preview__loading-more {
           animation: none;
         }
