@@ -601,7 +601,7 @@
       .${MESSAGE_POPOVER_CLASS} {
         box-sizing: border-box;
         position: fixed;
-        z-index: 2147483647;
+        z-index: 2147483600;
         width: min(420px, calc(100vw - 24px));
         max-height: min(620px, calc(100vh - 24px));
         overflow: hidden;
@@ -619,7 +619,7 @@
       .${FAVORITE_POPOVER_CLASS} {
         box-sizing: border-box;
         position: fixed;
-        z-index: 2147483647;
+        z-index: 2147483600;
         width: min(420px, calc(100vw - 24px));
         max-height: min(620px, calc(100vh - 24px));
         overflow: hidden;
