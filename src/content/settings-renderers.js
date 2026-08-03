@@ -1,10 +1,6 @@
 // AI 设置和 AI Bot 设置表单渲染。
 // 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function renderAiSettingsPanelContent() {
-    if (activeAiSettingsView === "prompt") {
-      return renderAiPromptSettingsPage();
-    }
-    const promptIsCustomized = aiSettings.summaryPrompt !== DEFAULT_SUMMARY_PROMPT;
     const promptLength = Array.from(aiSettings.summaryPrompt || "").length;
     return `
       <div class="better-settings__section better-settings__ai-section">
@@ -64,76 +60,47 @@
               <span class="better-settings__message" role="status">${isAiConfigured() ? "已配置" : "请填写 Base URL 和模型"}</span>
             </div>
           </details>
-          <button class="better-settings__ai-prompt-entry" type="button">
-            <span class="better-settings__ai-prompt-entry-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none">
-                <path d="M6.5 3.75h8.1l2.9 2.9v13.6H6.5V3.75Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
-                <path d="M14.5 3.9v3h2.85M9.1 11h5.8M9.1 14h5.8M9.1 17h3.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-              </svg>
-            </span>
-            <span class="better-settings__ai-prompt-entry-content">
-              <span class="better-settings__ai-prompt-entry-title">提示词设置</span>
-              <span class="better-settings__ai-prompt-entry-desc">${promptIsCustomized ? "已使用自定义提示词" : "当前使用默认提示词"} · ${escapeHtml(promptLength)} 字</span>
-              <span class="better-settings__ai-prompt-entry-tags">
-                <span>${aiSettings.allowEmoji ? "允许表情" : "纯文本输出"}</span>
-                <span>${aiSettings.autoPopup ? "完成后自动弹出" : "完成后手动查看"}</span>
-              </span>
-            </span>
-            <span class="better-settings__ai-prompt-entry-arrow" aria-hidden="true"></span>
-          </button>
-        </div>
-      </div>
-    `;
-  }
-
-  function renderAiPromptSettingsPage() {
-    const promptLength = Array.from(aiSettings.summaryPrompt || "").length;
-    return `
-      <div class="better-settings__section better-settings__ai-prompt-page">
-        <div class="better-settings__ai-prompt-page-header">
-          <button class="better-settings__ai-prompt-back" type="button" aria-label="返回 AI 总结设置">
-            <span aria-hidden="true"></span>
-          </button>
-          <div class="better-settings__ai-prompt-page-heading">
-            <div class="better-settings__ai-title">提示词设置</div>
-            <div class="better-settings__ai-subtitle">控制总结结构、语气和展示方式</div>
-          </div>
-          <span class="better-settings__ai-prompt-save-state">自动保存</span>
-        </div>
-        <div class="better-settings__ai-prompt-page-body">
-          <div class="better-settings__ai-prompt-guide">
-            <span class="better-settings__ai-prompt-guide-icon" aria-hidden="true">AI</span>
-            <span>提示词会与帖子正文及评论一起发送给当前配置的 AI 服务商。</span>
-          </div>
-          <label class="better-settings__field better-settings__ai-prompt-field">
-            <span class="better-settings__field-title">
-              <span>总结提示词</span>
-              <span class="better-settings__ai-prompt-count">${escapeHtml(promptLength)} 字</span>
-            </span>
-            <textarea class="better-settings__textarea better-settings__ai-summary-prompt" placeholder="描述希望 AI 如何总结帖子和评论区">${escapeHtml(aiSettings.summaryPrompt)}</textarea>
-          </label>
-          <div class="better-settings__ai-prompt-options">
-            <label class="better-settings__ai-prompt-option">
-              <span class="better-settings__ai-prompt-option-copy">
-                <span class="better-settings__ai-prompt-option-title">允许表情</span>
-                <span class="better-settings__ai-prompt-option-desc">允许总结中使用小黑盒表情</span>
-              </span>
-              <input class="better-settings__ai-allow-emoji" type="checkbox"${aiSettings.allowEmoji ? " checked" : ""}>
-              <span class="better-settings__ai-prompt-option-switch" aria-hidden="true"><span></span></span>
-            </label>
-            <label class="better-settings__ai-prompt-option">
-              <span class="better-settings__ai-prompt-option-copy">
-                <span class="better-settings__ai-prompt-option-title">自动弹出</span>
-                <span class="better-settings__ai-prompt-option-desc">总结完成后自动打开结果窗口</span>
-              </span>
-              <input class="better-settings__ai-auto-popup" type="checkbox"${aiSettings.autoPopup ? " checked" : ""}>
-              <span class="better-settings__ai-prompt-option-switch" aria-hidden="true"><span></span></span>
-            </label>
-          </div>
-          <div class="better-settings__ai-prompt-page-footer">
-            <span class="better-settings__ai-prompt-footer-note">修改内容会即时保存</span>
-            <button class="better-settings__ai-prompt-reset better-settings__ai-reset-prompt" type="button">恢复默认提示词</button>
-          </div>
+          <details class="better-settings__collapsible-section better-settings__ai-prompt-section" data-ai-prompt-section${uiState.aiPromptSettingsOpen ? " open" : ""}>
+            <summary class="better-settings__collapsible-summary better-settings__ai-prompt-summary">
+              <span class="better-settings__connection-title">提示词设置</span>
+              <span class="better-settings__collapsible-indicator" aria-hidden="true"></span>
+            </summary>
+            <div class="better-settings__ai-prompt-expand-body">
+              <div class="better-settings__ai-prompt-guide">
+                <span class="better-settings__ai-prompt-guide-icon" aria-hidden="true">AI</span>
+                <span>提示词会与帖子正文及评论一起发送给当前配置的 AI 服务商。</span>
+              </div>
+              <label class="better-settings__field better-settings__ai-prompt-field">
+                <span class="better-settings__field-title">
+                  <span>总结提示词</span>
+                  <span class="better-settings__ai-prompt-count">${escapeHtml(promptLength)} 字</span>
+                </span>
+                <textarea class="better-settings__textarea better-settings__ai-summary-prompt" placeholder="描述希望 AI 如何总结帖子和评论区">${escapeHtml(aiSettings.summaryPrompt)}</textarea>
+              </label>
+              <div class="better-settings__ai-prompt-options">
+                <label class="better-settings__ai-prompt-option">
+                  <span class="better-settings__ai-prompt-option-copy">
+                    <span class="better-settings__ai-prompt-option-title">允许表情</span>
+                    <span class="better-settings__ai-prompt-option-desc">允许总结中使用小黑盒表情</span>
+                  </span>
+                  <input class="better-settings__ai-allow-emoji" type="checkbox"${aiSettings.allowEmoji ? " checked" : ""}>
+                  <span class="better-settings__ai-prompt-option-switch" aria-hidden="true"><span></span></span>
+                </label>
+                <label class="better-settings__ai-prompt-option">
+                  <span class="better-settings__ai-prompt-option-copy">
+                    <span class="better-settings__ai-prompt-option-title">自动弹出</span>
+                    <span class="better-settings__ai-prompt-option-desc">总结完成后自动打开结果窗口</span>
+                  </span>
+                  <input class="better-settings__ai-auto-popup" type="checkbox"${aiSettings.autoPopup ? " checked" : ""}>
+                  <span class="better-settings__ai-prompt-option-switch" aria-hidden="true"><span></span></span>
+                </label>
+              </div>
+              <div class="better-settings__ai-prompt-footer">
+                <span class="better-settings__ai-prompt-footer-note">修改内容会即时保存</span>
+                <button class="better-settings__ai-prompt-reset better-settings__ai-reset-prompt" type="button">恢复默认提示词</button>
+              </div>
+            </div>
+          </details>
         </div>
       </div>
     `;

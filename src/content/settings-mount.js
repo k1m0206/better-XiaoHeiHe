@@ -85,26 +85,6 @@
         return;
       }
 
-      const aiPromptEntry = event.target.closest(".better-settings__ai-prompt-entry");
-      if (aiPromptEntry && panel.contains(aiPromptEntry)) {
-        activeAiSettingsView = "prompt";
-        renderSettingsPanel();
-        const promptInput = panel.querySelector(".better-settings__ai-summary-prompt");
-        syncAutoHeightTextarea(promptInput);
-        promptInput?.focus();
-        repositionSettingsPanelIfOpen();
-        return;
-      }
-
-      const aiPromptBackButton = event.target.closest(".better-settings__ai-prompt-back");
-      if (aiPromptBackButton && panel.contains(aiPromptBackButton)) {
-        activeAiSettingsView = "main";
-        renderSettingsPanel();
-        panel.querySelector(".better-settings__ai-prompt-entry")?.focus();
-        repositionSettingsPanelIfOpen();
-        return;
-      }
-
       const blockedScopeTab = event.target.closest(".better-settings__scope-tab");
       if (blockedScopeTab && panel.contains(blockedScopeTab)) {
         setActiveBlockedKeywordScope(blockedScopeTab.dataset.blockedScope);
@@ -290,6 +270,18 @@
       const connectionConfig = event.target.closest("[data-connection-config]");
       if (connectionConfig) {
         setConnectionConfigOpen(connectionConfig.dataset.connectionConfig, connectionConfig.open);
+        return;
+      }
+      const aiPromptSection = event.target.closest("[data-ai-prompt-section]");
+      if (aiPromptSection) {
+        uiState = normalizeUiState({ ...uiState, aiPromptSettingsOpen: aiPromptSection.open });
+        persistUiState();
+        if (aiPromptSection.open) {
+          window.requestAnimationFrame(() => {
+            syncAutoHeightTextarea(aiPromptSection.querySelector(".better-settings__ai-summary-prompt"));
+            repositionSettingsPanelIfOpen();
+          });
+        }
         return;
       }
       const aiBotSection = event.target.closest("[data-ai-bot-section]");
@@ -550,7 +542,6 @@
   }
 
   function openSettingsPanelTab(tab) {
-    activeAiSettingsView = "main";
     const blockedScopes = [SETTINGS_TABS.FEED, SETTINGS_TABS.COMMENT];
     const standaloneTabs = [
       SETTINGS_TABS.BLOCKED,

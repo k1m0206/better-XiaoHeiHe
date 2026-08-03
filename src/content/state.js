@@ -159,7 +159,6 @@
   const aiPendingRequests = new Map();
   let activeBlockedKeywordScope = BLOCKED_KEYWORD_SCOPES.FEED;
   let activeSettingsTab = SETTINGS_TABS.GENERAL;
-  let activeAiSettingsView = "main";
   let hotSearchPromise = null;
   let hotSearchDisabled = false;
   let leftMenuOriginalPosition = null;
@@ -582,6 +581,7 @@
   function normalizeUiState(state) {
     return {
       aiConnectionConfigOpen: state?.aiConnectionConfigOpen !== false,
+      aiPromptSettingsOpen: state?.aiPromptSettingsOpen === true,
       aiBotConnectionConfigOpen: state?.aiBotConnectionConfigOpen !== false,
       aiBotAutoReplyOpen: state?.aiBotAutoReplyOpen === true,
       aiBotAutoFeedOpen: state?.aiBotAutoFeedOpen === true,

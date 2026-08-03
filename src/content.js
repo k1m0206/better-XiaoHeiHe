@@ -782,6 +782,7 @@
   function normalizeUiState(state) {
     return {
       aiConnectionConfigOpen: state?.aiConnectionConfigOpen !== false,
+      aiPromptSettingsOpen: state?.aiPromptSettingsOpen === true,
       aiBotConnectionConfigOpen: state?.aiBotConnectionConfigOpen !== false,
       aiBotAutoReplyOpen: state?.aiBotAutoReplyOpen === true,
       aiBotAutoFeedOpen: state?.aiBotAutoFeedOpen === true,
@@ -3452,6 +3453,194 @@
 
       .${SETTINGS_PANEL_CLASS} .better-settings__ai-body {
         padding: 12px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-prompt-section {
+        margin-bottom: 0;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-prompt-summary {
+        min-height: 40px;
+        padding: 0 12px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-prompt-summary .better-settings__collapsible-indicator {
+        flex: 0 0 auto;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-prompt-expand-body {
+        padding: 12px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-prompt-guide {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+        padding: 9px 10px;
+        border: 1px solid #dceaf8;
+        border-radius: 8px;
+        background: #f2f8fe;
+        color: #58718a;
+        font-size: 11px;
+        line-height: 17px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-prompt-guide-icon {
+        display: inline-flex;
+        width: 25px;
+        height: 25px;
+        flex: 0 0 auto;
+        align-items: center;
+        justify-content: center;
+        border-radius: 7px;
+        background: #2775d1;
+        color: #fff;
+        font-size: 9px;
+        font-weight: 800;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-prompt-field {
+        margin-bottom: 12px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-prompt-count {
+        color: #8a949e;
+        font-size: 11px;
+        font-weight: 500;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-prompt-field .better-settings__ai-summary-prompt {
+        min-height: 168px;
+        max-height: 320px;
+        padding: 12px;
+        border-color: #d7e0e8;
+        border-radius: 9px;
+        background: #fff;
+        line-height: 21px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-prompt-options {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: 8px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-prompt-option {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 40px;
+        align-items: center;
+        gap: 10px;
+        padding: 10px;
+        border: 1px solid #e3e8ed;
+        border-radius: 9px;
+        background: #fff;
+        cursor: pointer;
+        transition: border-color 0.16s ease, background 0.16s ease;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-prompt-option:hover {
+        border-color: #c9d9e9;
+        background: #f9fbfd;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-prompt-option-copy {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-prompt-option-title {
+        color: #34404b;
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 18px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-prompt-option-desc {
+        margin-top: 1px;
+        color: #89939d;
+        font-size: 10px;
+        line-height: 15px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-prompt-option > input {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        clip-path: inset(50%);
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-prompt-option-switch {
+        box-sizing: border-box;
+        display: inline-flex;
+        position: relative;
+        width: 40px;
+        height: 23px;
+        align-items: center;
+        padding: 3px;
+        border-radius: 999px;
+        background: #dce1e6;
+        transition: background 0.18s ease, box-shadow 0.18s ease;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-prompt-option-switch > span {
+        width: 17px;
+        height: 17px;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 1px 3px rgba(20, 25, 30, 0.22);
+        transition: transform 0.18s ease;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-prompt-option > input:checked + .better-settings__ai-prompt-option-switch {
+        background: #2775d1;
+        box-shadow: 0 0 0 3px rgba(39, 117, 209, 0.08);
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-prompt-option > input:checked + .better-settings__ai-prompt-option-switch > span {
+        transform: translateX(17px);
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-prompt-option > input:focus-visible + .better-settings__ai-prompt-option-switch {
+        outline: 2px solid rgba(39, 117, 209, 0.35);
+        outline-offset: 2px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-prompt-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-top: 12px;
+        padding-top: 11px;
+        border-top: 1px solid #e9edf1;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-prompt-footer-note {
+        color: #929aa3;
+        font-size: 10px;
+        line-height: 16px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-prompt-reset {
+        height: 30px;
+        padding: 0 10px;
+        border: 1px solid #dce2e7;
+        border-radius: 7px;
+        background: #fff;
+        color: #59636e;
+        cursor: pointer;
+        font-size: 11px;
+        font-weight: 600;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-prompt-reset:hover {
+        border-color: #bfcddd;
+        background: #f5f8fb;
+        color: #2775d1;
       }
 
       .${SETTINGS_PANEL_CLASS} .better-settings__field {
@@ -13222,14 +13411,14 @@
 
   function getAiSettingsFormValues(panel) {
     return normalizeAiSettings({
-      enabled: panel.querySelector(".better-settings__ai-enabled")?.checked,
-      provider: panel.querySelector(".better-settings__ai-provider")?.value,
-      baseUrl: panel.querySelector(".better-settings__ai-base-url")?.value,
-      model: panel.querySelector(".better-settings__ai-model")?.value,
-      apiKey: panel.querySelector(".better-settings__ai-api-key")?.value,
-      allowEmoji: panel.querySelector(".better-settings__ai-allow-emoji")?.checked !== false,
-      autoPopup: panel.querySelector(".better-settings__ai-auto-popup")?.checked !== false,
-      summaryPrompt: panel.querySelector(".better-settings__ai-summary-prompt")?.value
+      enabled: panel.querySelector(".better-settings__ai-enabled")?.checked ?? aiSettings.enabled,
+      provider: panel.querySelector(".better-settings__ai-provider")?.value ?? aiSettings.provider,
+      baseUrl: panel.querySelector(".better-settings__ai-base-url")?.value ?? aiSettings.baseUrl,
+      model: panel.querySelector(".better-settings__ai-model")?.value ?? aiSettings.model,
+      apiKey: panel.querySelector(".better-settings__ai-api-key")?.value ?? aiSettings.apiKey,
+      allowEmoji: panel.querySelector(".better-settings__ai-allow-emoji")?.checked ?? aiSettings.allowEmoji,
+      autoPopup: panel.querySelector(".better-settings__ai-auto-popup")?.checked ?? aiSettings.autoPopup,
+      summaryPrompt: panel.querySelector(".better-settings__ai-summary-prompt")?.value ?? aiSettings.summaryPrompt
     });
   }
 
@@ -13358,6 +13547,7 @@
 // AI 设置和 AI Bot 设置表单渲染。
 // 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function renderAiSettingsPanelContent() {
+    const promptLength = Array.from(aiSettings.summaryPrompt || "").length;
     return `
       <div class="better-settings__section better-settings__ai-section">
         <div class="better-settings__ai-header">
@@ -13416,21 +13606,47 @@
               <span class="better-settings__message" role="status">${isAiConfigured() ? "已配置" : "请填写 Base URL 和模型"}</span>
             </div>
           </details>
-          <label class="better-settings__field">
-            <span class="better-settings__field-title">
-              总结提示词
-              <label class="better-settings__prompt-toggle">
-                <input class="better-settings__ai-allow-emoji" type="checkbox"${aiSettings.allowEmoji ? " checked" : ""}>
-                <span>允许表情</span>
+          <details class="better-settings__collapsible-section better-settings__ai-prompt-section" data-ai-prompt-section${uiState.aiPromptSettingsOpen ? " open" : ""}>
+            <summary class="better-settings__collapsible-summary better-settings__ai-prompt-summary">
+              <span class="better-settings__connection-title">提示词设置</span>
+              <span class="better-settings__collapsible-indicator" aria-hidden="true"></span>
+            </summary>
+            <div class="better-settings__ai-prompt-expand-body">
+              <div class="better-settings__ai-prompt-guide">
+                <span class="better-settings__ai-prompt-guide-icon" aria-hidden="true">AI</span>
+                <span>提示词会与帖子正文及评论一起发送给当前配置的 AI 服务商。</span>
+              </div>
+              <label class="better-settings__field better-settings__ai-prompt-field">
+                <span class="better-settings__field-title">
+                  <span>总结提示词</span>
+                  <span class="better-settings__ai-prompt-count">${escapeHtml(promptLength)} 字</span>
+                </span>
+                <textarea class="better-settings__textarea better-settings__ai-summary-prompt" placeholder="描述希望 AI 如何总结帖子和评论区">${escapeHtml(aiSettings.summaryPrompt)}</textarea>
               </label>
-              <label class="better-settings__prompt-toggle">
-                <input class="better-settings__ai-auto-popup" type="checkbox"${aiSettings.autoPopup ? " checked" : ""}>
-                <span>自动弹出</span>
-              </label>
-              <button class="better-settings__text-button better-settings__ai-reset-prompt" type="button">恢复默认</button>
-            </span>
-            <textarea class="better-settings__textarea better-settings__ai-summary-prompt">${escapeHtml(aiSettings.summaryPrompt)}</textarea>
-          </label>
+              <div class="better-settings__ai-prompt-options">
+                <label class="better-settings__ai-prompt-option">
+                  <span class="better-settings__ai-prompt-option-copy">
+                    <span class="better-settings__ai-prompt-option-title">允许表情</span>
+                    <span class="better-settings__ai-prompt-option-desc">允许总结中使用小黑盒表情</span>
+                  </span>
+                  <input class="better-settings__ai-allow-emoji" type="checkbox"${aiSettings.allowEmoji ? " checked" : ""}>
+                  <span class="better-settings__ai-prompt-option-switch" aria-hidden="true"><span></span></span>
+                </label>
+                <label class="better-settings__ai-prompt-option">
+                  <span class="better-settings__ai-prompt-option-copy">
+                    <span class="better-settings__ai-prompt-option-title">自动弹出</span>
+                    <span class="better-settings__ai-prompt-option-desc">总结完成后自动打开结果窗口</span>
+                  </span>
+                  <input class="better-settings__ai-auto-popup" type="checkbox"${aiSettings.autoPopup ? " checked" : ""}>
+                  <span class="better-settings__ai-prompt-option-switch" aria-hidden="true"><span></span></span>
+                </label>
+              </div>
+              <div class="better-settings__ai-prompt-footer">
+                <span class="better-settings__ai-prompt-footer-note">修改内容会即时保存</span>
+                <button class="better-settings__ai-prompt-reset better-settings__ai-reset-prompt" type="button">恢复默认提示词</button>
+              </div>
+            </div>
+          </details>
         </div>
       </div>
     `;
@@ -15139,6 +15355,11 @@
         const promptInput = panel.querySelector(".better-settings__ai-summary-prompt");
         if (promptInput) {
           promptInput.value = DEFAULT_SUMMARY_PROMPT;
+          syncAutoHeightTextarea(promptInput);
+          const promptCount = panel.querySelector(".better-settings__ai-prompt-count");
+          if (promptCount) {
+            promptCount.textContent = `${Array.from(DEFAULT_SUMMARY_PROMPT).length} 字`;
+          }
         }
         saveAiSettingsFromPanel(panel);
         return;
@@ -15211,6 +15432,18 @@
         setConnectionConfigOpen(connectionConfig.dataset.connectionConfig, connectionConfig.open);
         return;
       }
+      const aiPromptSection = event.target.closest("[data-ai-prompt-section]");
+      if (aiPromptSection) {
+        uiState = normalizeUiState({ ...uiState, aiPromptSettingsOpen: aiPromptSection.open });
+        persistUiState();
+        if (aiPromptSection.open) {
+          window.requestAnimationFrame(() => {
+            syncAutoHeightTextarea(aiPromptSection.querySelector(".better-settings__ai-summary-prompt"));
+            repositionSettingsPanelIfOpen();
+          });
+        }
+        return;
+      }
       const aiBotSection = event.target.closest("[data-ai-bot-section]");
       if (aiBotSection) {
         const section = aiBotSection.dataset.aiBotSection;
@@ -15251,6 +15484,10 @@
       if (event.target.matches(".better-settings__ai-base-url, .better-settings__ai-model, .better-settings__ai-api-key, .better-settings__ai-summary-prompt")) {
         if (event.target.matches(".better-settings__ai-summary-prompt")) {
           syncAutoHeightTextarea(event.target);
+          const promptCount = panel.querySelector(".better-settings__ai-prompt-count");
+          if (promptCount) {
+            promptCount.textContent = `${Array.from(event.target.value).length} 字`;
+          }
           repositionSettingsPanelIfOpen();
         }
         if (event.target.matches(".better-settings__ai-model")) {

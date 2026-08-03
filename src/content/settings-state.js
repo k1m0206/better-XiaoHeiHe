@@ -15,7 +15,6 @@
   }
 
   function setActiveSettingsTab(tab) {
-    activeAiSettingsView = "main";
     const blockedScopes = [SETTINGS_TABS.FEED, SETTINGS_TABS.COMMENT];
     const standaloneTabs = [
       SETTINGS_TABS.BLOCKED,
