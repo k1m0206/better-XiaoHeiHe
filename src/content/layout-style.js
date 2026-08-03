@@ -2237,24 +2237,89 @@
         line-height: 17px;
       }
 
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-status {
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-master-toggle {
         display: inline-flex;
-        height: 24px;
         flex: 0 0 auto;
-        align-items: center;
-        padding: 0 9px;
-        border-radius: 999px;
-        background: #f0f3f6;
-        color: #68727d;
-        font-size: 12px;
-        font-weight: 600;
-        line-height: 24px;
+        cursor: pointer;
+        user-select: none;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-master-toggle > input {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        clip-path: inset(50%);
         white-space: nowrap;
       }
 
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-status.is-on {
-        background: #e7f5ee;
-        color: #0b806f;
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-master-control {
+        display: inline-flex;
+        height: 30px;
+        align-items: center;
+        gap: 8px;
+        padding: 0 2px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-status {
+        min-width: 36px;
+        color: #7b858f;
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 18px;
+        text-align: right;
+        white-space: nowrap;
+        transition: color 0.18s ease;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-master-track {
+        box-sizing: border-box;
+        display: inline-flex;
+        position: relative;
+        width: 46px;
+        height: 26px;
+        flex: 0 0 auto;
+        align-items: center;
+        padding: 3px;
+        border: 1px solid #cfd5db;
+        border-radius: 999px;
+        background: #dce1e6;
+        box-shadow: inset 0 1px 2px rgba(20, 25, 30, 0.08);
+        transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-master-thumb {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 1px 4px rgba(20, 25, 30, 0.24);
+        transition: transform 0.2s cubic-bezier(.2, .8, .2, 1), box-shadow 0.2s ease;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-master-toggle:hover .better-settings__ai-master-track {
+        border-color: #b9c2cb;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-master-toggle > input:checked + .better-settings__ai-master-control .better-settings__ai-master-track {
+        border-color: #2775d1;
+        background: #2775d1;
+        box-shadow: inset 0 1px 2px rgba(18, 79, 151, 0.18), 0 0 0 3px rgba(39, 117, 209, 0.08);
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-master-toggle > input:checked + .better-settings__ai-master-control .better-settings__ai-status {
+        color: #2775d1;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-master-toggle > input:checked + .better-settings__ai-master-control .better-settings__ai-master-thumb {
+        box-shadow: 0 1px 4px rgba(18, 79, 151, 0.28);
+        transform: translateX(20px);
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-master-toggle > input:focus-visible + .better-settings__ai-master-control .better-settings__ai-master-track {
+        outline: 2px solid rgba(39, 117, 209, 0.35);
+        outline-offset: 2px;
       }
 
       .${SETTINGS_PANEL_CLASS} .better-settings__ai-body {

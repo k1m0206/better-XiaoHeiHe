@@ -159,6 +159,7 @@
   const aiPendingRequests = new Map();
   let activeBlockedKeywordScope = BLOCKED_KEYWORD_SCOPES.FEED;
   let activeSettingsTab = SETTINGS_TABS.GENERAL;
+  let activeAiSettingsView = "main";
   let hotSearchPromise = null;
   let hotSearchDisabled = false;
   let leftMenuOriginalPosition = null;
@@ -736,7 +737,6 @@
   function syncLevelFiltersState(savedFilters) {
     const normalizedFilters = normalizeLevelFilters(savedFilters);
     if (JSON.stringify(normalizedFilters) === JSON.stringify(levelFilters)) {
-      renderSettingsPanel();
       return;
     }
 

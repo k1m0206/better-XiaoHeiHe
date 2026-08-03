@@ -85,6 +85,26 @@
         return;
       }
 
+      const aiPromptEntry = event.target.closest(".better-settings__ai-prompt-entry");
+      if (aiPromptEntry && panel.contains(aiPromptEntry)) {
+        activeAiSettingsView = "prompt";
+        renderSettingsPanel();
+        const promptInput = panel.querySelector(".better-settings__ai-summary-prompt");
+        syncAutoHeightTextarea(promptInput);
+        promptInput?.focus();
+        repositionSettingsPanelIfOpen();
+        return;
+      }
+
+      const aiPromptBackButton = event.target.closest(".better-settings__ai-prompt-back");
+      if (aiPromptBackButton && panel.contains(aiPromptBackButton)) {
+        activeAiSettingsView = "main";
+        renderSettingsPanel();
+        panel.querySelector(".better-settings__ai-prompt-entry")?.focus();
+        repositionSettingsPanelIfOpen();
+        return;
+      }
+
       const blockedScopeTab = event.target.closest(".better-settings__scope-tab");
       if (blockedScopeTab && panel.contains(blockedScopeTab)) {
         setActiveBlockedKeywordScope(blockedScopeTab.dataset.blockedScope);
@@ -195,6 +215,11 @@
         const promptInput = panel.querySelector(".better-settings__ai-summary-prompt");
         if (promptInput) {
           promptInput.value = DEFAULT_SUMMARY_PROMPT;
+          syncAutoHeightTextarea(promptInput);
+          const promptCount = panel.querySelector(".better-settings__ai-prompt-count");
+          if (promptCount) {
+            promptCount.textContent = `${Array.from(DEFAULT_SUMMARY_PROMPT).length} 字`;
+          }
         }
         saveAiSettingsFromPanel(panel);
         return;
@@ -307,6 +332,10 @@
       if (event.target.matches(".better-settings__ai-base-url, .better-settings__ai-model, .better-settings__ai-api-key, .better-settings__ai-summary-prompt")) {
         if (event.target.matches(".better-settings__ai-summary-prompt")) {
           syncAutoHeightTextarea(event.target);
+          const promptCount = panel.querySelector(".better-settings__ai-prompt-count");
+          if (promptCount) {
+            promptCount.textContent = `${Array.from(event.target.value).length} 字`;
+          }
           repositionSettingsPanelIfOpen();
         }
         if (event.target.matches(".better-settings__ai-model")) {
@@ -417,9 +446,22 @@
       }
 
       if (event.target.matches(".better-settings__level-enabled")) {
-        updateLevelFilter(event.target.dataset.scope, {
-          enabled: event.target.checked
+        const scope = normalizeBlockedKeywordScope(event.target.dataset.scope);
+        const enabled = event.target.checked;
+        updateLevelFilter(scope, {
+          enabled
+        }, {
+          render: false
         });
+        const toggle = event.target.closest(".better-settings__ai-master-toggle");
+        const status = toggle?.querySelector(".better-settings__ai-status");
+        if (status) {
+          status.textContent = enabled ? "已开启" : "未开启";
+          status.classList.toggle("is-on", enabled);
+        }
+        if (toggle) {
+          toggle.title = `${enabled ? "关闭" : "开启"}${BLOCKED_KEYWORD_SCOPE_LABELS[scope]}等级过滤`;
+        }
         return;
       }
 
@@ -508,6 +550,7 @@
   }
 
   function openSettingsPanelTab(tab) {
+    activeAiSettingsView = "main";
     const blockedScopes = [SETTINGS_TABS.FEED, SETTINGS_TABS.COMMENT];
     const standaloneTabs = [
       SETTINGS_TABS.BLOCKED,

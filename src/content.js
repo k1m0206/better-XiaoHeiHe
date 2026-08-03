@@ -937,7 +937,6 @@
   function syncLevelFiltersState(savedFilters) {
     const normalizedFilters = normalizeLevelFilters(savedFilters);
     if (JSON.stringify(normalizedFilters) === JSON.stringify(levelFilters)) {
-      renderSettingsPanel();
       return;
     }
 
@@ -3366,24 +3365,89 @@
         line-height: 17px;
       }
 
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-status {
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-master-toggle {
         display: inline-flex;
-        height: 24px;
         flex: 0 0 auto;
-        align-items: center;
-        padding: 0 9px;
-        border-radius: 999px;
-        background: #f0f3f6;
-        color: #68727d;
-        font-size: 12px;
-        font-weight: 600;
-        line-height: 24px;
+        cursor: pointer;
+        user-select: none;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-master-toggle > input {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        clip-path: inset(50%);
         white-space: nowrap;
       }
 
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-status.is-on {
-        background: #e7f5ee;
-        color: #0b806f;
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-master-control {
+        display: inline-flex;
+        height: 30px;
+        align-items: center;
+        gap: 8px;
+        padding: 0 2px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-status {
+        min-width: 36px;
+        color: #7b858f;
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 18px;
+        text-align: right;
+        white-space: nowrap;
+        transition: color 0.18s ease;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-master-track {
+        box-sizing: border-box;
+        display: inline-flex;
+        position: relative;
+        width: 46px;
+        height: 26px;
+        flex: 0 0 auto;
+        align-items: center;
+        padding: 3px;
+        border: 1px solid #cfd5db;
+        border-radius: 999px;
+        background: #dce1e6;
+        box-shadow: inset 0 1px 2px rgba(20, 25, 30, 0.08);
+        transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-master-thumb {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 1px 4px rgba(20, 25, 30, 0.24);
+        transition: transform 0.2s cubic-bezier(.2, .8, .2, 1), box-shadow 0.2s ease;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-master-toggle:hover .better-settings__ai-master-track {
+        border-color: #b9c2cb;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-master-toggle > input:checked + .better-settings__ai-master-control .better-settings__ai-master-track {
+        border-color: #2775d1;
+        background: #2775d1;
+        box-shadow: inset 0 1px 2px rgba(18, 79, 151, 0.18), 0 0 0 3px rgba(39, 117, 209, 0.08);
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-master-toggle > input:checked + .better-settings__ai-master-control .better-settings__ai-status {
+        color: #2775d1;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-master-toggle > input:checked + .better-settings__ai-master-control .better-settings__ai-master-thumb {
+        box-shadow: 0 1px 4px rgba(18, 79, 151, 0.28);
+        transform: translateX(20px);
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__ai-master-toggle > input:focus-visible + .better-settings__ai-master-control .better-settings__ai-master-track {
+        outline: 2px solid rgba(39, 117, 209, 0.35);
+        outline-offset: 2px;
       }
 
       .${SETTINGS_PANEL_CLASS} .better-settings__ai-body {
@@ -13257,6 +13321,10 @@
       statusPill.textContent = nextSettings.enabled ? "已开启" : "未开启";
       statusPill.classList.toggle("is-on", nextSettings.enabled);
     }
+    const masterToggle = panel.querySelector(".better-settings__ai-master-toggle");
+    if (masterToggle) {
+      masterToggle.title = nextSettings.enabled ? "关闭 AI 总结" : "开启 AI 总结";
+    }
   }
 
   function syncAutoHeightTextarea(textarea) {
@@ -13297,10 +13365,14 @@
             <div class="better-settings__ai-title">AI 总结</div>
             <div class="better-settings__ai-subtitle">帖子和评论区摘要</div>
           </div>
-          <span class="better-settings__ai-status${aiSettings.enabled ? " is-on" : ""}">${aiSettings.enabled ? "已开启" : "未开启"}</span>
-          <label class="better-settings__level-toggle">
-            <input class="better-settings__level-enabled better-settings__ai-enabled" type="checkbox"${aiSettings.enabled ? " checked" : ""}>
-            <span class="better-settings__level-switch" aria-hidden="true"></span>
+          <label class="better-settings__ai-master-toggle" title="${aiSettings.enabled ? "关闭 AI 总结" : "开启 AI 总结"}">
+            <input class="better-settings__ai-enabled" type="checkbox" aria-label="AI 总结"${aiSettings.enabled ? " checked" : ""}>
+            <span class="better-settings__ai-master-control" aria-hidden="true">
+              <span class="better-settings__ai-status${aiSettings.enabled ? " is-on" : ""}">${aiSettings.enabled ? "已开启" : "未开启"}</span>
+              <span class="better-settings__ai-master-track">
+                <span class="better-settings__ai-master-thumb"></span>
+              </span>
+            </span>
           </label>
         </div>
         <div class="better-settings__ai-body">
@@ -14055,9 +14127,14 @@
       <div class="better-settings__section">
         <div class="better-settings__level-row">
           <span class="better-settings__section-title">等级过滤</span>
-          <label class="better-settings__level-toggle">
-            <input class="better-settings__level-enabled" type="checkbox" data-scope="${escapeHtml(activeScope)}"${activeLevelFilter.enabled ? " checked" : ""}>
-            <span class="better-settings__level-switch" aria-hidden="true"></span>
+          <label class="better-settings__ai-master-toggle" title="${activeLevelFilter.enabled ? "关闭" : "开启"}${escapeHtml(BLOCKED_KEYWORD_SCOPE_LABELS[activeScope])}等级过滤">
+            <input class="better-settings__level-enabled" type="checkbox" data-scope="${escapeHtml(activeScope)}" aria-label="${escapeHtml(BLOCKED_KEYWORD_SCOPE_LABELS[activeScope])}等级过滤"${activeLevelFilter.enabled ? " checked" : ""}>
+            <span class="better-settings__ai-master-control" aria-hidden="true">
+              <span class="better-settings__ai-status${activeLevelFilter.enabled ? " is-on" : ""}">${activeLevelFilter.enabled ? "已开启" : "未开启"}</span>
+              <span class="better-settings__ai-master-track">
+                <span class="better-settings__ai-master-thumb"></span>
+              </span>
+            </span>
           </label>
         </div>
         <div class="better-settings__level-row">
@@ -15284,9 +15361,22 @@
       }
 
       if (event.target.matches(".better-settings__level-enabled")) {
-        updateLevelFilter(event.target.dataset.scope, {
-          enabled: event.target.checked
+        const scope = normalizeBlockedKeywordScope(event.target.dataset.scope);
+        const enabled = event.target.checked;
+        updateLevelFilter(scope, {
+          enabled
+        }, {
+          render: false
         });
+        const toggle = event.target.closest(".better-settings__ai-master-toggle");
+        const status = toggle?.querySelector(".better-settings__ai-status");
+        if (status) {
+          status.textContent = enabled ? "已开启" : "未开启";
+          status.classList.toggle("is-on", enabled);
+        }
+        if (toggle) {
+          toggle.title = `${enabled ? "关闭" : "开启"}${BLOCKED_KEYWORD_SCOPE_LABELS[scope]}等级过滤`;
+        }
         return;
       }
 

@@ -15,6 +15,7 @@
   }
 
   function setActiveSettingsTab(tab) {
+    activeAiSettingsView = "main";
     const blockedScopes = [SETTINGS_TABS.FEED, SETTINGS_TABS.COMMENT];
     const standaloneTabs = [
       SETTINGS_TABS.BLOCKED,
@@ -132,14 +133,14 @@
 
   function getAiSettingsFormValues(panel) {
     return normalizeAiSettings({
-      enabled: panel.querySelector(".better-settings__ai-enabled")?.checked,
-      provider: panel.querySelector(".better-settings__ai-provider")?.value,
-      baseUrl: panel.querySelector(".better-settings__ai-base-url")?.value,
-      model: panel.querySelector(".better-settings__ai-model")?.value,
-      apiKey: panel.querySelector(".better-settings__ai-api-key")?.value,
-      allowEmoji: panel.querySelector(".better-settings__ai-allow-emoji")?.checked !== false,
-      autoPopup: panel.querySelector(".better-settings__ai-auto-popup")?.checked !== false,
-      summaryPrompt: panel.querySelector(".better-settings__ai-summary-prompt")?.value
+      enabled: panel.querySelector(".better-settings__ai-enabled")?.checked ?? aiSettings.enabled,
+      provider: panel.querySelector(".better-settings__ai-provider")?.value ?? aiSettings.provider,
+      baseUrl: panel.querySelector(".better-settings__ai-base-url")?.value ?? aiSettings.baseUrl,
+      model: panel.querySelector(".better-settings__ai-model")?.value ?? aiSettings.model,
+      apiKey: panel.querySelector(".better-settings__ai-api-key")?.value ?? aiSettings.apiKey,
+      allowEmoji: panel.querySelector(".better-settings__ai-allow-emoji")?.checked ?? aiSettings.allowEmoji,
+      autoPopup: panel.querySelector(".better-settings__ai-auto-popup")?.checked ?? aiSettings.autoPopup,
+      summaryPrompt: panel.querySelector(".better-settings__ai-summary-prompt")?.value ?? aiSettings.summaryPrompt
     });
   }
 
@@ -230,6 +231,10 @@
     if (statusPill) {
       statusPill.textContent = nextSettings.enabled ? "已开启" : "未开启";
       statusPill.classList.toggle("is-on", nextSettings.enabled);
+    }
+    const masterToggle = panel.querySelector(".better-settings__ai-master-toggle");
+    if (masterToggle) {
+      masterToggle.title = nextSettings.enabled ? "关闭 AI 总结" : "开启 AI 总结";
     }
   }
 

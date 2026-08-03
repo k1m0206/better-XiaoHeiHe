@@ -28,9 +28,14 @@
       <div class="better-settings__section">
         <div class="better-settings__level-row">
           <span class="better-settings__section-title">等级过滤</span>
-          <label class="better-settings__level-toggle">
-            <input class="better-settings__level-enabled" type="checkbox" data-scope="${escapeHtml(activeScope)}"${activeLevelFilter.enabled ? " checked" : ""}>
-            <span class="better-settings__level-switch" aria-hidden="true"></span>
+          <label class="better-settings__ai-master-toggle" title="${activeLevelFilter.enabled ? "关闭" : "开启"}${escapeHtml(BLOCKED_KEYWORD_SCOPE_LABELS[activeScope])}等级过滤">
+            <input class="better-settings__level-enabled" type="checkbox" data-scope="${escapeHtml(activeScope)}" aria-label="${escapeHtml(BLOCKED_KEYWORD_SCOPE_LABELS[activeScope])}等级过滤"${activeLevelFilter.enabled ? " checked" : ""}>
+            <span class="better-settings__ai-master-control" aria-hidden="true">
+              <span class="better-settings__ai-status${activeLevelFilter.enabled ? " is-on" : ""}">${activeLevelFilter.enabled ? "已开启" : "未开启"}</span>
+              <span class="better-settings__ai-master-track">
+                <span class="better-settings__ai-master-thumb"></span>
+              </span>
+            </span>
           </label>
         </div>
         <div class="better-settings__level-row">
