@@ -50,9 +50,7 @@
     FEED: "feed",
     COMMENT: "comment",
     GENERAL: "general",
-    AI: "ai",
-    AIBOT: "aibot",
-    AIBOT_LOGS: "aibot-logs"
+    AI: "ai"
   };
   const COMMENT_PREVIEW_SORTS = {
     DEFAULT: "default",
@@ -131,29 +129,17 @@
   const blockedKeywordHitKeys = new Set();
   const linkPageCommentTimeCache = new WeakMap();
   const capturedApiParams = {};
-  let lastSavedApiParamsText = "";
   let hideCyComments = false;
   let commentPreviewSort = COMMENT_PREVIEW_SORTS.DEFAULT;
   let blockedKeywords = [];
   let levelFilters = normalizeLevelFilters({});
   let aiSettings = normalizeAiSettings();
-  let aiBotSettings = normalizeAiBotSettings();
   let uiState = normalizeUiState();
   let feedLayoutSettings = normalizeFeedLayoutSettings();
   let feedLayoutPreviewFrame = 0;
-  let aiBotLogs = [];
-  let aiBotMessageLogs = [];
-  let aiBotReplyQueue = [];
-  let aiBotConsentAccepted = false;
   let emojiUsageStats = normalizeEmojiUsageStats();
-  let aiBotLogRefreshTimer = null;
-  let aiBotLogRefreshRunning = false;
-  let activeAiBotLogView = "runtime";
-  let activeAiBotMessageLogFilter = "all";
-  const expandedAiBotLogIds = new Set();
   const aiConnectionStatus = {
-    ai: { state: "idle", fingerprint: "" },
-    aiBot: { state: "idle", fingerprint: "" }
+    ai: { state: "idle", fingerprint: "" }
   };
   let useLegacyLocalSettingsSync = true;
   const aiPendingRequests = new Map();
@@ -582,12 +568,6 @@
     return {
       aiConnectionConfigOpen: state?.aiConnectionConfigOpen !== false,
       aiPromptSettingsOpen: state?.aiPromptSettingsOpen === true,
-      aiBotConnectionConfigOpen: state?.aiBotConnectionConfigOpen !== false,
-      aiBotAutoReplyOpen: state?.aiBotAutoReplyOpen === true,
-      aiBotAutoFeedOpen: state?.aiBotAutoFeedOpen === true,
-      aiBotMessageLogFilter: ["all", "mention", "comment", "feed"].includes(state?.aiBotMessageLogFilter)
-        ? state.aiBotMessageLogFilter
-        : "all",
       aiSummaryWindowLeft: state?.aiSummaryWindowLeft !== null
         && state?.aiSummaryWindowLeft !== undefined
         && Number.isFinite(Number(state.aiSummaryWindowLeft))
@@ -601,20 +581,16 @@
     };
   }
 
-  function getConnectionConfigStateKey(scope) {
-    return scope === "aiBot" ? "aiBotConnectionConfigOpen" : "aiConnectionConfigOpen";
-  }
-
   function persistUiState() {
     saveLocalSettings({
       [UI_STATE_STORAGE_KEY]: uiState
     });
   }
 
-  function setConnectionConfigOpen(scope, isOpen) {
+  function setConnectionConfigOpen(isOpen) {
     uiState = normalizeUiState({
       ...uiState,
-      [getConnectionConfigStateKey(scope)]: Boolean(isOpen)
+      aiConnectionConfigOpen: Boolean(isOpen)
     });
     persistUiState();
   }
@@ -625,7 +601,6 @@
       return;
     }
     uiState = normalizedState;
-    activeAiBotMessageLogFilter = normalizedState.aiBotMessageLogFilter;
     renderSettingsPanel();
   }
 
@@ -637,74 +612,6 @@
     }
   }
 
-
-  function normalizeAiBotLogs(logs) {
-    const now = Date.now();
-    return (Array.isArray(logs) ? logs : [])
-      .filter((log) => Number(log?.timestamp || 0) >= now - AI_BOT_LOG_RETENTION_MS)
-      .sort((left, right) => Number(right?.timestamp || 0) - Number(left?.timestamp || 0));
-  }
-
-  function normalizeAiBotMessageLogs(logs) {
-    const now = Date.now();
-    return (Array.isArray(logs) ? logs : [])
-      .filter((log) => !log?.skipped && Number(log?.timestamp || 0) >= now - AI_BOT_LOG_RETENTION_MS)
-      .sort((left, right) => Number(right?.sentTimestamp || right?.timestamp || 0) - Number(left?.sentTimestamp || left?.timestamp || 0));
-  }
-
-  function normalizeAiBotReplyQueue(queue) {
-    return (Array.isArray(queue) ? queue : [])
-      .map((item) => ({
-        ...item,
-        queuedAt: Number(item?.queuedAt || 0),
-        messageTimestamp: Number(item?.messageTimestamp || 0)
-      }))
-      .filter((item) => item.messageId && item.queuedAt)
-      .sort((left, right) => Number(right.messageTimestamp || right.queuedAt) - Number(left.messageTimestamp || left.queuedAt));
-  }
-
-  function getTodayStartTimestamp() {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  }
-
-  function getAiBotTodayStats() {
-    const todayStart = getTodayStartTimestamp();
-    const feedLinkIds = new Set();
-    let commentReplies = 0;
-    let mentionReplies = 0;
-
-    aiBotMessageLogs.forEach((log) => {
-      const sentTimestamp = Number(log?.sentTimestamp || log?.timestamp || 0);
-      if (!sentTimestamp || sentTimestamp < todayStart || log?.skipped) {
-        return;
-      }
-      if (log.messageSource === "feed") {
-        feedLinkIds.add(String(log.linkId || log.messageId || sentTimestamp));
-      } else if (log.messageSource === "comment") {
-        commentReplies += 1;
-      } else if (log.messageSource === "mention") {
-        mentionReplies += 1;
-      }
-    });
-
-    return {
-      feedComments: feedLinkIds.size,
-      commentReplies,
-      mentionReplies
-    };
-  }
-
-  function persistAiBotSettingsState() {
-    saveLocalSettings({
-      [AI_BOT_SETTINGS_STORAGE_KEY]: aiBotSettings
-    });
-  }
-
-  function writeAiBotSettingsState(settings) {
-    aiBotSettings = normalizeAiBotSettings(settings);
-    persistAiBotSettingsState();
-  }
 
   function isAiFeatureEnabled() {
     return aiSettings.enabled;
@@ -828,13 +735,7 @@
     blockedKeywords = normalizeBlockedKeywords(values[BLOCKED_KEYWORDS_STORAGE_KEY]);
     levelFilters = normalizeLevelFilters(values[LEVEL_FILTERS_STORAGE_KEY]);
     commentPreviewSort = normalizeCommentPreviewSort(values[COMMENT_PREVIEW_SORT_STORAGE_KEY]);
-    aiBotSettings = normalizeAiBotSettings(values[AI_BOT_SETTINGS_STORAGE_KEY]);
     uiState = normalizeUiState(values[UI_STATE_STORAGE_KEY]);
-    activeAiBotMessageLogFilter = uiState.aiBotMessageLogFilter;
-    aiBotLogs = normalizeAiBotLogs(values[AI_BOT_LOGS_STORAGE_KEY]);
-    aiBotMessageLogs = normalizeAiBotMessageLogs(values[AI_BOT_MESSAGE_LOGS_STORAGE_KEY]);
-    aiBotReplyQueue = normalizeAiBotReplyQueue(values[AI_BOT_REPLY_QUEUE_STORAGE_KEY]);
-    aiBotConsentAccepted = values[AI_BOT_CONSENT_STORAGE_KEY] === true;
     emojiUsageStats = normalizeEmojiUsageStats(values[COMMENT_EMOJI_USAGE_STORAGE_KEY]);
     feedLayoutSettings = normalizeFeedLayoutSettings(values[FEED_LAYOUT_SETTINGS_STORAGE_KEY]);
     hotSearchDisabled = values[HOT_SEARCH_DISABLED_STORAGE_KEY] === true;
@@ -889,21 +790,6 @@
       nextValues[COMMENT_PREVIEW_SORT_STORAGE_KEY] = COMMENT_PREVIEW_SORTS.DEFAULT;
     }
 
-    nextValues[AI_BOT_SETTINGS_STORAGE_KEY] = keysPresent[AI_BOT_SETTINGS_STORAGE_KEY]
-      ? normalizeAiBotSettings(values[AI_BOT_SETTINGS_STORAGE_KEY])
-      : normalizeAiBotSettings();
-    nextValues[AI_BOT_LOGS_STORAGE_KEY] = keysPresent[AI_BOT_LOGS_STORAGE_KEY]
-      ? normalizeAiBotLogs(values[AI_BOT_LOGS_STORAGE_KEY])
-      : [];
-    nextValues[AI_BOT_MESSAGE_LOGS_STORAGE_KEY] = keysPresent[AI_BOT_MESSAGE_LOGS_STORAGE_KEY]
-      ? normalizeAiBotMessageLogs(values[AI_BOT_MESSAGE_LOGS_STORAGE_KEY])
-      : [];
-    nextValues[AI_BOT_REPLY_QUEUE_STORAGE_KEY] = keysPresent[AI_BOT_REPLY_QUEUE_STORAGE_KEY]
-      ? normalizeAiBotReplyQueue(values[AI_BOT_REPLY_QUEUE_STORAGE_KEY])
-      : [];
-    nextValues[AI_BOT_CONSENT_STORAGE_KEY] = keysPresent[AI_BOT_CONSENT_STORAGE_KEY]
-      ? values[AI_BOT_CONSENT_STORAGE_KEY] === true
-      : false;
     nextValues[UI_STATE_STORAGE_KEY] = keysPresent[UI_STATE_STORAGE_KEY]
       ? normalizeUiState(values[UI_STATE_STORAGE_KEY])
       : normalizeUiState();

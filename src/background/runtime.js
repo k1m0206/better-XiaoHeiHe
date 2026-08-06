@@ -1,40 +1,20 @@
-// 后台安装、启动、storage、message 和 alarm 监听；AI Bot 熔断期间相关消息统一拒绝执行。
+// 后台安装、storage 和 message 监听。
 // 本文件由原入口文件等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
+  const LEGACY_AI_BOT_STORAGE_KEYS = [
+    "better-xiaoheihe-ai-bot-settings",
+    "better-xiaoheihe-ai-bot-consent",
+    "better-xiaoheihe-ai-bot-logs",
+    "better-xiaoheihe-ai-bot-message-logs",
+    "better-xiaoheihe-ai-bot-emoji-codes",
+    "better-xiaoheihe-ai-bot-replied-records",
+    "better-xiaoheihe-ai-bot-feed-comment-records",
+    "better-xiaoheihe-ai-bot-reply-target-records",
+    "better-xiaoheihe-ai-bot-reply-queue",
+    "better-xiaoheihe-ai-bot-runtime"
+  ];
+
   chrome.runtime.onInstalled?.addListener(() => {
-    syncAiBotAlarm({ reset: true });
-  });
-
-  chrome.runtime.onStartup?.addListener(() => {
-    syncAiBotAlarm();
-  });
-
-  chrome.alarms?.onAlarm?.addListener((alarm) => {
-    if (alarm?.name === AI_BOT_ALARM_NAME) {
-      runAiBotPoll("alarm");
-    }
-    if (alarm?.name === AI_BOT_FEED_ALARM_NAME) {
-      runAiBotFeedComment().catch(() => {});
-    }
-    if (alarm?.name === AI_BOT_QUEUE_ALARM_NAME) {
-      runAiBotQueueConsumer().catch(() => {});
-    }
-  });
-
-  chrome.storage.onChanged?.addListener((changes, areaName) => {
-    if (areaName === "local" && changes[AI_BOT_SETTINGS_STORAGE_KEY]) {
-      const wasEnabled = normalizeAiBotSettings(changes[AI_BOT_SETTINGS_STORAGE_KEY].oldValue).enabled;
-      const isEnabled = normalizeAiBotSettings(changes[AI_BOT_SETTINGS_STORAGE_KEY].newValue).enabled;
-      if (!wasEnabled && isEnabled) {
-        resetAiBotCommentFailures();
-      }
-      syncAiBotAlarm({ reset: true });
-    }
-    if (areaName === "local" && changes[AI_BOT_CONSENT_STORAGE_KEY]) {
-      syncAiBotAlarm({ reset: true });
-    }
-    if (areaName === "local" && changes[API_PARAMS_STORAGE_KEY]) {
-      cachedApiParams = normalizeCachedApiParams(changes[API_PARAMS_STORAGE_KEY].newValue);
-    }
+    storageRemove(LEGACY_AI_BOT_STORAGE_KEYS);
   });
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -56,43 +36,6 @@
       return true;
     }
 
-    if (message?.type === "better-xiaoheihe-ai-bot-test") {
-      if (!AI_BOT_FEATURE_ENABLED) {
-        sendResponse({ ok: false, disabled: true, error: "AI Bot 功能已停用" });
-        return false;
-      }
-      requestChat({
-        messages: [{ role: "user", content: "请回复 OK" }],
-        temperature: 0
-      }, {
-        ...message.detail?.settings,
-        enabled: true
-      }).then(sendResponse);
-      return true;
-    }
-
-    if (message?.type === "better-xiaoheihe-ai-bot-status") {
-      getAiBotStatus().then(sendResponse);
-      return true;
-    }
-
-    if (message?.type === "better-xiaoheihe-ai-bot-run-now") {
-      if (!AI_BOT_FEATURE_ENABLED) {
-        sendResponse({ ok: false, disabled: true, error: "AI Bot 功能已停用" });
-        return false;
-      }
-      runAiBotPoll("manual").then(sendResponse);
-      return true;
-    }
-
-    if (message?.type === "better-xiaoheihe-ai-bot-clear-logs") {
-      storageSet({
-        [AI_BOT_LOGS_STORAGE_KEY]: [],
-        [AI_BOT_MESSAGE_LOGS_STORAGE_KEY]: []
-      }).then(() => sendResponse({ ok: true }));
-      return true;
-    }
-
     if (message?.type === "better-xiaoheihe-activate-sanitized-comment-cookie") {
       activateSanitizedCommentCookieRule(message.detail).then(sendResponse);
       return true;
@@ -110,5 +53,3 @@
     requestChat(message.detail).then(sendResponse);
     return true;
   });
-
-  syncAiBotAlarm();

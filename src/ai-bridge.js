@@ -11,19 +11,6 @@
   const COMMENT_PREVIEW_SORT_STORAGE_KEY = "better-xiaoheihe-comment-preview-sort";
   const AI_SETTINGS_STORAGE_KEY = "better-xiaoheihe-ai-settings";
   const AI_MODEL_CACHE_STORAGE_KEY = "better-xiaoheihe-ai-model-cache";
-  const AI_BOT_SETTINGS_STORAGE_KEY = "better-xiaoheihe-ai-bot-settings";
-  const AI_BOT_CONSENT_STORAGE_KEY = "better-xiaoheihe-ai-bot-consent";
-  const AI_BOT_LOGS_STORAGE_KEY = "better-xiaoheihe-ai-bot-logs";
-  const AI_BOT_MESSAGE_LOGS_STORAGE_KEY = "better-xiaoheihe-ai-bot-message-logs";
-  const AI_BOT_EMOJI_CODES_STORAGE_KEY = "better-xiaoheihe-ai-bot-emoji-codes";
-  const AI_BOT_REPLIED_RECORDS_STORAGE_KEY = "better-xiaoheihe-ai-bot-replied-records";
-  const AI_BOT_FEED_COMMENT_RECORDS_STORAGE_KEY = "better-xiaoheihe-ai-bot-feed-comment-records";
-  const AI_BOT_REPLY_TARGET_RECORDS_STORAGE_KEY = "better-xiaoheihe-ai-bot-reply-target-records";
-  const AI_BOT_REPLY_QUEUE_STORAGE_KEY = "better-xiaoheihe-ai-bot-reply-queue";
-  const AI_BOT_RUNTIME_STORAGE_KEY = "better-xiaoheihe-ai-bot-runtime";
-  // AI Bot 移除前的统一熔断开关：关闭入口和所有后台执行链路，但保留用户原有配置字段。
-  const AI_BOT_FEATURE_ENABLED = false;
-  const API_PARAMS_STORAGE_KEY = "better-xiaoheihe-api-params";
   const UI_STATE_STORAGE_KEY = "better-xiaoheihe-ui-state";
   const COMMENT_EMOJI_USAGE_STORAGE_KEY = "better-xiaoheihe-comment-emoji-usage";
   const FEED_LAYOUT_SETTINGS_STORAGE_KEY = "better-xiaoheihe-feed-layout-settings";
@@ -34,12 +21,6 @@
     BLOCKED_KEYWORDS_STORAGE_KEY,
     LEVEL_FILTERS_STORAGE_KEY,
     COMMENT_PREVIEW_SORT_STORAGE_KEY,
-    AI_BOT_SETTINGS_STORAGE_KEY,
-    AI_BOT_LOGS_STORAGE_KEY,
-    AI_BOT_MESSAGE_LOGS_STORAGE_KEY,
-    AI_BOT_REPLY_QUEUE_STORAGE_KEY,
-    AI_BOT_CONSENT_STORAGE_KEY,
-    API_PARAMS_STORAGE_KEY,
     UI_STATE_STORAGE_KEY,
     COMMENT_EMOJI_USAGE_STORAGE_KEY,
     FEED_LAYOUT_SETTINGS_STORAGE_KEY,
@@ -50,8 +31,6 @@
   const LOCAL_SETTINGS_RESPONSE_EVENT = "better-xiaoheihe-local-settings-response";
   const LOCAL_SETTINGS_SAVE_EVENT = "better-xiaoheihe-local-settings-save";
   const LOCAL_SETTINGS_CHANGED_EVENT = "better-xiaoheihe-local-settings-changed";
-  const AI_BOT_RUNTIME_REQUEST_EVENT = "better-xiaoheihe-ai-bot-runtime-request";
-  const AI_BOT_RUNTIME_RESPONSE_EVENT = "better-xiaoheihe-ai-bot-runtime-response";
   const OPEN_PAGE_SETTINGS_EVENT = "better-xiaoheihe-open-page-settings";
   const AI_SETTINGS_EVENT = "better-xiaoheihe-ai-settings";
   const AI_SETTINGS_REQUEST_EVENT = "better-xiaoheihe-ai-settings-request";
@@ -63,14 +42,7 @@
   const SANITIZED_COOKIE_RULE_REQUEST_EVENT = "better-xiaoheihe-sanitized-cookie-rule-request";
   const SANITIZED_COOKIE_RULE_RESPONSE_EVENT = "better-xiaoheihe-sanitized-cookie-rule-response";
 
-  const AI_BOT_LOG_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
-  const AI_BOT_MIN_FEED_POLL_MINUTES = 10;
-  const AI_BOT_DEFAULT_REPLY_LIMIT_PER_LINK_USER = 5;
-  const AI_BOT_DEFAULT_GLOBAL_HISTORY_LIMIT = 20;
-  const AI_BOT_MAX_GLOBAL_HISTORY_LIMIT = 100;
   const DEFAULT_SUMMARY_PROMPT = "你是社区帖子总结助手，请用中文简洁输出：\n帖子总结\n一句话概括帖子核心内容。\n评论区信息\n提取评论区里有价值的观点、经验、补充或避坑信息，没有则跳过。\nAI简评\n像真实网友一样补充观点，避免AI味。\n返回md格式。";
-  const AI_BOT_DEFAULT_PROMPT = "你是小黑盒社区自动回复助手。请根据消息类型、帖子正文、评论区上下文和触发消息的那条评论，生成一条自然、友好、简洁的中文回复。不要使用模板化开头，不要编造事实，不要输出Markdown。如果触发消息的评论内容只有表情（没有文字，表情数量可以是多个），那么你只回复一个表情，不要添加任何文字。";
-  const AI_BOT_DEFAULT_FEED_PROMPT = "你是小黑盒社区暖贴助手。请根据帖子标题、正文和话题，生成一条自然、真实、简洁的中文评论，像普通用户浏览帖子后留下的感想。不要使用模板化开头，不要编造未提供的信息，不要输出Markdown。";
 
   const AI_PROVIDERS = {
     OPENAI_COMPATIBLE: "openai-compatible",
@@ -92,7 +64,6 @@
   function normalizeProvider(provider) {
     return Object.values(AI_PROVIDERS).includes(provider) ? provider : DEFAULT_AI_PROVIDER;
   }
-
   function normalizeBaseUrl(baseUrl, provider) {
     return String(baseUrl || AI_PROVIDER_DEFAULT_BASE_URLS[provider] || "").trim().replace(/\/+$/, "");
   }
@@ -130,40 +101,6 @@
         seen.add(normalized);
         return true;
       });
-  }
-
-  function normalizeAiBotSettings(settings = {}) {
-    const provider = normalizeProvider(settings?.provider || settings?.endpointMode);
-    const isEnabled = settings?.enabled === true;
-    const replyMentions = isEnabled && settings?.replyMentions !== false;
-    const replyComments = isEnabled && settings?.replyComments === true;
-    const commentHomeFeed = isEnabled && settings?.commentHomeFeed === true;
-    return {
-      enabled: replyMentions || replyComments || commentHomeFeed,
-      provider,
-      endpointMode: provider,
-      baseUrl: normalizeBaseUrl(settings?.baseUrl, provider),
-      model: String(settings?.model || "").trim(),
-      apiKey: String(settings?.apiKey || ""),
-      pollMinutes: Math.max(1, Number.parseInt(settings?.pollMinutes, 10) || 1),
-      feedPollMinutes: Math.max(AI_BOT_MIN_FEED_POLL_MINUTES, Number.parseInt(settings?.feedPollMinutes, 10) || AI_BOT_MIN_FEED_POLL_MINUTES),
-      messageFreshMinutes: Math.max(1, Number.parseInt(settings?.messageFreshMinutes, 10) || 5),
-      replyLimitPerLinkUser: Math.max(1, Number.parseInt(settings?.replyLimitPerLinkUser, 10) || AI_BOT_DEFAULT_REPLY_LIMIT_PER_LINK_USER),
-      globalHistoryEnabled: settings?.globalHistoryEnabled !== false,
-      globalHistoryLimit: Math.min(
-        AI_BOT_MAX_GLOBAL_HISTORY_LIMIT,
-        Math.max(1, Number.parseInt(settings?.globalHistoryLimit, 10) || AI_BOT_DEFAULT_GLOBAL_HISTORY_LIMIT)
-      ),
-      replyMentions,
-      replyComments,
-      commentHomeFeed,
-      feedSelectStrategy: ["first", "latest", "hot"].includes(settings?.feedSelectStrategy) ? settings.feedSelectStrategy : "first",
-      whitelistUserIds: normalizeIdList(settings?.whitelistUserIds || settings?.whitelistText),
-      rejectedReplyKeywords: normalizeKeywordList(settings?.rejectedReplyKeywords || settings?.rejectedReplyKeywordsText),
-      allowEmoji: settings?.allowEmoji !== false,
-      commentPrompt: String(settings?.commentPrompt || "").trim() || AI_BOT_DEFAULT_PROMPT,
-      feedCommentPrompt: String(settings?.feedCommentPrompt || "").trim() || AI_BOT_DEFAULT_FEED_PROMPT
-    };
   }
   // END src\shared\normalizers.js
   // BEGIN src\ai-bridge\bridge.js
@@ -376,26 +313,6 @@ let currentSettings = normalizeAiSettings();
     });
   }
 
-  function requestAiBotRuntime(detail = {}) {
-    const id = detail?.id || "";
-    const type = String(detail?.type || "");
-    if (!id || !type) {
-      return;
-    }
-
-    sendRuntimeMessageSafely({
-      type,
-      detail: detail?.detail || {}
-    }, "请求失败", (response) => {
-      window.dispatchEvent(new CustomEvent(AI_BOT_RUNTIME_RESPONSE_EVENT, {
-        detail: stringifyEventDetail({
-          id,
-          ...(response || { ok: false, error: "请求失败" })
-        })
-      }));
-    });
-  }
-
   function getRequestedLocalSettingsKeys(detail) {
     const requestedKeys = Array.isArray(detail?.keys) ? detail.keys : LOCAL_SETTINGS_STORAGE_KEYS;
     return requestedKeys.filter((key) => LOCAL_SETTINGS_STORAGE_KEYS.includes(key));
@@ -462,7 +379,6 @@ let currentSettings = normalizeAiSettings();
   window.addEventListener(AI_CHAT_REQUEST_EVENT, (event) => requestChat(parseEventDetail(event.detail)));
   window.addEventListener(AI_MODEL_LIST_REQUEST_EVENT, (event) => requestModelList(parseEventDetail(event.detail)));
   window.addEventListener(SANITIZED_COOKIE_RULE_REQUEST_EVENT, (event) => requestSanitizedCookieRuleChange(parseEventDetail(event.detail)));
-  window.addEventListener(AI_BOT_RUNTIME_REQUEST_EVENT, (event) => requestAiBotRuntime(parseEventDetail(event.detail)));
   window.addEventListener(LOCAL_SETTINGS_REQUEST_EVENT, (event) => readLocalSettings(parseEventDetail(event.detail)));
   window.addEventListener(LOCAL_SETTINGS_SAVE_EVENT, (event) => saveLocalSettings(parseEventDetail(event.detail)));
 

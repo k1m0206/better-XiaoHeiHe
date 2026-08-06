@@ -83,42 +83,12 @@
       return;
     }
 
-    let changed = false;
     CAPTURED_API_PARAM_KEYS.forEach((key) => {
       const value = parsed.searchParams.get(key);
       if (value && capturedApiParams[key] !== value) {
         capturedApiParams[key] = value;
-        changed = true;
       }
     });
-    if (changed) {
-      persistCapturedApiParams();
-    }
-  }
-
-  function persistCapturedApiParams() {
-    const values = CAPTURED_API_PARAM_KEYS.reduce((result, key) => {
-      if (capturedApiParams[key]) {
-        result[key] = capturedApiParams[key];
-      }
-      return result;
-    }, {});
-    const text = JSON.stringify(values);
-    if (!Object.keys(values).length || text === lastSavedApiParamsText) {
-      return;
-    }
-    lastSavedApiParamsText = text;
-    window.dispatchEvent(new CustomEvent(LOCAL_SETTINGS_SAVE_EVENT, {
-      detail: stringifyEventDetail({
-        values: {
-          [API_PARAMS_STORAGE_KEY]: {
-            params: values,
-            capturedAt: Date.now(),
-            source: "xiaoheihe-page"
-          }
-        }
-      })
-    }));
   }
 
   function getRequestUrl(input) {

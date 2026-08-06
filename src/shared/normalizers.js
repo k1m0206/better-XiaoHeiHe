@@ -3,7 +3,6 @@
   function normalizeProvider(provider) {
     return Object.values(AI_PROVIDERS).includes(provider) ? provider : DEFAULT_AI_PROVIDER;
   }
-
   function normalizeBaseUrl(baseUrl, provider) {
     return String(baseUrl || AI_PROVIDER_DEFAULT_BASE_URLS[provider] || "").trim().replace(/\/+$/, "");
   }
@@ -41,38 +40,4 @@
         seen.add(normalized);
         return true;
       });
-  }
-
-  function normalizeAiBotSettings(settings = {}) {
-    const provider = normalizeProvider(settings?.provider || settings?.endpointMode);
-    const isEnabled = settings?.enabled === true;
-    const replyMentions = isEnabled && settings?.replyMentions !== false;
-    const replyComments = isEnabled && settings?.replyComments === true;
-    const commentHomeFeed = isEnabled && settings?.commentHomeFeed === true;
-    return {
-      enabled: replyMentions || replyComments || commentHomeFeed,
-      provider,
-      endpointMode: provider,
-      baseUrl: normalizeBaseUrl(settings?.baseUrl, provider),
-      model: String(settings?.model || "").trim(),
-      apiKey: String(settings?.apiKey || ""),
-      pollMinutes: Math.max(1, Number.parseInt(settings?.pollMinutes, 10) || 1),
-      feedPollMinutes: Math.max(AI_BOT_MIN_FEED_POLL_MINUTES, Number.parseInt(settings?.feedPollMinutes, 10) || AI_BOT_MIN_FEED_POLL_MINUTES),
-      messageFreshMinutes: Math.max(1, Number.parseInt(settings?.messageFreshMinutes, 10) || 5),
-      replyLimitPerLinkUser: Math.max(1, Number.parseInt(settings?.replyLimitPerLinkUser, 10) || AI_BOT_DEFAULT_REPLY_LIMIT_PER_LINK_USER),
-      globalHistoryEnabled: settings?.globalHistoryEnabled !== false,
-      globalHistoryLimit: Math.min(
-        AI_BOT_MAX_GLOBAL_HISTORY_LIMIT,
-        Math.max(1, Number.parseInt(settings?.globalHistoryLimit, 10) || AI_BOT_DEFAULT_GLOBAL_HISTORY_LIMIT)
-      ),
-      replyMentions,
-      replyComments,
-      commentHomeFeed,
-      feedSelectStrategy: ["first", "latest", "hot"].includes(settings?.feedSelectStrategy) ? settings.feedSelectStrategy : "first",
-      whitelistUserIds: normalizeIdList(settings?.whitelistUserIds || settings?.whitelistText),
-      rejectedReplyKeywords: normalizeKeywordList(settings?.rejectedReplyKeywords || settings?.rejectedReplyKeywordsText),
-      allowEmoji: settings?.allowEmoji !== false,
-      commentPrompt: String(settings?.commentPrompt || "").trim() || AI_BOT_DEFAULT_PROMPT,
-      feedCommentPrompt: String(settings?.feedCommentPrompt || "").trim() || AI_BOT_DEFAULT_FEED_PROMPT
-    };
   }

@@ -19,8 +19,7 @@
     const standaloneTabs = [
       SETTINGS_TABS.BLOCKED,
       SETTINGS_TABS.GENERAL,
-      SETTINGS_TABS.AI,
-      ...(AI_BOT_FEATURE_ENABLED ? [SETTINGS_TABS.AIBOT, SETTINGS_TABS.AIBOT_LOGS] : [])
+      SETTINGS_TABS.AI
     ];
     if (blockedScopes.includes(tab)) {
       activeBlockedKeywordScope = normalizeBlockedKeywordScope(tab);
@@ -29,16 +28,6 @@
       activeSettingsTab = standaloneTabs.includes(tab) ? tab : SETTINGS_TABS.GENERAL;
     }
     renderSettingsPanel();
-    if (activeSettingsTab === SETTINGS_TABS.AIBOT_LOGS) {
-      loadEmojis().then(() => {
-        if (activeSettingsTab === SETTINGS_TABS.AIBOT_LOGS) {
-          refreshAiBotLogsPanel();
-        }
-      });
-      startAiBotLogAutoRefresh();
-    } else {
-      stopAiBotLogAutoRefresh();
-    }
   }
 
   function addBlockedKeyword(keyword, scope = BLOCKED_KEYWORD_SCOPES.COMMENT) {
@@ -172,10 +161,8 @@
   function syncAiConnectionDot(scope, settings) {
     const panel = document.querySelector(`.${SETTINGS_PANEL_CLASS}`);
     const dot = panel?.querySelector(`[data-ai-connection-status="${scope}"]`);
-    const button = panel?.querySelector(scope === "aiBot"
-      ? ".better-settings__ai-bot-test"
-      : ".better-settings__ai-test");
-    const state = getAiConnectionState(scope, settings || (scope === "aiBot" ? aiBotSettings : aiSettings));
+    const button = panel?.querySelector(".better-settings__ai-test");
+    const state = getAiConnectionState(scope, settings || aiSettings);
     const title = state === "ok"
       ? "接入状态：连通"
       : (state === "error" ? "接入状态：失败" : "接入状态：未测试");
@@ -193,7 +180,7 @@
   }
 
   function setAiConnectionStatus(scope, state, settings) {
-    const nextSettings = settings || (scope === "aiBot" ? aiBotSettings : aiSettings);
+    const nextSettings = settings || aiSettings;
     aiConnectionStatus[scope] = {
       state,
       fingerprint: getAiConnectionFingerprint(nextSettings)

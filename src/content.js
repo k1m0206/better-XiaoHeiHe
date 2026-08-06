@@ -11,19 +11,6 @@
   const COMMENT_PREVIEW_SORT_STORAGE_KEY = "better-xiaoheihe-comment-preview-sort";
   const AI_SETTINGS_STORAGE_KEY = "better-xiaoheihe-ai-settings";
   const AI_MODEL_CACHE_STORAGE_KEY = "better-xiaoheihe-ai-model-cache";
-  const AI_BOT_SETTINGS_STORAGE_KEY = "better-xiaoheihe-ai-bot-settings";
-  const AI_BOT_CONSENT_STORAGE_KEY = "better-xiaoheihe-ai-bot-consent";
-  const AI_BOT_LOGS_STORAGE_KEY = "better-xiaoheihe-ai-bot-logs";
-  const AI_BOT_MESSAGE_LOGS_STORAGE_KEY = "better-xiaoheihe-ai-bot-message-logs";
-  const AI_BOT_EMOJI_CODES_STORAGE_KEY = "better-xiaoheihe-ai-bot-emoji-codes";
-  const AI_BOT_REPLIED_RECORDS_STORAGE_KEY = "better-xiaoheihe-ai-bot-replied-records";
-  const AI_BOT_FEED_COMMENT_RECORDS_STORAGE_KEY = "better-xiaoheihe-ai-bot-feed-comment-records";
-  const AI_BOT_REPLY_TARGET_RECORDS_STORAGE_KEY = "better-xiaoheihe-ai-bot-reply-target-records";
-  const AI_BOT_REPLY_QUEUE_STORAGE_KEY = "better-xiaoheihe-ai-bot-reply-queue";
-  const AI_BOT_RUNTIME_STORAGE_KEY = "better-xiaoheihe-ai-bot-runtime";
-  // AI Bot 移除前的统一熔断开关：关闭入口和所有后台执行链路，但保留用户原有配置字段。
-  const AI_BOT_FEATURE_ENABLED = false;
-  const API_PARAMS_STORAGE_KEY = "better-xiaoheihe-api-params";
   const UI_STATE_STORAGE_KEY = "better-xiaoheihe-ui-state";
   const COMMENT_EMOJI_USAGE_STORAGE_KEY = "better-xiaoheihe-comment-emoji-usage";
   const FEED_LAYOUT_SETTINGS_STORAGE_KEY = "better-xiaoheihe-feed-layout-settings";
@@ -34,12 +21,6 @@
     BLOCKED_KEYWORDS_STORAGE_KEY,
     LEVEL_FILTERS_STORAGE_KEY,
     COMMENT_PREVIEW_SORT_STORAGE_KEY,
-    AI_BOT_SETTINGS_STORAGE_KEY,
-    AI_BOT_LOGS_STORAGE_KEY,
-    AI_BOT_MESSAGE_LOGS_STORAGE_KEY,
-    AI_BOT_REPLY_QUEUE_STORAGE_KEY,
-    AI_BOT_CONSENT_STORAGE_KEY,
-    API_PARAMS_STORAGE_KEY,
     UI_STATE_STORAGE_KEY,
     COMMENT_EMOJI_USAGE_STORAGE_KEY,
     FEED_LAYOUT_SETTINGS_STORAGE_KEY,
@@ -50,8 +31,6 @@
   const LOCAL_SETTINGS_RESPONSE_EVENT = "better-xiaoheihe-local-settings-response";
   const LOCAL_SETTINGS_SAVE_EVENT = "better-xiaoheihe-local-settings-save";
   const LOCAL_SETTINGS_CHANGED_EVENT = "better-xiaoheihe-local-settings-changed";
-  const AI_BOT_RUNTIME_REQUEST_EVENT = "better-xiaoheihe-ai-bot-runtime-request";
-  const AI_BOT_RUNTIME_RESPONSE_EVENT = "better-xiaoheihe-ai-bot-runtime-response";
   const OPEN_PAGE_SETTINGS_EVENT = "better-xiaoheihe-open-page-settings";
   const AI_SETTINGS_EVENT = "better-xiaoheihe-ai-settings";
   const AI_SETTINGS_REQUEST_EVENT = "better-xiaoheihe-ai-settings-request";
@@ -63,14 +42,7 @@
   const SANITIZED_COOKIE_RULE_REQUEST_EVENT = "better-xiaoheihe-sanitized-cookie-rule-request";
   const SANITIZED_COOKIE_RULE_RESPONSE_EVENT = "better-xiaoheihe-sanitized-cookie-rule-response";
 
-  const AI_BOT_LOG_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
-  const AI_BOT_MIN_FEED_POLL_MINUTES = 10;
-  const AI_BOT_DEFAULT_REPLY_LIMIT_PER_LINK_USER = 5;
-  const AI_BOT_DEFAULT_GLOBAL_HISTORY_LIMIT = 20;
-  const AI_BOT_MAX_GLOBAL_HISTORY_LIMIT = 100;
   const DEFAULT_SUMMARY_PROMPT = "你是社区帖子总结助手，请用中文简洁输出：\n帖子总结\n一句话概括帖子核心内容。\n评论区信息\n提取评论区里有价值的观点、经验、补充或避坑信息，没有则跳过。\nAI简评\n像真实网友一样补充观点，避免AI味。\n返回md格式。";
-  const AI_BOT_DEFAULT_PROMPT = "你是小黑盒社区自动回复助手。请根据消息类型、帖子正文、评论区上下文和触发消息的那条评论，生成一条自然、友好、简洁的中文回复。不要使用模板化开头，不要编造事实，不要输出Markdown。如果触发消息的评论内容只有表情（没有文字，表情数量可以是多个），那么你只回复一个表情，不要添加任何文字。";
-  const AI_BOT_DEFAULT_FEED_PROMPT = "你是小黑盒社区暖贴助手。请根据帖子标题、正文和话题，生成一条自然、真实、简洁的中文评论，像普通用户浏览帖子后留下的感想。不要使用模板化开头，不要编造未提供的信息，不要输出Markdown。";
 
   const AI_PROVIDERS = {
     OPENAI_COMPATIBLE: "openai-compatible",
@@ -92,7 +64,6 @@
   function normalizeProvider(provider) {
     return Object.values(AI_PROVIDERS).includes(provider) ? provider : DEFAULT_AI_PROVIDER;
   }
-
   function normalizeBaseUrl(baseUrl, provider) {
     return String(baseUrl || AI_PROVIDER_DEFAULT_BASE_URLS[provider] || "").trim().replace(/\/+$/, "");
   }
@@ -130,40 +101,6 @@
         seen.add(normalized);
         return true;
       });
-  }
-
-  function normalizeAiBotSettings(settings = {}) {
-    const provider = normalizeProvider(settings?.provider || settings?.endpointMode);
-    const isEnabled = settings?.enabled === true;
-    const replyMentions = isEnabled && settings?.replyMentions !== false;
-    const replyComments = isEnabled && settings?.replyComments === true;
-    const commentHomeFeed = isEnabled && settings?.commentHomeFeed === true;
-    return {
-      enabled: replyMentions || replyComments || commentHomeFeed,
-      provider,
-      endpointMode: provider,
-      baseUrl: normalizeBaseUrl(settings?.baseUrl, provider),
-      model: String(settings?.model || "").trim(),
-      apiKey: String(settings?.apiKey || ""),
-      pollMinutes: Math.max(1, Number.parseInt(settings?.pollMinutes, 10) || 1),
-      feedPollMinutes: Math.max(AI_BOT_MIN_FEED_POLL_MINUTES, Number.parseInt(settings?.feedPollMinutes, 10) || AI_BOT_MIN_FEED_POLL_MINUTES),
-      messageFreshMinutes: Math.max(1, Number.parseInt(settings?.messageFreshMinutes, 10) || 5),
-      replyLimitPerLinkUser: Math.max(1, Number.parseInt(settings?.replyLimitPerLinkUser, 10) || AI_BOT_DEFAULT_REPLY_LIMIT_PER_LINK_USER),
-      globalHistoryEnabled: settings?.globalHistoryEnabled !== false,
-      globalHistoryLimit: Math.min(
-        AI_BOT_MAX_GLOBAL_HISTORY_LIMIT,
-        Math.max(1, Number.parseInt(settings?.globalHistoryLimit, 10) || AI_BOT_DEFAULT_GLOBAL_HISTORY_LIMIT)
-      ),
-      replyMentions,
-      replyComments,
-      commentHomeFeed,
-      feedSelectStrategy: ["first", "latest", "hot"].includes(settings?.feedSelectStrategy) ? settings.feedSelectStrategy : "first",
-      whitelistUserIds: normalizeIdList(settings?.whitelistUserIds || settings?.whitelistText),
-      rejectedReplyKeywords: normalizeKeywordList(settings?.rejectedReplyKeywords || settings?.rejectedReplyKeywordsText),
-      allowEmoji: settings?.allowEmoji !== false,
-      commentPrompt: String(settings?.commentPrompt || "").trim() || AI_BOT_DEFAULT_PROMPT,
-      feedCommentPrompt: String(settings?.feedCommentPrompt || "").trim() || AI_BOT_DEFAULT_FEED_PROMPT
-    };
   }
   // END src\shared\normalizers.js
   // BEGIN src\shared\workshop-signing.js
@@ -251,9 +188,7 @@
     FEED: "feed",
     COMMENT: "comment",
     GENERAL: "general",
-    AI: "ai",
-    AIBOT: "aibot",
-    AIBOT_LOGS: "aibot-logs"
+    AI: "ai"
   };
   const COMMENT_PREVIEW_SORTS = {
     DEFAULT: "default",
@@ -332,29 +267,17 @@
   const blockedKeywordHitKeys = new Set();
   const linkPageCommentTimeCache = new WeakMap();
   const capturedApiParams = {};
-  let lastSavedApiParamsText = "";
   let hideCyComments = false;
   let commentPreviewSort = COMMENT_PREVIEW_SORTS.DEFAULT;
   let blockedKeywords = [];
   let levelFilters = normalizeLevelFilters({});
   let aiSettings = normalizeAiSettings();
-  let aiBotSettings = normalizeAiBotSettings();
   let uiState = normalizeUiState();
   let feedLayoutSettings = normalizeFeedLayoutSettings();
   let feedLayoutPreviewFrame = 0;
-  let aiBotLogs = [];
-  let aiBotMessageLogs = [];
-  let aiBotReplyQueue = [];
-  let aiBotConsentAccepted = false;
   let emojiUsageStats = normalizeEmojiUsageStats();
-  let aiBotLogRefreshTimer = null;
-  let aiBotLogRefreshRunning = false;
-  let activeAiBotLogView = "runtime";
-  let activeAiBotMessageLogFilter = "all";
-  const expandedAiBotLogIds = new Set();
   const aiConnectionStatus = {
-    ai: { state: "idle", fingerprint: "" },
-    aiBot: { state: "idle", fingerprint: "" }
+    ai: { state: "idle", fingerprint: "" }
   };
   let useLegacyLocalSettingsSync = true;
   const aiPendingRequests = new Map();
@@ -783,12 +706,6 @@
     return {
       aiConnectionConfigOpen: state?.aiConnectionConfigOpen !== false,
       aiPromptSettingsOpen: state?.aiPromptSettingsOpen === true,
-      aiBotConnectionConfigOpen: state?.aiBotConnectionConfigOpen !== false,
-      aiBotAutoReplyOpen: state?.aiBotAutoReplyOpen === true,
-      aiBotAutoFeedOpen: state?.aiBotAutoFeedOpen === true,
-      aiBotMessageLogFilter: ["all", "mention", "comment", "feed"].includes(state?.aiBotMessageLogFilter)
-        ? state.aiBotMessageLogFilter
-        : "all",
       aiSummaryWindowLeft: state?.aiSummaryWindowLeft !== null
         && state?.aiSummaryWindowLeft !== undefined
         && Number.isFinite(Number(state.aiSummaryWindowLeft))
@@ -802,20 +719,16 @@
     };
   }
 
-  function getConnectionConfigStateKey(scope) {
-    return scope === "aiBot" ? "aiBotConnectionConfigOpen" : "aiConnectionConfigOpen";
-  }
-
   function persistUiState() {
     saveLocalSettings({
       [UI_STATE_STORAGE_KEY]: uiState
     });
   }
 
-  function setConnectionConfigOpen(scope, isOpen) {
+  function setConnectionConfigOpen(isOpen) {
     uiState = normalizeUiState({
       ...uiState,
-      [getConnectionConfigStateKey(scope)]: Boolean(isOpen)
+      aiConnectionConfigOpen: Boolean(isOpen)
     });
     persistUiState();
   }
@@ -826,7 +739,6 @@
       return;
     }
     uiState = normalizedState;
-    activeAiBotMessageLogFilter = normalizedState.aiBotMessageLogFilter;
     renderSettingsPanel();
   }
 
@@ -838,74 +750,6 @@
     }
   }
 
-
-  function normalizeAiBotLogs(logs) {
-    const now = Date.now();
-    return (Array.isArray(logs) ? logs : [])
-      .filter((log) => Number(log?.timestamp || 0) >= now - AI_BOT_LOG_RETENTION_MS)
-      .sort((left, right) => Number(right?.timestamp || 0) - Number(left?.timestamp || 0));
-  }
-
-  function normalizeAiBotMessageLogs(logs) {
-    const now = Date.now();
-    return (Array.isArray(logs) ? logs : [])
-      .filter((log) => !log?.skipped && Number(log?.timestamp || 0) >= now - AI_BOT_LOG_RETENTION_MS)
-      .sort((left, right) => Number(right?.sentTimestamp || right?.timestamp || 0) - Number(left?.sentTimestamp || left?.timestamp || 0));
-  }
-
-  function normalizeAiBotReplyQueue(queue) {
-    return (Array.isArray(queue) ? queue : [])
-      .map((item) => ({
-        ...item,
-        queuedAt: Number(item?.queuedAt || 0),
-        messageTimestamp: Number(item?.messageTimestamp || 0)
-      }))
-      .filter((item) => item.messageId && item.queuedAt)
-      .sort((left, right) => Number(right.messageTimestamp || right.queuedAt) - Number(left.messageTimestamp || left.queuedAt));
-  }
-
-  function getTodayStartTimestamp() {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  }
-
-  function getAiBotTodayStats() {
-    const todayStart = getTodayStartTimestamp();
-    const feedLinkIds = new Set();
-    let commentReplies = 0;
-    let mentionReplies = 0;
-
-    aiBotMessageLogs.forEach((log) => {
-      const sentTimestamp = Number(log?.sentTimestamp || log?.timestamp || 0);
-      if (!sentTimestamp || sentTimestamp < todayStart || log?.skipped) {
-        return;
-      }
-      if (log.messageSource === "feed") {
-        feedLinkIds.add(String(log.linkId || log.messageId || sentTimestamp));
-      } else if (log.messageSource === "comment") {
-        commentReplies += 1;
-      } else if (log.messageSource === "mention") {
-        mentionReplies += 1;
-      }
-    });
-
-    return {
-      feedComments: feedLinkIds.size,
-      commentReplies,
-      mentionReplies
-    };
-  }
-
-  function persistAiBotSettingsState() {
-    saveLocalSettings({
-      [AI_BOT_SETTINGS_STORAGE_KEY]: aiBotSettings
-    });
-  }
-
-  function writeAiBotSettingsState(settings) {
-    aiBotSettings = normalizeAiBotSettings(settings);
-    persistAiBotSettingsState();
-  }
 
   function isAiFeatureEnabled() {
     return aiSettings.enabled;
@@ -1029,13 +873,7 @@
     blockedKeywords = normalizeBlockedKeywords(values[BLOCKED_KEYWORDS_STORAGE_KEY]);
     levelFilters = normalizeLevelFilters(values[LEVEL_FILTERS_STORAGE_KEY]);
     commentPreviewSort = normalizeCommentPreviewSort(values[COMMENT_PREVIEW_SORT_STORAGE_KEY]);
-    aiBotSettings = normalizeAiBotSettings(values[AI_BOT_SETTINGS_STORAGE_KEY]);
     uiState = normalizeUiState(values[UI_STATE_STORAGE_KEY]);
-    activeAiBotMessageLogFilter = uiState.aiBotMessageLogFilter;
-    aiBotLogs = normalizeAiBotLogs(values[AI_BOT_LOGS_STORAGE_KEY]);
-    aiBotMessageLogs = normalizeAiBotMessageLogs(values[AI_BOT_MESSAGE_LOGS_STORAGE_KEY]);
-    aiBotReplyQueue = normalizeAiBotReplyQueue(values[AI_BOT_REPLY_QUEUE_STORAGE_KEY]);
-    aiBotConsentAccepted = values[AI_BOT_CONSENT_STORAGE_KEY] === true;
     emojiUsageStats = normalizeEmojiUsageStats(values[COMMENT_EMOJI_USAGE_STORAGE_KEY]);
     feedLayoutSettings = normalizeFeedLayoutSettings(values[FEED_LAYOUT_SETTINGS_STORAGE_KEY]);
     hotSearchDisabled = values[HOT_SEARCH_DISABLED_STORAGE_KEY] === true;
@@ -1090,21 +928,6 @@
       nextValues[COMMENT_PREVIEW_SORT_STORAGE_KEY] = COMMENT_PREVIEW_SORTS.DEFAULT;
     }
 
-    nextValues[AI_BOT_SETTINGS_STORAGE_KEY] = keysPresent[AI_BOT_SETTINGS_STORAGE_KEY]
-      ? normalizeAiBotSettings(values[AI_BOT_SETTINGS_STORAGE_KEY])
-      : normalizeAiBotSettings();
-    nextValues[AI_BOT_LOGS_STORAGE_KEY] = keysPresent[AI_BOT_LOGS_STORAGE_KEY]
-      ? normalizeAiBotLogs(values[AI_BOT_LOGS_STORAGE_KEY])
-      : [];
-    nextValues[AI_BOT_MESSAGE_LOGS_STORAGE_KEY] = keysPresent[AI_BOT_MESSAGE_LOGS_STORAGE_KEY]
-      ? normalizeAiBotMessageLogs(values[AI_BOT_MESSAGE_LOGS_STORAGE_KEY])
-      : [];
-    nextValues[AI_BOT_REPLY_QUEUE_STORAGE_KEY] = keysPresent[AI_BOT_REPLY_QUEUE_STORAGE_KEY]
-      ? normalizeAiBotReplyQueue(values[AI_BOT_REPLY_QUEUE_STORAGE_KEY])
-      : [];
-    nextValues[AI_BOT_CONSENT_STORAGE_KEY] = keysPresent[AI_BOT_CONSENT_STORAGE_KEY]
-      ? values[AI_BOT_CONSENT_STORAGE_KEY] === true
-      : false;
     nextValues[UI_STATE_STORAGE_KEY] = keysPresent[UI_STATE_STORAGE_KEY]
       ? normalizeUiState(values[UI_STATE_STORAGE_KEY])
       : normalizeUiState();
@@ -4075,342 +3898,6 @@
         line-height: 18px;
         text-overflow: ellipsis;
         white-space: nowrap;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-log-title {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 10px;
-        margin: 12px 0 8px;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__log-switch {
-        display: inline-flex;
-        gap: 4px;
-        padding: 3px;
-        margin: 10px 0;
-        border: 1px solid #e2e8ef;
-        border-radius: 8px;
-        background: #f4f7fa;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__log-switch-button {
-        min-width: 78px;
-        height: 28px;
-        padding: 0 10px;
-        border: 0;
-        border-radius: 6px;
-        background: transparent;
-        color: #68727d;
-        cursor: pointer;
-        font-size: 12px;
-        font-weight: 700;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__log-switch-button.is-active {
-        background: #fff;
-        color: #1f66b8;
-        box-shadow: 0 1px 3px rgba(20, 32, 44, 0.1);
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-message-filter {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-        margin: 0 0 8px;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-message-filter-button {
-        height: 26px;
-        padding: 0 10px;
-        border: 1px solid #dce3ea;
-        border-radius: 13px;
-        background: #fff;
-        color: #68727d;
-        cursor: pointer;
-        font-size: 11px;
-        font-weight: 600;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-message-filter-button.is-active {
-        border-color: #9fc4ef;
-        background: #edf5ff;
-        color: #1f66b8;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-stats {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 8px;
-        margin: 2px 0 10px;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-stat {
-        min-width: 0;
-        padding: 8px 10px;
-        border: 1px solid #e2e8ef;
-        border-radius: 8px;
-        background: #fbfcfd;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-stat-label {
-        display: block;
-        overflow: hidden;
-        color: #68727d;
-        font-size: 11px;
-        line-height: 16px;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-stat-value {
-        display: block;
-        margin-top: 2px;
-        color: #18222c;
-        font-size: 18px;
-        font-weight: 800;
-        line-height: 24px;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-logs {
-        height: min(520px, calc(100vh - 250px));
-        min-height: 360px;
-        max-height: 620px;
-        overflow-y: auto;
-        border: 1px solid #eef0f2;
-        border-radius: 8px;
-        background: #fbfcfd;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-message-logs {
-        height: min(520px, calc(100vh - 250px));
-        min-height: 360px;
-        max-height: 620px;
-        overflow-y: auto;
-        border: 1px solid #eef0f2;
-        border-radius: 8px;
-        background: #fbfcfd;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-log {
-        padding: 9px 10px;
-        border-bottom: 1px solid #eef0f2;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-log:last-child,
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-message-log:last-child {
-        border-bottom: 0;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-message-log {
-        display: grid;
-        gap: 6px;
-        padding: 9px 10px;
-        border-bottom: 1px solid #eef0f2;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-message-title {
-        color: #26313b;
-        font-size: 12px;
-        font-weight: 700;
-        line-height: 18px;
-        word-break: break-word;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-message-title a {
-        color: #1a73e8;
-        text-decoration: none;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-message-title a:hover {
-        text-decoration: underline;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-post-time {
-        color: #68727d;
-        font-size: 11px;
-        font-weight: 400;
-        margin-left: 8px;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-message-target {
-        color: #68727d;
-        font-size: 11px;
-        line-height: 16px;
-        word-break: break-word;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-message-source {
-        color: #3c4651;
-        font-size: 12px;
-        line-height: 18px;
-        white-space: pre-wrap;
-        word-break: break-word;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-message-reply {
-        color: #18222c;
-        font-size: 12px;
-        line-height: 18px;
-        white-space: pre-wrap;
-        word-break: break-word;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-comment-preview__emoji {
-        display: inline-block;
-        width: 20px;
-        height: 20px;
-        vertical-align: middle;
-        margin: 0 1px;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-comment-preview__emoji--big {
-        width: 40px;
-        height: 40px;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-log-meta {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 8px;
-        color: #8a9299;
-        font-size: 11px;
-        line-height: 16px;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-log-level {
-        font-weight: 700;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-log-level--success {
-        color: #0b806f;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-log-level--warn {
-        color: #a46300;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-log-level--error {
-        color: #d33b4a;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-log-message {
-        margin-top: 4px;
-        color: #26313b;
-        font-size: 12px;
-        line-height: 18px;
-        word-break: break-word;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-log-detail-wrap {
-        position: relative;
-        margin-top: 5px;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-log-detail-summary {
-        cursor: pointer;
-        color: #2775d1;
-        font-size: 12px;
-        font-weight: 600;
-        line-height: 18px;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-log-copy {
-        position: absolute;
-        top: 0;
-        right: 0;
-        height: 24px;
-        padding: 0 8px;
-        border: 0;
-        border-radius: 6px;
-        background: #edf5ff;
-        color: #2775d1;
-        cursor: pointer;
-        font-size: 12px;
-        font-weight: 600;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-log-copy:hover {
-        background: #dcecff;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-log-detail {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        margin: 5px 0 0;
-        padding: 10px;
-        border-radius: 6px;
-        background: #f1f4f7;
-        color: #3c4651;
-        font-size: 12px;
-        line-height: 18px;
-        word-break: break-word;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-log-detail-row {
-        display: grid;
-        grid-template-columns: minmax(88px, 128px) minmax(0, 1fr);
-        gap: 8px;
-        align-items: start;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-log-detail-label {
-        color: #78838f;
-        font-weight: 600;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-log-detail-value {
-        min-width: 0;
-        color: #26313b;
-        white-space: pre-wrap;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-log-detail-value--empty {
-        color: #9aa3ad;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-log-detail-value--success {
-        color: #0b806f;
-        font-weight: 600;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-log-detail-value--warn {
-        color: #a46300;
-        font-weight: 600;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-log-detail-group {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-log-detail-group-title {
-        color: #56616d;
-        font-weight: 700;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-log-detail-card {
-        display: flex;
-        flex-direction: column;
-        gap: 5px;
-        padding: 8px;
-        border: 1px solid #dce3ea;
-        border-radius: 6px;
-        background: #fff;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-log-detail-card-title {
-        color: #2775d1;
-        font-size: 11px;
-        font-weight: 700;
-      }
-
-      .${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-log-detail-code {
-        font-family: Consolas, "Microsoft YaHei UI", monospace;
       }
 
       .${SETTINGS_PANEL_CLASS} .better-settings__list {
@@ -7552,42 +7039,12 @@
       return;
     }
 
-    let changed = false;
     CAPTURED_API_PARAM_KEYS.forEach((key) => {
       const value = parsed.searchParams.get(key);
       if (value && capturedApiParams[key] !== value) {
         capturedApiParams[key] = value;
-        changed = true;
       }
     });
-    if (changed) {
-      persistCapturedApiParams();
-    }
-  }
-
-  function persistCapturedApiParams() {
-    const values = CAPTURED_API_PARAM_KEYS.reduce((result, key) => {
-      if (capturedApiParams[key]) {
-        result[key] = capturedApiParams[key];
-      }
-      return result;
-    }, {});
-    const text = JSON.stringify(values);
-    if (!Object.keys(values).length || text === lastSavedApiParamsText) {
-      return;
-    }
-    lastSavedApiParamsText = text;
-    window.dispatchEvent(new CustomEvent(LOCAL_SETTINGS_SAVE_EVENT, {
-      detail: stringifyEventDetail({
-        values: {
-          [API_PARAMS_STORAGE_KEY]: {
-            params: values,
-            capturedAt: Date.now(),
-            source: "xiaoheihe-page"
-          }
-        }
-      })
-    }));
   }
 
   function getRequestUrl(input) {
@@ -13298,8 +12755,7 @@
     const standaloneTabs = [
       SETTINGS_TABS.BLOCKED,
       SETTINGS_TABS.GENERAL,
-      SETTINGS_TABS.AI,
-      ...(AI_BOT_FEATURE_ENABLED ? [SETTINGS_TABS.AIBOT, SETTINGS_TABS.AIBOT_LOGS] : [])
+      SETTINGS_TABS.AI
     ];
     if (blockedScopes.includes(tab)) {
       activeBlockedKeywordScope = normalizeBlockedKeywordScope(tab);
@@ -13308,16 +12764,6 @@
       activeSettingsTab = standaloneTabs.includes(tab) ? tab : SETTINGS_TABS.GENERAL;
     }
     renderSettingsPanel();
-    if (activeSettingsTab === SETTINGS_TABS.AIBOT_LOGS) {
-      loadEmojis().then(() => {
-        if (activeSettingsTab === SETTINGS_TABS.AIBOT_LOGS) {
-          refreshAiBotLogsPanel();
-        }
-      });
-      startAiBotLogAutoRefresh();
-    } else {
-      stopAiBotLogAutoRefresh();
-    }
   }
 
   function addBlockedKeyword(keyword, scope = BLOCKED_KEYWORD_SCOPES.COMMENT) {
@@ -13451,10 +12897,8 @@
   function syncAiConnectionDot(scope, settings) {
     const panel = document.querySelector(`.${SETTINGS_PANEL_CLASS}`);
     const dot = panel?.querySelector(`[data-ai-connection-status="${scope}"]`);
-    const button = panel?.querySelector(scope === "aiBot"
-      ? ".better-settings__ai-bot-test"
-      : ".better-settings__ai-test");
-    const state = getAiConnectionState(scope, settings || (scope === "aiBot" ? aiBotSettings : aiSettings));
+    const button = panel?.querySelector(".better-settings__ai-test");
+    const state = getAiConnectionState(scope, settings || aiSettings);
     const title = state === "ok"
       ? "接入状态：连通"
       : (state === "error" ? "接入状态：失败" : "接入状态：未测试");
@@ -13472,7 +12916,7 @@
   }
 
   function setAiConnectionStatus(scope, state, settings) {
-    const nextSettings = settings || (scope === "aiBot" ? aiBotSettings : aiSettings);
+    const nextSettings = settings || aiSettings;
     aiConnectionStatus[scope] = {
       state,
       fingerprint: getAiConnectionFingerprint(nextSettings)
@@ -13544,7 +12988,7 @@
 
   // END src\content\settings-state.js
   // BEGIN src\content\settings-renderers.js
-// AI 设置和 AI Bot 设置表单渲染。
+// AI 总结设置表单渲染。
 // 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   function renderAiSettingsPanelContent() {
     const promptLength = Array.from(aiSettings.summaryPrompt || "").length;
@@ -13651,667 +13095,7 @@
       </div>
     `;
   }
-
-  function renderAiBotSettingsPanelContent() {
-    if (!aiBotConsentAccepted) {
-      return `
-        <div class="better-settings__section better-settings__ai-section">
-          <div class="better-settings__ai-header">
-            <div>
-              <div class="better-settings__ai-title">启用 AI Bot 前请确认</div>
-              <div class="better-settings__ai-subtitle">该功能会代表当前登录账号自动发表评论</div>
-            </div>
-          </div>
-          <div class="better-settings__ai-body">
-            <div class="better-settings__desc">
-              开启后，插件会读取相关帖子、评论、昵称或用户 ID，并把生成所需内容发送到你配置的第三方 AI 服务商。自动评论可能出现事实错误、不当表达、重复发送或触发平台风控，相关账号与内容责任由使用者承担。
-            </div>
-            <label class="better-settings__rule-toggle">
-              <input class="better-settings__ai-bot-consent-checkbox" type="checkbox">
-              <span class="better-settings__rule-toggle-switch" aria-hidden="true"></span>
-              <span class="better-settings__rule-toggle-text">我已阅读并理解上述风险，并明确授权插件按我的设置自动发表评论</span>
-            </label>
-            <div class="better-settings__actions">
-              <button class="better-settings__primary better-settings__ai-bot-consent-confirm" type="button" disabled>确认并进入设置</button>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-    const providerOptions = [
-      [AI_PROVIDERS.OPENAI_COMPATIBLE, "OpenAI Compatible · Chat Completions"],
-      [AI_PROVIDERS.OPENAI_RESPONSES, "OpenAI · Responses"],
-      [AI_PROVIDERS.ANTHROPIC, "Anthropic · Messages"],
-      [AI_PROVIDERS.GEMINI, "Gemini · Generate Content"]
-    ].map(([value, label]) => `
-      <option value="${escapeHtml(value)}"${aiBotSettings.provider === value ? " selected" : ""}>${escapeHtml(label)}</option>
-    `).join("");
-    return `
-      <div class="better-settings__section better-settings__ai-section">
-        <div class="better-settings__ai-header">
-          <div>
-            <div class="better-settings__ai-title">AI Bot</div>
-            <div class="better-settings__ai-subtitle">自动回复 @、评论和首页推荐帖</div>
-          </div>
-        </div>
-        <div class="better-settings__ai-body">
-          <details class="better-settings__collapsible-section" data-connection-config="aiBot"${uiState.aiBotConnectionConfigOpen ? " open" : ""}>
-            <summary class="better-settings__collapsible-summary">
-              <span class="better-settings__connection-title">接入配置 ${renderAiConnectionDot("aiBot", aiBotSettings)}</span>
-              <span class="better-settings__collapsible-indicator" aria-hidden="true"></span>
-            </summary>
-            <label class="better-settings__field">
-              <span class="better-settings__field-title">服务商类型</span>
-              <select class="better-settings__select better-settings__ai-bot-provider">
-                ${providerOptions}
-              </select>
-            </label>
-            <label class="better-settings__field">
-              <span class="better-settings__field-title">Base URL</span>
-              <input class="better-settings__text-input better-settings__ai-bot-base-url" name="better-xiaoheihe-ai-bot-base-url" type="url" value="${escapeHtml(aiBotSettings.baseUrl)}" autocomplete="section-better-xiaoheihe-ai-bot username" placeholder="https://api.openai.com/v1">
-            </label>
-            <label class="better-settings__field">
-              <span class="better-settings__field-title">
-                模型
-                <button class="better-settings__text-button better-settings__ai-bot-fetch-models" type="button">拉取模型</button>
-              </span>
-              <div class="better-settings__ai-model-combobox">
-                <input class="better-settings__text-input better-settings__ai-bot-model" name="better-xiaoheihe-ai-bot-model" type="text" value="${escapeHtml(aiBotSettings.model)}" autocomplete="off" placeholder="gpt-4.1-mini">
-                <button class="better-settings__ai-model-dropdown better-settings__ai-bot-model-dropdown" type="button" aria-label="选择已拉取模型" aria-expanded="false" disabled></button>
-                <div class="better-settings__ai-model-menu better-settings__ai-bot-model-menu" role="listbox" hidden></div>
-              </div>
-            </label>
-            <label class="better-settings__field">
-              <span class="better-settings__field-title">API Key</span>
-              <div class="better-settings__connection-input">
-                <div class="better-settings__secret-input">
-                  <input class="better-settings__text-input better-settings__ai-bot-api-key" name="better-xiaoheihe-ai-bot-api-key" type="password" value="${escapeHtml(aiBotSettings.apiKey)}" autocomplete="section-better-xiaoheihe-ai-bot current-password" placeholder="sk-...">
-                  <button class="better-settings__secret-toggle" type="button" data-secret-input=".better-settings__ai-bot-api-key" aria-label="显示 API Key" aria-pressed="false">显示</button>
-                </div>
-                <button class="better-settings__primary better-settings__connection-test better-settings__ai-bot-test" type="button">测试连通</button>
-              </div>
-            </label>
-            <div class="better-settings__config-actions">
-              <span class="better-settings__message" role="status">${aiBotSettings.baseUrl && aiBotSettings.model ? "已配置" : "请填写 Base URL 和模型"}</span>
-            </div>
-          </details>
-          <details class="better-settings__section better-settings__collapsible-section" data-ai-bot-section="auto-reply"${uiState.aiBotAutoReplyOpen ? " open" : ""}>
-            <summary class="better-settings__collapsible-summary">
-              <span class="better-settings__section-title">自动回复设置</span>
-              <span class="better-settings__collapsible-indicator" aria-hidden="true"></span>
-            </summary>
-            <div class="better-settings__compact-number-grid">
-              <label class="better-settings__field better-settings__field--compact-number">
-                <span class="better-settings__field-title">轮询评论和@周期（分钟）</span>
-                <input class="better-settings__text-input better-settings__ai-bot-poll-minutes" type="number" min="1" step="1" value="${escapeHtml(aiBotSettings.pollMinutes)}">
-              </label>
-              <label class="better-settings__field better-settings__field--compact-number">
-                <span class="better-settings__field-title">只处理最近消息（分钟）</span>
-                <input class="better-settings__text-input better-settings__ai-bot-fresh-minutes" type="number" min="1" step="1" value="${escapeHtml(aiBotSettings.messageFreshMinutes)}">
-              </label>
-              <label class="better-settings__field better-settings__field--compact-number">
-                <span class="better-settings__field-title">每贴每人最多回复（次）</span>
-                <input class="better-settings__text-input better-settings__ai-bot-reply-limit" type="number" min="1" step="1" value="${escapeHtml(aiBotSettings.replyLimitPerLinkUser)}">
-              </label>
-              <label class="better-settings__field better-settings__field--compact-number">
-                <span class="better-settings__field-title">最多历史对话（组）</span>
-                <input class="better-settings__text-input better-settings__ai-bot-history-limit" type="number" min="1" max="${AI_BOT_MAX_GLOBAL_HISTORY_LIMIT}" step="1" value="${escapeHtml(aiBotSettings.globalHistoryLimit)}">
-              </label>
-            </div>
-            <label class="better-settings__rule-toggle">
-              <input class="better-settings__ai-bot-global-history" type="checkbox"${aiBotSettings.globalHistoryEnabled ? " checked" : ""}>
-              <span class="better-settings__rule-toggle-switch" aria-hidden="true"></span>
-              <span class="better-settings__rule-toggle-text">启用跨帖子历史对话（保留 7 天）</span>
-            </label>
-            <label class="better-settings__rule-toggle">
-              <input class="better-settings__ai-bot-reply-mentions" type="checkbox"${aiBotSettings.replyMentions ? " checked" : ""}>
-              <span class="better-settings__rule-toggle-switch" aria-hidden="true"></span>
-              <span class="better-settings__rule-toggle-text">回复 @ 我的消息</span>
-            </label>
-            <label class="better-settings__rule-toggle">
-              <input class="better-settings__ai-bot-reply-comments" type="checkbox"${aiBotSettings.replyComments ? " checked" : ""}>
-              <span class="better-settings__rule-toggle-switch" aria-hidden="true"></span>
-              <span class="better-settings__rule-toggle-text">回复评论 / 回复我的消息</span>
-            </label>
-            <label class="better-settings__field">
-              <span class="better-settings__field-title">白名单用户 ID</span>
-              <textarea class="better-settings__textarea better-settings__ai-bot-whitelist" placeholder="空白表示允许回复所有触发用户；多个 ID 可用逗号、空格或换行分隔">${escapeHtml(aiBotSettings.whitelistUserIds.join("\n"))}</textarea>
-            </label>
-            <label class="better-settings__field">
-              <span class="better-settings__field-title">拒绝回复关键词</span>
-              <textarea class="better-settings__textarea better-settings__ai-bot-rejected-keywords" placeholder="评论或回复命中任一关键词时直接跳过；多个关键词可用逗号、分号或换行分隔">${escapeHtml(aiBotSettings.rejectedReplyKeywords.join("\n"))}</textarea>
-            </label>
-            <div class="better-settings__field">
-              <div class="better-settings__field-title">
-                <span>AI 评论提示词</span>
-                <div class="better-settings__field-title-actions">
-                  <label class="better-settings__prompt-toggle">
-                    <input class="better-settings__ai-bot-allow-emoji" type="checkbox"${aiBotSettings.allowEmoji ? " checked" : ""}>
-                    <span>允许表情</span>
-                  </label>
-                  <button class="better-settings__text-button better-settings__ai-bot-reset-prompt" type="button">恢复默认</button>
-                </div>
-              </div>
-              <textarea class="better-settings__textarea better-settings__ai-bot-comment-prompt">${escapeHtml(aiBotSettings.commentPrompt)}</textarea>
-            </div>
-          </details>
-          <details class="better-settings__section better-settings__collapsible-section better-settings__feed-poll-section" data-ai-bot-section="auto-feed"${uiState.aiBotAutoFeedOpen ? " open" : ""}>
-            <summary class="better-settings__collapsible-summary">
-              <span class="better-settings__section-title">自动暖贴设置</span>
-              <span class="better-settings__collapsible-indicator" aria-hidden="true"></span>
-            </summary>
-            <label class="better-settings__rule-toggle">
-              <input class="better-settings__ai-bot-comment-home-feed" type="checkbox"${aiBotSettings.commentHomeFeed ? " checked" : ""}>
-              <span class="better-settings__rule-toggle-switch" aria-hidden="true"></span>
-              <span class="better-settings__rule-toggle-text">评论首页推荐帖</span>
-            </label>
-            <div class="better-settings__compact-number-grid">
-              <label class="better-settings__field better-settings__field--compact-number">
-                <span class="better-settings__field-title">评论周期（分钟，最低10）</span>
-                <input class="better-settings__text-input better-settings__ai-bot-feed-poll-minutes" type="number" min="${AI_BOT_MIN_FEED_POLL_MINUTES}" step="1" value="${escapeHtml(aiBotSettings.feedPollMinutes)}">
-              </label>
-              <label class="better-settings__field better-settings__field--compact-number better-settings__field--feed-strategy">
-                <span class="better-settings__field-title">帖子挑选策略</span>
-                <select class="better-settings__select better-settings__ai-bot-feed-select-strategy">
-                  <option value="first"${aiBotSettings.feedSelectStrategy === "first" ? " selected" : ""}>默认（第一条）</option>
-                  <option value="latest"${aiBotSettings.feedSelectStrategy === "latest" ? " selected" : ""}>发布时间最新</option>
-                  <option value="hot"${aiBotSettings.feedSelectStrategy === "hot" ? " selected" : ""}>热度最高</option>
-                </select>
-              </label>
-            </div>
-            <div class="better-settings__field">
-              <div class="better-settings__field-title">
-                <span>暖贴提示词</span>
-                <button class="better-settings__text-button better-settings__ai-bot-reset-feed-prompt" type="button">恢复默认</button>
-              </div>
-              <textarea class="better-settings__textarea better-settings__ai-bot-feed-comment-prompt">${escapeHtml(aiBotSettings.feedCommentPrompt)}</textarea>
-            </div>
-          </details>
-          <div class="better-settings__actions">
-            <button class="better-settings__primary better-settings__ai-bot-view-logs" type="button">查看运行日志</button>
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  const AI_BOT_LOG_DETAIL_LABELS = {
-    enabled: "功能已启用",
-    count: "消息数量",
-    processedCount: "处理数量",
-    queueCount: "队列数量",
-    queuedCount: "排队中数量",
-    queuedAt: "入队时间戳",
-    queuedAtText: "入队时间",
-    queuedSeconds: "已排队（秒）",
-    queueAge: "队列等待时长",
-    queueAgeSeconds: "队列等待（秒）",
-    remainingCount: "剩余数量",
-    droppedCount: "清理数量",
-    droppedMessages: "已清理消息",
-    trimmed: "因队列上限移除数量",
-    reason: "触发原因",
-    action: "处理动作",
-    actionResult: "处理结果",
-    actionLabel: "结果说明",
-    skipReason: "跳过原因",
-    matchedKeyword: "命中的拒绝回复关键词",
-    moderationReason: "内容审查具体原因",
-    moderationReasonDetail: "内容审查原因说明",
-    modelResponsePreview: "模型返回内容预览",
-    freshMinutes: "有效时间窗口（分钟）",
-    ageMinutes: "消息已过去（分钟）",
-    messageAgeMinutes: "消息已过去（分钟）",
-    queueAgeMinutes: "队列等待（分钟）",
-    pollMinutes: "轮询周期（分钟）",
-    feedPollMinutes: "暖贴周期（分钟）",
-    replyMentions: "回复 @",
-    replyComments: "回复评论",
-    commentHomeFeed: "首页暖贴",
-    messageSource: "消息来源",
-    typeLabel: "消息类型",
-    messageId: "消息 ID",
-    messageType: "消息类型代码",
-    messageText: "消息内容",
-    notificationText: "通知描述",
-    repliedText: "被回复的内容",
-    triggerText: "触发内容",
-    replyText: "回复内容",
-    messageTime: "发送时间",
-    messageTimeText: "发送时间",
-    messageTimestamp: "发送时间戳",
-    senderName: "发送人",
-    senderId: "发送人 ID",
-    targetId: "回复目标",
-    linkTitle: "帖子标题",
-    linkId: "帖子 ID",
-    linkTag: "帖子标签",
-    linkUrl: "帖子链接",
-    replyCommentId: "回复评论 ID",
-    rootCommentId: "根评论 ID",
-    effectiveReplyCommentId: "实际回复评论 ID",
-    replyTargetSource: "回复目标来源",
-    commentId: "发送评论 ID",
-    skippedAt: "跳过时间戳",
-    sentAt: "发送时间戳",
-    sentTimeText: "发送时间",
-    record: "处理记录",
-    context: "上下文",
-    detail: "附加详情",
-    groups: "分组信息",
-    messages: "消息明细",
-    results: "处理结果明细",
-    whitelistUserIds: "白名单用户 ID",
-    replyLimit: "回复次数上限",
-    limit: "次数上限",
-    sentCount: "已发送数量",
-    pendingCount: "待处理数量",
-    totalCount: "合计数量",
-    replyPreview: "回复内容预览",
-    replyLength: "回复字数",
-    strategy: "挑选策略",
-    selectedIndex: "选中位置",
-    candidateCount: "候选数量",
-    error: "错误信息",
-    errorName: "错误类型",
-    errorMessage: "错误信息",
-    errorStack: "错误堆栈",
-    stage: "失败阶段",
-    status: "状态",
-    responseStatus: "响应状态码",
-    responseText: "响应内容",
-    apiUrl: "接口地址",
-    endpoint: "接口地址",
-    model: "AI 模型",
-    linkAuthor: "帖子作者",
-    feedCommentNum: "评论数量",
-    feedUp: "点赞数量",
-    waitSeconds: "还需等待（秒）",
-    intervalMinutes: "间隔时间（分钟）",
-    lastFeedTime: "上次暖贴时间",
-    ok: "执行成功",
-    skipped: "是否跳过"
-  };
-
-  const AI_BOT_LOG_VALUE_LABELS = {
-    true: "是",
-    false: "否",
-    alarm: "定时轮询",
-    manual: "手动触发",
-    startup: "启动检查",
-    mention: "@ 我的消息",
-    comment: "评论/回复我的消息",
-    feed: "首页推荐帖",
-    stale: "超过时间窗口",
-    source_disabled: "对应回复开关已关闭",
-    bot_disabled: "AI Bot 已关闭",
-    whitelist_miss: "发送人不在白名单",
-    content_moderation: "内容审查未通过",
-    empty_model_response: "AI 接口返回内容为空",
-    model_refused: "模型返回 [REFUSE]",
-    empty_model_content: "模型没有返回可用内容",
-    reply_removed_by_cleanup: "回复清理后为空",
-    unknown_empty_reply: "未识别的空回复",
-    missing_target: "缺少回复目标",
-    reply_target_limit: "同帖同人回复次数达到上限",
-    reply_comment_duplicate: "同一条评论已处理",
-    queue_expired: "队列等待超时",
-    send_failed: "发送失败",
-    skipped: "已跳过",
-    stopped: "已停止",
-    enqueued: "已加入队列",
-    success: "成功",
-    error: "失败",
-    first: "默认第一条",
-    latest: "发布时间最新",
-    hot: "热度最高"
-  };
-
   // END src\content\settings-renderers.js
-  // BEGIN src\content\ai-bot-log-panel.js
-// AI Bot 日志、消息日志和队列面板渲染。
-// 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
-  function getAiBotLogDetailLabel(key) {
-    return AI_BOT_LOG_DETAIL_LABELS[key] || String(key || "")
-      .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-      .replace(/^./, (value) => value.toUpperCase());
-  }
-
-  function formatAiBotLogScalar(key, value) {
-    if (value === undefined || value === null || value === "") {
-      return "无";
-    }
-    if (typeof value === "boolean") {
-      return value ? "是" : "否";
-    }
-    const rawValue = String(value);
-    if (Object.prototype.hasOwnProperty.call(AI_BOT_LOG_VALUE_LABELS, rawValue)) {
-      return AI_BOT_LOG_VALUE_LABELS[rawValue];
-    }
-    if (key === "messageTimestamp" && Number.isFinite(Number(value))) {
-      return new Date(Number(value)).toLocaleString("zh-CN", { hour12: false });
-    }
-    return rawValue;
-  }
-
-  function getAiBotLogValueClass(key, value) {
-    if (value === undefined || value === null || value === "") {
-      return " better-settings__ai-bot-log-detail-value--empty";
-    }
-    if (value === true || ["success", "enqueued"].includes(String(value))) {
-      return " better-settings__ai-bot-log-detail-value--success";
-    }
-    if (value === false || key === "skipReason" || ["error", "skipped", "stopped"].includes(String(value))) {
-      return " better-settings__ai-bot-log-detail-value--warn";
-    }
-    return "";
-  }
-
-  const AI_BOT_LOG_DETAIL_KEY_ORDER = [
-    "senderName",
-    "senderId",
-    "messageText",
-    "messageTime",
-    "repliedText",
-    "skipReason",
-    "actionResult",
-    "actionLabel"
-  ];
-
-  function getAiBotLogDetailEntries(detail) {
-    const order = new Map(AI_BOT_LOG_DETAIL_KEY_ORDER.map((key, index) => [key, index]));
-    return Object.entries(detail || {})
-      .filter(([, value]) => value !== undefined && value !== null && value !== "")
-      .sort(([leftKey], [rightKey]) => {
-        const leftOrder = order.has(leftKey) ? order.get(leftKey) : AI_BOT_LOG_DETAIL_KEY_ORDER.length;
-        const rightOrder = order.has(rightKey) ? order.get(rightKey) : AI_BOT_LOG_DETAIL_KEY_ORDER.length;
-        return leftOrder - rightOrder;
-      });
-  }
-
-  function renderAiBotLogDetailRowsHtml(detail) {
-    return getAiBotLogDetailEntries(detail)
-      .map(([key, value]) => {
-        const label = getAiBotLogDetailLabel(key);
-        if (Array.isArray(value)) {
-          const itemsHtml = value.length
-            ? value.map((item, index) => {
-                if (item && typeof item === "object") {
-                  return `
-                    <div class="better-settings__ai-bot-log-detail-card">
-                      <div class="better-settings__ai-bot-log-detail-card-title">第 ${index + 1} 条</div>
-                      ${renderAiBotLogDetailRowsHtml(item)}
-                    </div>
-                  `;
-                }
-                return `<div class="better-settings__ai-bot-log-detail-card">${escapeHtml(formatAiBotLogScalar(key, item))}</div>`;
-              }).join("")
-            : `<div class="better-settings__ai-bot-log-detail-value better-settings__ai-bot-log-detail-value--empty">无</div>`;
-          return `
-            <div class="better-settings__ai-bot-log-detail-group">
-              <div class="better-settings__ai-bot-log-detail-group-title">${escapeHtml(label)}（${value.length}）</div>
-              ${itemsHtml}
-            </div>
-          `;
-        }
-        if (value && typeof value === "object") {
-          return `
-            <div class="better-settings__ai-bot-log-detail-group">
-              <div class="better-settings__ai-bot-log-detail-group-title">${escapeHtml(label)}</div>
-              <div class="better-settings__ai-bot-log-detail-card">${renderAiBotLogDetailRowsHtml(value)}</div>
-            </div>
-          `;
-        }
-        const codeClass = /(?:Id|Url|Stack|api|endpoint|model)/i.test(key)
-          ? " better-settings__ai-bot-log-detail-code"
-          : "";
-        return `
-          <div class="better-settings__ai-bot-log-detail-row">
-            <div class="better-settings__ai-bot-log-detail-label">${escapeHtml(label)}</div>
-            <div class="better-settings__ai-bot-log-detail-value${getAiBotLogValueClass(key, value)}${codeClass}">${escapeHtml(formatAiBotLogScalar(key, value))}</div>
-          </div>
-        `;
-      }).join("");
-  }
-
-  function formatAiBotLogDetailText(detail, indent = "") {
-    return getAiBotLogDetailEntries(detail)
-      .map(([key, value]) => {
-        const label = getAiBotLogDetailLabel(key);
-        if (Array.isArray(value)) {
-          if (!value.length) {
-            return `${indent}${label}：无`;
-          }
-          return [
-            `${indent}${label}（${value.length}）：`,
-            ...value.map((item, index) => item && typeof item === "object"
-              ? `${indent}  第 ${index + 1} 条：\n${formatAiBotLogDetailText(item, `${indent}    `)}`
-              : `${indent}  ${index + 1}. ${formatAiBotLogScalar(key, item)}`)
-          ].join("\n");
-        }
-        if (value && typeof value === "object") {
-          return `${indent}${label}：\n${formatAiBotLogDetailText(value, `${indent}  `)}`;
-        }
-        return `${indent}${label}：${formatAiBotLogScalar(key, value)}`;
-      }).join("\n");
-  }
-
-  function getAiBotLogId(log) {
-    return String(log?.id || log?.timestamp || `${log?.level || ""}:${log?.message || ""}`);
-  }
-
-  function getAiBotLogById(logId) {
-    return aiBotLogs.find((log) => getAiBotLogId(log) === String(logId || ""));
-  }
-
-  function getAiBotLogListSignature(logs) {
-    const items = Array.isArray(logs) ? logs : [];
-    return `${items.length}:${items.slice(0, 5).map((log) => getAiBotLogId(log)).join("|")}`;
-  }
-
-  function renderAiBotLogItemsHtml() {
-    return aiBotLogs.length
-      ? aiBotLogs.map((log) => `
-            ${(() => {
-              const logId = getAiBotLogId(log);
-              const detailEntries = Object.entries(log.detail || {})
-                .filter(([, value]) => value !== undefined && value !== null && value !== "");
-              return `
-            <div class="better-settings__ai-bot-log">
-              <div class="better-settings__ai-bot-log-meta">
-                <span class="better-settings__ai-bot-log-level better-settings__ai-bot-log-level--${escapeHtml(log.level || "info")}">${escapeHtml({
-                  success: "成功",
-                  warn: "提醒",
-                  error: "错误",
-                  info: "信息"
-                }[log.level] || "信息")}</span>
-                <span>${escapeHtml(log.timeText || new Date(log.timestamp || Date.now()).toLocaleString("zh-CN", { hour12: false }))}</span>
-              </div>
-              <div class="better-settings__ai-bot-log-message">${escapeHtml(log.message || "")}</div>
-              ${detailEntries.length ? (() => {
-                const isExpanded = expandedAiBotLogIds.has(logId);
-                const detailSummary = log.level === "error" ? "展开错误详情" : "展开日志详情";
-                return `
-                  <details class="better-settings__ai-bot-log-detail-wrap" data-log-id="${escapeHtml(logId)}"${isExpanded ? " open" : ""}>
-                    <summary class="better-settings__ai-bot-log-detail-summary">${detailSummary}</summary>
-                    <button class="better-settings__ai-bot-log-copy" type="button">复制</button>
-                    <div class="better-settings__ai-bot-log-detail">${isExpanded ? renderAiBotLogDetailRowsHtml(log.detail || {}) : ""}</div>
-                  </details>
-                `;
-              })() : ""}
-            </div>
-              `;
-            })()}
-          `).join("")
-      : `<div class="better-settings__empty">暂无 AI Bot 运行日志</div>`;
-  }
-
-  function renderAiBotMessageLogItemsHtml() {
-    const visibleLogs = activeAiBotMessageLogFilter === "all"
-      ? aiBotMessageLogs
-      : aiBotMessageLogs.filter((log) => String(log?.messageSource || "") === activeAiBotMessageLogFilter);
-    return visibleLogs.length
-      ? visibleLogs.map((log) => `
-        <div class="better-settings__ai-bot-message-log${log.skipped ? " better-settings__ai-bot-message-log--skipped" : ""}">
-          <div class="better-settings__ai-bot-log-meta">
-            <span class="better-settings__ai-bot-log-level better-settings__ai-bot-log-level--${log.skipped ? "warn" : "success"}">${escapeHtml(log.skipped ? (log.skipReason === "content_moderation" ? "已跳过" : log.skipReason === "queue_expired" ? "队列超时" : log.skipReason === "send_failed" ? "发送失败" : log.skipReason === "source_disabled" ? "开关关闭" : log.skipReason === "stale" ? "已过期" : log.skipReason === "missing_target" ? "缺少目标" : log.skipReason === "reply_target_limit" ? "次数上限" : log.skipReason === "reply_comment_duplicate" ? "重复评论" : log.skipReason === "rejected_keyword" ? "关键词跳过" : "跳过") : (log.typeLabel || (log.messageSource === "feed" ? "首页推荐帖" : (log.messageSource === "comment" ? "评论" : "@"))))}</span>
-            <span>${escapeHtml(log.timeText || new Date(log.timestamp || Date.now()).toLocaleString("zh-CN", { hour12: false }))}</span>
-          </div>
-          <div class="better-settings__ai-bot-message-title">${log.linkUrl ? `<a href="${escapeHtml(log.linkUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(log.linkTitle || `帖子 ${log.linkId || ""}`)}</a>` : escapeHtml(log.linkTitle || `帖子 ${log.linkId || ""}`)}${log.messageSource === "feed" && log.messageTimestamp ? `<span class="better-settings__ai-bot-post-time">${escapeHtml(new Date(log.messageTimestamp).toLocaleString("zh-CN", { hour12: false }))}</span>` : ""}</div>
-          <div class="better-settings__ai-bot-message-target">${escapeHtml([
-            log.senderName ? `消息发送人：${log.senderName}${log.senderId ? `（${log.senderId}）` : ""}` : "",
-            `消息时间：${log.messageTimeText || (log.messageTimestamp ? new Date(log.messageTimestamp).toLocaleString("zh-CN", { hour12: false }) : "未知")}`,
-            `发送时间：${log.sentTimeText || log.timeText || new Date(log.sentTimestamp || log.timestamp || Date.now()).toLocaleString("zh-CN", { hour12: false })}`,
-            log.linkId ? `帖子ID：${log.linkId}` : "",
-            log.replyCommentId ? `回复评论ID：${log.replyCommentId}` : "",
-            log.commentId ? `发送评论ID：${log.commentId}` : ""
-          ].filter(Boolean).join(" · "))}</div>
-          <div class="better-settings__ai-bot-message-source">消息内容：${renderPlainCommentText(log.messageText || log.triggerText || "")}</div>
-          <div class="better-settings__ai-bot-message-reply">回复内容：${renderPlainCommentText(log.replyText || "")}</div>
-        </div>
-      `).join("")
-      : `<div class="better-settings__empty">${aiBotMessageLogs.length ? "当前类型暂无消息日志" : "暂无 AI 回复记录"}</div>`;
-  }
-
-  function getAiBotMessageLogSignature() {
-    const visibleLogs = activeAiBotMessageLogFilter === "all"
-      ? aiBotMessageLogs
-      : aiBotMessageLogs.filter((log) => String(log?.messageSource || "") === activeAiBotMessageLogFilter);
-    return `${activeAiBotMessageLogFilter}:${visibleLogs.length}:${visibleLogs.slice(0, 5).map((log) => String(log?.id || log?.timestamp || "")).join("|")}`;
-  }
-
-  function renderAiBotReplyQueueItemsHtml() {
-    return aiBotReplyQueue.length
-      ? aiBotReplyQueue.map((item) => {
-        const queuedAt = Number(item.queuedAt || 0);
-        const messageTimestamp = Number(item.messageTimestamp || 0);
-        const queueAgeText = queuedAt ? `${Math.max(0, Math.floor((Date.now() - queuedAt) / 1000))} 秒` : "未知";
-        const typeLabel = item.messageSource === "feed" ? "首页推荐帖" : (item.messageSource === "comment" ? "评论/回复我的消息" : "@我的消息");
-        return `
-        <div class="better-settings__ai-bot-message-log">
-          <div class="better-settings__ai-bot-log-meta">
-            <span class="better-settings__ai-bot-log-level better-settings__ai-bot-log-level--warn">待处理</span>
-            <span>${escapeHtml(queuedAt ? new Date(queuedAt).toLocaleString("zh-CN", { hour12: false }) : "未知时间")}</span>
-          </div>
-          <div class="better-settings__ai-bot-message-title">${escapeHtml(item.context?.detail?.title || `帖子 ${item.linkId || ""}`)}</div>
-          <div class="better-settings__ai-bot-message-target">${escapeHtml([
-            `类型：${typeLabel}`,
-            item.senderName ? `消息发送人：${item.senderName}${item.senderId ? `（${item.senderId}）` : ""}` : "",
-            `等待：${queueAgeText}`,
-            messageTimestamp ? `消息时间：${new Date(messageTimestamp).toLocaleString("zh-CN", { hour12: false })}` : "",
-            item.linkId ? `帖子ID：${item.linkId}` : "",
-            item.replyCommentId ? `回复评论ID：${item.replyCommentId}` : "",
-            item.rootCommentId ? `根评论ID：${item.rootCommentId}` : ""
-          ].filter(Boolean).join(" · "))}</div>
-          <div class="better-settings__ai-bot-message-source">消息内容：${renderPlainCommentText(item.messageText || "")}</div>
-        </div>
-      `;
-      }).join("")
-      : `<div class="better-settings__empty">暂无待处理消息</div>`;
-  }
-
-  function renderAiBotTodayStatsHtml() {
-    const stats = getAiBotTodayStats();
-    return `
-      <div class="better-settings__ai-bot-stats" data-ai-bot-today-stats>
-        <div class="better-settings__ai-bot-stat">
-          <span class="better-settings__ai-bot-stat-label">今天评论帖子</span>
-          <span class="better-settings__ai-bot-stat-value">${escapeHtml(stats.feedComments)}</span>
-        </div>
-        <div class="better-settings__ai-bot-stat">
-          <span class="better-settings__ai-bot-stat-label">今天回复评论</span>
-          <span class="better-settings__ai-bot-stat-value">${escapeHtml(stats.commentReplies)}</span>
-        </div>
-        <div class="better-settings__ai-bot-stat">
-          <span class="better-settings__ai-bot-stat-label">今天回复 @</span>
-          <span class="better-settings__ai-bot-stat-value">${escapeHtml(stats.mentionReplies)}</span>
-        </div>
-      </div>
-    `;
-  }
-
-  function refreshAiBotTodayStatsPanel() {
-    const statsPanel = document.querySelector(`.${SETTINGS_PANEL_CLASS} [data-ai-bot-today-stats]`);
-    if (statsPanel) {
-      statsPanel.outerHTML = renderAiBotTodayStatsHtml();
-    }
-  }
-
-  function renderAiBotLogsPanelContent() {
-    return `
-      <div class="better-settings__section better-settings__ai-section">
-        <div class="better-settings__ai-header">
-          <div>
-            <div class="better-settings__ai-title">AI Bot 运行日志</div>
-            <div class="better-settings__ai-subtitle">动态读取本地运行记录</div>
-          </div>
-        </div>
-        <div class="better-settings__ai-body">
-          <div class="better-settings__field-title better-settings__ai-bot-log-title">
-            <button class="better-settings__text-button better-settings__ai-bot-back-settings" type="button">返回设置</button>
-            <button class="better-settings__text-button better-settings__ai-bot-clear-logs" type="button">清空日志</button>
-          </div>
-          ${renderAiBotTodayStatsHtml()}
-          <div class="better-settings__log-switch" role="tablist" aria-label="AI Bot 日志类型">
-            <button class="better-settings__log-switch-button${activeAiBotLogView === "runtime" ? " is-active" : ""}" type="button" data-ai-bot-log-view="runtime" role="tab" aria-selected="${activeAiBotLogView === "runtime" ? "true" : "false"}">运行日志</button>
-            <button class="better-settings__log-switch-button${activeAiBotLogView === "message" ? " is-active" : ""}" type="button" data-ai-bot-log-view="message" role="tab" aria-selected="${activeAiBotLogView === "message" ? "true" : "false"}">消息日志</button>
-            <button class="better-settings__log-switch-button${activeAiBotLogView === "pending" ? " is-active" : ""}" type="button" data-ai-bot-log-view="pending" role="tab" aria-selected="${activeAiBotLogView === "pending" ? "true" : "false"}">待处理消息</button>
-          </div>
-          <div class="better-settings__ai-bot-message-filter" data-ai-bot-message-filter${activeAiBotLogView === "message" ? "" : " hidden"}>
-            ${[
-              ["all", "全部"],
-              ["mention", "@ 消息"],
-              ["comment", "评论/回复"],
-              ["feed", "首页推荐帖"]
-            ].map(([value, label]) => `<button class="better-settings__ai-bot-message-filter-button${activeAiBotMessageLogFilter === value ? " is-active" : ""}" type="button" data-ai-bot-message-filter-value="${value}">${label}</button>`).join("")}
-          </div>
-          <div class="better-settings__ai-bot-logs" data-ai-bot-log-panel="runtime" data-signature="${escapeHtml(getAiBotLogListSignature(aiBotLogs))}"${activeAiBotLogView === "runtime" ? "" : " hidden"}>${renderAiBotLogItemsHtml()}</div>
-          <div class="better-settings__ai-bot-message-logs" data-ai-bot-log-panel="message" data-signature="${escapeHtml(getAiBotMessageLogSignature())}"${activeAiBotLogView === "message" ? "" : " hidden"}>${renderAiBotMessageLogItemsHtml()}</div>
-          <div class="better-settings__ai-bot-message-logs" data-ai-bot-log-panel="pending" data-signature="${escapeHtml(`${aiBotReplyQueue.length}:${aiBotReplyQueue.slice(0, 5).map((item) => String(item?.messageId || item?.queuedAt || "")).join("|")}`)}"${activeAiBotLogView === "pending" ? "" : " hidden"}>${renderAiBotReplyQueueItemsHtml()}</div>
-          <div class="better-settings__actions">
-            <button class="better-settings__primary better-settings__ai-bot-refresh-logs" type="button">刷新日志</button>
-            <span class="better-settings__message" role="status">日志已加载</span>
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  function setAiBotLogView(panel, view) {
-    activeAiBotLogView = ["message", "pending"].includes(view) ? view : "runtime";
-    panel.querySelectorAll("[data-ai-bot-log-view]").forEach((button) => {
-      const active = button.dataset.aiBotLogView === activeAiBotLogView;
-      button.classList.toggle("is-active", active);
-      button.setAttribute("aria-selected", active ? "true" : "false");
-    });
-    panel.querySelectorAll("[data-ai-bot-log-panel]").forEach((logPanel) => {
-      logPanel.hidden = logPanel.dataset.aiBotLogPanel !== activeAiBotLogView;
-    });
-    const messageFilter = panel.querySelector("[data-ai-bot-message-filter]");
-    if (messageFilter) {
-      messageFilter.hidden = activeAiBotLogView !== "message";
-    }
-  }
-
-  function setAiBotMessageLogFilter(panel, filter) {
-    activeAiBotMessageLogFilter = ["mention", "comment", "feed"].includes(filter) ? filter : "all";
-    uiState = normalizeUiState({
-      ...uiState,
-      aiBotMessageLogFilter: activeAiBotMessageLogFilter
-    });
-    persistUiState();
-    panel.querySelectorAll("[data-ai-bot-message-filter-value]").forEach((button) => {
-      button.classList.toggle("is-active", button.dataset.aiBotMessageFilterValue === activeAiBotMessageLogFilter);
-    });
-    const messageLogList = panel.querySelector('[data-ai-bot-log-panel="message"]');
-    if (messageLogList) {
-      messageLogList.innerHTML = renderAiBotMessageLogItemsHtml();
-      messageLogList.dataset.signature = getAiBotMessageLogSignature();
-      messageLogList.scrollTop = 0;
-    }
-  }
-
-  // END src\content\ai-bot-log-panel.js
   // BEGIN src\content\settings-shell.js
 // 设置面板整体内容渲染。
 // 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
@@ -14459,15 +13243,12 @@
         <button class="better-settings__tab" type="button" role="tab" data-settings-tab="${SETTINGS_TABS.GENERAL}" aria-selected="${activeSettingsTab === SETTINGS_TABS.GENERAL ? "true" : "false"}">通用</button>
         <button class="better-settings__tab" type="button" role="tab" data-settings-tab="${SETTINGS_TABS.BLOCKED}" aria-selected="${activeSettingsTab === SETTINGS_TABS.BLOCKED ? "true" : "false"}">屏蔽</button>
         <button class="better-settings__tab" type="button" role="tab" data-settings-tab="${SETTINGS_TABS.AI}" aria-selected="${activeSettingsTab === SETTINGS_TABS.AI ? "true" : "false"}">AI 总结</button>
-        ${AI_BOT_FEATURE_ENABLED ? `<button class="better-settings__tab" type="button" role="tab" data-settings-tab="${SETTINGS_TABS.AIBOT}" aria-selected="${activeSettingsTab === SETTINGS_TABS.AIBOT ? "true" : "false"}">AI Bot</button>` : ""}
       </div>
       ${activeSettingsTab === SETTINGS_TABS.AI
         ? renderAiSettingsPanelContent()
         : (activeSettingsTab === SETTINGS_TABS.GENERAL
           ? renderFeedLayoutSettingsPanelContent()
-          : (activeSettingsTab === SETTINGS_TABS.AIBOT
-            ? renderAiBotSettingsPanelContent()
-            : (activeSettingsTab === SETTINGS_TABS.AIBOT_LOGS ? renderAiBotLogsPanelContent() : renderBlockedSettingsPanelContent())))}
+          : renderBlockedSettingsPanelContent())}
     `;
     if (activeSettingsTab === SETTINGS_TABS.GENERAL) {
       bindFeedLayoutRangeInputs(panel);
@@ -14476,10 +13257,6 @@
     if (activeSettingsTab === SETTINGS_TABS.AI) {
       syncAiConnectionDot("ai", aiSettings);
       loadCachedAiModelOptions(panel);
-    }
-    if (activeSettingsTab === SETTINGS_TABS.AIBOT) {
-      syncAiConnectionDot("aiBot", aiBotSettings);
-      loadCachedAiBotModelOptions(panel);
     }
     repositionSettingsPanelIfOpen();
   }
@@ -14582,39 +13359,9 @@
     syncAiModelSelect(panel);
   }
 
-  function fillAiBotModelOptions(panel, models) {
-    const normalizedModels = [...new Set((Array.isArray(models) ? models : [])
-      .map((model) => String(model || "").trim())
-      .filter(Boolean))];
-    const modelMenu = panel.querySelector(".better-settings__ai-bot-model-menu");
-    const modelDropdown = panel.querySelector(".better-settings__ai-bot-model-dropdown");
-    if (!modelMenu || !modelDropdown) {
-      return;
-    }
-
-    modelDropdown.disabled = !normalizedModels.length;
-    closeAiBotModelMenu(panel);
-    modelMenu.innerHTML = normalizedModels.map((model) => `
-      <button class="better-settings__ai-model-option better-settings__ai-bot-model-option" type="button" role="option" data-model="${escapeHtml(model)}" title="${escapeHtml(model)}">${escapeHtml(model)}</button>
-    `).join("");
-    syncAiBotModelSelect(panel);
-  }
-
   function closeAiModelMenu(panel) {
     const modelMenu = panel.querySelector(".better-settings__ai-model-menu");
     const modelDropdown = panel.querySelector(".better-settings__ai-model-dropdown");
-    if (modelMenu) {
-      modelMenu.hidden = true;
-      setAiModelMenuOpenState(modelMenu, false);
-    }
-    if (modelDropdown) {
-      modelDropdown.setAttribute("aria-expanded", "false");
-    }
-  }
-
-  function closeAiBotModelMenu(panel) {
-    const modelMenu = panel.querySelector(".better-settings__ai-bot-model-menu");
-    const modelDropdown = panel.querySelector(".better-settings__ai-bot-model-dropdown");
     if (modelMenu) {
       modelMenu.hidden = true;
       setAiModelMenuOpenState(modelMenu, false);
@@ -14683,40 +13430,15 @@
     }
   }
 
-  function toggleAiBotModelMenu(panel) {
-    const modelMenu = panel.querySelector(".better-settings__ai-bot-model-menu");
-    const modelDropdown = panel.querySelector(".better-settings__ai-bot-model-dropdown");
-    if (!modelMenu || !modelDropdown || modelDropdown.disabled) {
-      return;
-    }
-
-    const shouldOpen = modelMenu.hidden;
-    if (shouldOpen) {
-      openAiModelMenu(modelMenu, modelDropdown);
-      syncAiBotModelSelect(panel);
-    } else {
-      closeAiBotModelMenu(panel);
-    }
-  }
-
-  function filterAiModelOptionsFromInput(panel, input, isAiBot = false) {
-    const modelMenu = panel.querySelector(isAiBot ? ".better-settings__ai-bot-model-menu" : ".better-settings__ai-model-menu");
-    const modelDropdown = panel.querySelector(isAiBot ? ".better-settings__ai-bot-model-dropdown" : ".better-settings__ai-model-dropdown");
+  function filterAiModelOptionsFromInput(panel, input) {
+    const modelMenu = panel.querySelector(".better-settings__ai-model-menu");
+    const modelDropdown = panel.querySelector(".better-settings__ai-model-dropdown");
     openAiModelMenu(modelMenu, modelDropdown, input?.value);
   }
 
   function syncAiModelSelect(panel) {
     const value = panel.querySelector(".better-settings__ai-model")?.value?.trim() || "";
     panel.querySelectorAll(".better-settings__ai-model-option").forEach((option) => {
-      const isSelected = option.dataset.model === value;
-      option.classList.toggle("is-selected", isSelected);
-      option.setAttribute("aria-selected", isSelected ? "true" : "false");
-    });
-  }
-
-  function syncAiBotModelSelect(panel) {
-    const value = panel.querySelector(".better-settings__ai-bot-model")?.value?.trim() || "";
-    panel.querySelectorAll(".better-settings__ai-bot-model-option").forEach((option) => {
       const isSelected = option.dataset.model === value;
       option.classList.toggle("is-selected", isSelected);
       option.setAttribute("aria-selected", isSelected ? "true" : "false");
@@ -14770,53 +13492,6 @@
     });
   }
 
-  function fetchAiBotModelsFromPanel(panel, button) {
-    saveAiBotSettingsFromPanel(panel, { silentStatus: true });
-    const status = panel.querySelector(".better-settings__message");
-    const settings = getAiBotSettingsFormValues(panel);
-    if (!settings.baseUrl) {
-      if (status) {
-        status.textContent = "请先填写 Base URL";
-        status.style.color = "#d33b4a";
-      }
-      return;
-    }
-
-    if (button) {
-      button.disabled = true;
-    }
-    if (status) {
-      status.textContent = "正在拉取模型...";
-      status.style.color = "#8a9299";
-    }
-
-    requestAiModelList(settings).then((models) => {
-      fillAiBotModelOptions(panel, models);
-      if (status) {
-        status.textContent = models.length ? `已拉取 ${models.length} 个模型` : "未返回可用模型，可手动填写";
-        status.style.color = "#0b806f";
-      }
-    }).catch((error) => {
-      if (status) {
-        status.textContent = error?.message || "模型列表拉取失败";
-        status.style.color = "#d33b4a";
-      }
-    }).finally(() => {
-      if (button) {
-        button.disabled = false;
-      }
-    });
-  }
-
-  function loadCachedAiBotModelOptions(panel) {
-    const settings = getAiBotSettingsFormValues(panel);
-    requestAiModelList(settings, { cacheOnly: true }).then((models) => {
-      fillAiBotModelOptions(panel, models);
-    }).catch(() => {
-      fillAiBotModelOptions(panel, []);
-    });
-  }
-
   function syncAiProviderDefaultBaseUrl(panel) {
     const providerInput = panel.querySelector(".better-settings__ai-provider");
     const baseUrlInput = panel.querySelector(".better-settings__ai-base-url");
@@ -14835,328 +13510,7 @@
     loadCachedAiModelOptions(panel);
   }
 
-  function getAiBotSettingsFormValues(panel) {
-    const replyMentions = panel.querySelector(".better-settings__ai-bot-reply-mentions")?.checked === true;
-    const replyComments = panel.querySelector(".better-settings__ai-bot-reply-comments")?.checked === true;
-    const commentHomeFeed = panel.querySelector(".better-settings__ai-bot-comment-home-feed")?.checked === true;
-    return normalizeAiBotSettings({
-      enabled: replyMentions || replyComments || commentHomeFeed,
-      provider: panel.querySelector(".better-settings__ai-bot-provider")?.value,
-      baseUrl: panel.querySelector(".better-settings__ai-bot-base-url")?.value,
-      model: panel.querySelector(".better-settings__ai-bot-model")?.value,
-      apiKey: panel.querySelector(".better-settings__ai-bot-api-key")?.value,
-      pollMinutes: panel.querySelector(".better-settings__ai-bot-poll-minutes")?.value,
-      feedPollMinutes: panel.querySelector(".better-settings__ai-bot-feed-poll-minutes")?.value,
-      feedSelectStrategy: panel.querySelector(".better-settings__ai-bot-feed-select-strategy")?.value,
-      messageFreshMinutes: panel.querySelector(".better-settings__ai-bot-fresh-minutes")?.value,
-      replyLimitPerLinkUser: panel.querySelector(".better-settings__ai-bot-reply-limit")?.value,
-      globalHistoryEnabled: panel.querySelector(".better-settings__ai-bot-global-history")?.checked !== false,
-      globalHistoryLimit: panel.querySelector(".better-settings__ai-bot-history-limit")?.value,
-      replyMentions,
-      replyComments,
-      commentHomeFeed,
-      whitelistText: panel.querySelector(".better-settings__ai-bot-whitelist")?.value,
-      rejectedReplyKeywordsText: panel.querySelector(".better-settings__ai-bot-rejected-keywords")?.value,
-      allowEmoji: panel.querySelector(".better-settings__ai-bot-allow-emoji")?.checked !== false,
-      commentPrompt: panel.querySelector(".better-settings__ai-bot-comment-prompt")?.value,
-      feedCommentPrompt: panel.querySelector(".better-settings__ai-bot-feed-comment-prompt")?.value
-    });
-  }
-
-  function saveAiBotSettingsFromPanel(panel, options = {}) {
-    aiBotSettings = getAiBotSettingsFormValues(panel);
-    syncAiConnectionDot("aiBot", aiBotSettings);
-    writeAiBotSettingsState(aiBotSettings);
-    const status = panel.querySelector(".better-settings__message");
-    if (status && !options.silentStatus) {
-      status.textContent = aiBotSettings.baseUrl && aiBotSettings.model ? "已保存" : "请填写 Base URL 和模型";
-      status.style.color = "#68727d";
-    }
-  }
-
-  function syncAiBotProviderDefaultBaseUrl(panel) {
-    const providerInput = panel.querySelector(".better-settings__ai-bot-provider");
-    const baseUrlInput = panel.querySelector(".better-settings__ai-bot-base-url");
-    if (!providerInput || !baseUrlInput) {
-      return;
-    }
-
-    const nextProvider = Object.values(AI_PROVIDERS).includes(providerInput.value) ? providerInput.value : DEFAULT_AI_PROVIDER;
-    const defaultBaseUrls = Object.values(AI_PROVIDER_DEFAULT_BASE_URLS);
-    const currentBaseUrl = baseUrlInput.value.replace(/\/+$/, "");
-    if (!currentBaseUrl || defaultBaseUrls.includes(currentBaseUrl)) {
-      baseUrlInput.value = AI_PROVIDER_DEFAULT_BASE_URLS[nextProvider] || "";
-    }
-    fillAiBotModelOptions(panel, []);
-    saveAiBotSettingsFromPanel(panel);
-    loadCachedAiBotModelOptions(panel);
-  }
-
   // END src\content\ai-settings-actions.js
-  // BEGIN src\content\ai-bot-actions.js
-// AI Bot 运行控制、日志刷新和辅助操作。
-// 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
-  function sendAiBotRuntimeMessage(type, detail = {}) {
-    return new Promise((resolve, reject) => {
-      const id = `better-ai-bot-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-      const timer = window.setTimeout(() => {
-        window.removeEventListener(AI_BOT_RUNTIME_RESPONSE_EVENT, handleResponse);
-        reject(new Error("请求超时"));
-      }, 60000);
-
-      function handleResponse(event) {
-        const response = parseEventDetail(event.detail);
-        if (response.id !== id) {
-          return;
-        }
-
-        window.clearTimeout(timer);
-        window.removeEventListener(AI_BOT_RUNTIME_RESPONSE_EVENT, handleResponse);
-        resolve(response || {});
-      }
-
-      window.addEventListener(AI_BOT_RUNTIME_RESPONSE_EVENT, handleResponse);
-      window.dispatchEvent(new CustomEvent(AI_BOT_RUNTIME_REQUEST_EVENT, {
-        detail: stringifyEventDetail({
-          id,
-          type,
-          detail
-        })
-      }));
-    });
-  }
-
-  function setAiBotPanelStatus(panel, text, isError = false) {
-    const status = panel.querySelector(".better-settings__message");
-    if (status) {
-      status.textContent = text;
-      status.style.color = isError ? "#d33b4a" : "#68727d";
-    }
-  }
-
-  function testAiBotSettingsFromPanel(panel, button) {
-    saveAiBotSettingsFromPanel(panel, { silentStatus: true });
-    if (!aiBotSettings.baseUrl || !aiBotSettings.model) {
-      setAiBotPanelStatus(panel, "请先填写 Base URL 和模型", true);
-      setAiConnectionStatus("aiBot", "error", aiBotSettings);
-      return;
-    }
-
-    button.disabled = true;
-    setAiBotPanelStatus(panel, "测试中...");
-    sendAiBotRuntimeMessage("better-xiaoheihe-ai-bot-test", { settings: aiBotSettings }).then((response) => {
-      if (!response.ok) {
-        setAiBotPanelStatus(panel, response.error || "连接失败", true);
-        setAiConnectionStatus("aiBot", "error", aiBotSettings);
-        return;
-      }
-      setAiBotPanelStatus(panel, "连接成功");
-      setAiConnectionStatus("aiBot", "ok", aiBotSettings);
-    }).catch((error) => {
-      setAiBotPanelStatus(panel, error?.message || "连接失败", true);
-      setAiConnectionStatus("aiBot", "error", aiBotSettings);
-    }).finally(() => {
-      button.disabled = false;
-    });
-  }
-
-  function runAiBotFromPanel(panel, button) {
-    saveAiBotSettingsFromPanel(panel, { silentStatus: true });
-    button.disabled = true;
-    setAiBotPanelStatus(panel, "正在轮询...");
-    sendAiBotRuntimeMessage("better-xiaoheihe-ai-bot-run-now").then((response) => {
-      if (!response.ok) {
-        setAiBotPanelStatus(panel, response.error || "轮询失败", true);
-        return;
-      }
-      setAiBotPanelStatus(panel, `轮询完成：${response.count || 0} 条消息，首页推荐帖结果见日志`);
-    }).catch((error) => {
-      setAiBotPanelStatus(panel, error?.message || "轮询失败", true);
-    }).finally(() => {
-      button.disabled = false;
-    });
-  }
-
-  function clearAiBotLogsFromPanel(panel, button) {
-    button.disabled = true;
-    saveLocalSettings({
-      [AI_BOT_LOGS_STORAGE_KEY]: [],
-      [AI_BOT_MESSAGE_LOGS_STORAGE_KEY]: []
-    });
-    aiBotLogs = [];
-    aiBotMessageLogs = [];
-    renderSettingsPanel();
-    setAiBotPanelStatus(panel, "日志已清空");
-  }
-
-  function copyTextToClipboard(text) {
-    if (navigator.clipboard?.writeText) {
-      return navigator.clipboard.writeText(text);
-    }
-
-    const textarea = document.createElement("textarea");
-    textarea.value = text;
-    textarea.style.position = "fixed";
-    textarea.style.left = "-9999px";
-    textarea.style.top = "0";
-    document.body.appendChild(textarea);
-    textarea.select();
-    try {
-      document.execCommand("copy");
-      return Promise.resolve();
-    } catch (error) {
-      return Promise.reject(error);
-    } finally {
-      textarea.remove();
-    }
-  }
-
-  function toggleSecretInputFromPanel(panel, button) {
-    const input = button?.dataset?.secretInput ? panel.querySelector(button.dataset.secretInput) : null;
-    if (!input) {
-      return;
-    }
-    input.type = input.type === "password" ? "text" : "password";
-    const isVisible = input.type === "text";
-    button.textContent = isVisible ? "隐藏" : "显示";
-    button.setAttribute("aria-label", isVisible ? "隐藏 API Key" : "显示 API Key");
-    button.setAttribute("aria-pressed", isVisible ? "true" : "false");
-  }
-
-  function copyAiBotLogFromPanel(button) {
-    const detail = button?.closest(".better-settings__ai-bot-log-detail-wrap");
-    const log = getAiBotLogById(detail?.dataset.logId || "");
-    const text = log ? [
-      `[${{
-        success: "成功",
-        warn: "提醒",
-        error: "错误",
-        info: "信息"
-      }[log.level] || "信息"}] ${log.timeText || new Date(log.timestamp || Date.now()).toLocaleString("zh-CN", { hour12: false })}`,
-      log.message || "",
-      formatAiBotLogDetailText(log.detail || {})
-    ].filter(Boolean).join("\n") : "";
-    if (!text) {
-      return;
-    }
-    copyTextToClipboard(text).then(() => {
-      const previousText = button.textContent;
-      button.textContent = "已复制";
-      window.setTimeout(() => {
-        button.textContent = previousText || "复制";
-      }, 1200);
-    }).catch(() => {
-      const panel = document.querySelector(`.${SETTINGS_PANEL_CLASS}`);
-      if (panel) {
-        setAiBotPanelStatus(panel, "复制失败，请手动选择文本复制", true);
-      }
-    });
-  }
-
-  function updateAiBotRuntimeLogList(options = {}) {
-    const logList = document.querySelector(`.${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-logs`);
-    if (!logList) {
-      return;
-    }
-    const signature = getAiBotLogListSignature(aiBotLogs);
-    if (!options.force && logList.dataset.signature === signature) {
-      return;
-    }
-    const previousScrollTop = logList.scrollTop;
-    const wasNearTop = previousScrollTop <= 4;
-    logList.innerHTML = renderAiBotLogItemsHtml();
-    logList.dataset.signature = signature;
-    logList.scrollTop = wasNearTop ? 0 : Math.min(previousScrollTop, logList.scrollHeight);
-  }
-
-  function syncAiBotLogDetailState(detail) {
-    const logId = detail?.dataset?.logId || "";
-    if (!logId) {
-      return;
-    }
-    if (detail.open) {
-      expandedAiBotLogIds.add(logId);
-      const detailContent = detail.querySelector(".better-settings__ai-bot-log-detail");
-      if (detailContent && !detailContent.hasChildNodes()) {
-        const log = getAiBotLogById(logId);
-        if (log) {
-          detailContent.innerHTML = renderAiBotLogDetailRowsHtml(log.detail || {});
-        }
-      }
-    } else {
-      expandedAiBotLogIds.delete(logId);
-    }
-  }
-
-  function refreshAiBotLogsPanel() {
-    if (aiBotLogRefreshRunning || activeSettingsTab !== SETTINGS_TABS.AIBOT_LOGS) {
-      return;
-    }
-    aiBotLogRefreshRunning = true;
-    const currentLogList = document.querySelector(`.${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-logs`);
-    const currentMessageLogList = document.querySelector(`.${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-message-logs`);
-    const currentPendingLogList = document.querySelector(`.${SETTINGS_PANEL_CLASS} [data-ai-bot-log-panel="pending"]`);
-    const previousScrollTop = currentLogList?.scrollTop || 0;
-    const previousMessageScrollTop = currentMessageLogList?.scrollTop || 0;
-    const previousPendingScrollTop = currentPendingLogList?.scrollTop || 0;
-    const wasNearTop = previousScrollTop <= 4;
-    const messageWasNearTop = previousMessageScrollTop <= 4;
-    const pendingWasNearTop = previousPendingScrollTop <= 4;
-    currentLogList?.querySelectorAll(".better-settings__ai-bot-log-detail-wrap").forEach(syncAiBotLogDetailState);
-    Promise.all([
-      requestLocalSettingsState(1200),
-      loadEmojis()
-    ]).then(([response]) => {
-      if (response?.ok) {
-        aiBotLogs = normalizeAiBotLogs(response.values?.[AI_BOT_LOGS_STORAGE_KEY]);
-        aiBotMessageLogs = normalizeAiBotMessageLogs(response.values?.[AI_BOT_MESSAGE_LOGS_STORAGE_KEY]);
-        aiBotReplyQueue = normalizeAiBotReplyQueue(response.values?.[AI_BOT_REPLY_QUEUE_STORAGE_KEY]);
-      }
-    }).finally(() => {
-      if (activeSettingsTab === SETTINGS_TABS.AIBOT_LOGS) {
-        const nextLogList = document.querySelector(`.${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-logs`);
-        const nextMessageLogList = document.querySelector(`.${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-message-logs`);
-        const nextPendingLogList = document.querySelector(`.${SETTINGS_PANEL_CLASS} [data-ai-bot-log-panel="pending"]`);
-        refreshAiBotTodayStatsPanel();
-        updateAiBotRuntimeLogList();
-        if (nextMessageLogList) {
-          const signature = getAiBotMessageLogSignature();
-          if (nextMessageLogList.dataset.signature !== signature) {
-            nextMessageLogList.innerHTML = renderAiBotMessageLogItemsHtml();
-            nextMessageLogList.dataset.signature = signature;
-            nextMessageLogList.scrollTop = messageWasNearTop ? 0 : Math.min(previousMessageScrollTop, nextMessageLogList.scrollHeight);
-          }
-        }
-        if (nextPendingLogList) {
-          const signature = `${aiBotReplyQueue.length}:${aiBotReplyQueue.slice(0, 5).map((item) => String(item?.messageId || item?.queuedAt || "")).join("|")}`;
-          if (nextPendingLogList.dataset.signature !== signature) {
-            nextPendingLogList.innerHTML = renderAiBotReplyQueueItemsHtml();
-            nextPendingLogList.dataset.signature = signature;
-            nextPendingLogList.scrollTop = pendingWasNearTop ? 0 : Math.min(previousPendingScrollTop, nextPendingLogList.scrollHeight);
-          }
-        }
-      }
-      aiBotLogRefreshRunning = false;
-    });
-  }
-
-  function startAiBotLogAutoRefresh() {
-    refreshAiBotLogsPanel();
-    if (aiBotLogRefreshTimer) {
-      return;
-    }
-    aiBotLogRefreshTimer = window.setInterval(refreshAiBotLogsPanel, 10000);
-  }
-
-  function stopAiBotLogAutoRefresh() {
-    if (!aiBotLogRefreshTimer) {
-      return;
-    }
-    window.clearInterval(aiBotLogRefreshTimer);
-    aiBotLogRefreshTimer = null;
-  }
-
-  // END src\content\ai-bot-actions.js
   // BEGIN src\content\settings-mount.js
 // 设置面板挂载、关闭、定位和外部事件绑定。
 // 本文件由上一级模块继续等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
@@ -15218,20 +13572,6 @@
         return;
       }
 
-      const consentConfirmButton = event.target.closest(".better-settings__ai-bot-consent-confirm");
-      if (consentConfirmButton && panel.contains(consentConfirmButton)) {
-        const consentCheckbox = panel.querySelector(".better-settings__ai-bot-consent-checkbox");
-        if (!consentCheckbox?.checked) {
-          return;
-        }
-        aiBotConsentAccepted = true;
-        saveLocalSettings({
-          [AI_BOT_CONSENT_STORAGE_KEY]: true
-        });
-        renderSettingsPanel();
-        return;
-      }
-
       const removeButton = event.target.closest(".better-settings__remove");
       if (removeButton && panel.contains(removeButton)) {
         removeBlockedKeyword(removeButton.dataset.keyword, removeButton.dataset.scope);
@@ -15241,7 +13581,7 @@
       const settingsTab = event.target.closest(".better-settings__tab");
       if (settingsTab && panel.contains(settingsTab)) {
         setActiveSettingsTab(settingsTab.dataset.settingsTab);
-        panel.querySelector(".better-settings__input, .better-settings__ai-base-url, .better-settings__open-ai-bot-options")?.focus();
+        panel.querySelector(".better-settings__input, .better-settings__ai-base-url")?.focus();
         return;
       }
 
@@ -15263,90 +13603,6 @@
       const hotSearchToggleButton = event.target.closest(".better-settings__hot-search-toggle");
       if (hotSearchToggleButton && panel.contains(hotSearchToggleButton)) {
         setHotSearchDisabled(!hotSearchDisabled);
-        return;
-      }
-
-      const resetAiBotPromptButton = event.target.closest(".better-settings__ai-bot-reset-prompt");
-      if (resetAiBotPromptButton && panel.contains(resetAiBotPromptButton)) {
-        const promptInput = panel.querySelector(".better-settings__ai-bot-comment-prompt");
-        if (promptInput) {
-          promptInput.value = AI_BOT_DEFAULT_PROMPT;
-          syncAutoHeightTextarea(promptInput);
-        }
-        saveAiBotSettingsFromPanel(panel);
-        return;
-      }
-
-      const resetAiBotFeedPromptButton = event.target.closest(".better-settings__ai-bot-reset-feed-prompt");
-      if (resetAiBotFeedPromptButton && panel.contains(resetAiBotFeedPromptButton)) {
-        const feedPromptInput = panel.querySelector(".better-settings__ai-bot-feed-comment-prompt");
-        if (feedPromptInput) {
-          feedPromptInput.value = AI_BOT_DEFAULT_FEED_PROMPT;
-          syncAutoHeightTextarea(feedPromptInput);
-        }
-        saveAiBotSettingsFromPanel(panel);
-        return;
-      }
-
-      const aiBotTestButton = event.target.closest(".better-settings__ai-bot-test");
-      if (aiBotTestButton && panel.contains(aiBotTestButton)) {
-        testAiBotSettingsFromPanel(panel, aiBotTestButton);
-        return;
-      }
-
-      const aiBotRunNowButton = event.target.closest(".better-settings__ai-bot-run-now");
-      if (aiBotRunNowButton && panel.contains(aiBotRunNowButton)) {
-        runAiBotFromPanel(panel, aiBotRunNowButton);
-        return;
-      }
-
-      const aiBotViewLogsButton = event.target.closest(".better-settings__ai-bot-view-logs");
-      if (aiBotViewLogsButton && panel.contains(aiBotViewLogsButton)) {
-        setActiveSettingsTab(SETTINGS_TABS.AIBOT_LOGS);
-        return;
-      }
-
-      const aiBotBackSettingsButton = event.target.closest(".better-settings__ai-bot-back-settings");
-      if (aiBotBackSettingsButton && panel.contains(aiBotBackSettingsButton)) {
-        setActiveSettingsTab(SETTINGS_TABS.AIBOT);
-        return;
-      }
-
-      const aiBotRefreshLogsButton = event.target.closest(".better-settings__ai-bot-refresh-logs");
-      if (aiBotRefreshLogsButton && panel.contains(aiBotRefreshLogsButton)) {
-        refreshAiBotLogsPanel();
-        return;
-      }
-
-      const aiBotLogViewButton = event.target.closest("[data-ai-bot-log-view]");
-      if (aiBotLogViewButton && panel.contains(aiBotLogViewButton)) {
-        setAiBotLogView(panel, aiBotLogViewButton.dataset.aiBotLogView);
-        return;
-      }
-
-      const aiBotMessageFilterButton = event.target.closest("[data-ai-bot-message-filter-value]");
-      if (aiBotMessageFilterButton && panel.contains(aiBotMessageFilterButton)) {
-        setAiBotMessageLogFilter(panel, aiBotMessageFilterButton.dataset.aiBotMessageFilterValue);
-        return;
-      }
-
-      const aiBotLogDetailSummary = event.target.closest(".better-settings__ai-bot-log-detail-summary");
-      if (aiBotLogDetailSummary && panel.contains(aiBotLogDetailSummary)) {
-        const detail = aiBotLogDetailSummary.closest(".better-settings__ai-bot-log-detail-wrap");
-        window.requestAnimationFrame(() => syncAiBotLogDetailState(detail));
-        return;
-      }
-
-      const aiBotLogCopyButton = event.target.closest(".better-settings__ai-bot-log-copy");
-      if (aiBotLogCopyButton && panel.contains(aiBotLogCopyButton)) {
-        syncAiBotLogDetailState(aiBotLogCopyButton.closest(".better-settings__ai-bot-log-detail-wrap"));
-        copyAiBotLogFromPanel(aiBotLogCopyButton);
-        return;
-      }
-
-      const aiBotClearLogsButton = event.target.closest(".better-settings__ai-bot-clear-logs");
-      if (aiBotClearLogsButton && panel.contains(aiBotClearLogsButton)) {
-        clearAiBotLogsFromPanel(panel, aiBotClearLogsButton);
         return;
       }
 
@@ -15376,26 +13632,14 @@
         return;
       }
 
-      const fetchAiBotModelsButton = event.target.closest(".better-settings__ai-bot-fetch-models");
-      if (fetchAiBotModelsButton && panel.contains(fetchAiBotModelsButton)) {
-        fetchAiBotModelsFromPanel(panel, fetchAiBotModelsButton);
-        return;
-      }
-
       const modelDropdown = event.target.closest(".better-settings__ai-model-dropdown");
-      if (modelDropdown && panel.contains(modelDropdown) && !modelDropdown.classList.contains("better-settings__ai-bot-model-dropdown")) {
+      if (modelDropdown && panel.contains(modelDropdown)) {
         toggleAiModelMenu(panel);
         return;
       }
 
-      const aiBotModelDropdown = event.target.closest(".better-settings__ai-bot-model-dropdown");
-      if (aiBotModelDropdown && panel.contains(aiBotModelDropdown)) {
-        toggleAiBotModelMenu(panel);
-        return;
-      }
-
       const modelOption = event.target.closest(".better-settings__ai-model-option");
-      if (modelOption && panel.contains(modelOption) && !modelOption.classList.contains("better-settings__ai-bot-model-option")) {
+      if (modelOption && panel.contains(modelOption)) {
         const modelInput = panel.querySelector(".better-settings__ai-model");
         if (modelInput && modelOption.dataset.model) {
           modelInput.value = modelOption.dataset.model;
@@ -15407,21 +13651,7 @@
         return;
       }
 
-      const aiBotModelOption = event.target.closest(".better-settings__ai-bot-model-option");
-      if (aiBotModelOption && panel.contains(aiBotModelOption)) {
-        const modelInput = panel.querySelector(".better-settings__ai-bot-model");
-        if (modelInput && aiBotModelOption.dataset.model) {
-          modelInput.value = aiBotModelOption.dataset.model;
-          syncAiBotModelSelect(panel);
-          closeAiBotModelMenu(panel);
-          saveAiBotSettingsFromPanel(panel);
-          syncAiConnectionDot("aiBot", getAiBotSettingsFormValues(panel));
-        }
-        return;
-      }
-
       closeAiModelMenu(panel);
-      closeAiBotModelMenu(panel);
     });
     panel.addEventListener("toggle", (event) => {
       if (!(event.target instanceof Element)) {
@@ -15429,7 +13659,7 @@
       }
       const connectionConfig = event.target.closest("[data-connection-config]");
       if (connectionConfig) {
-        setConnectionConfigOpen(connectionConfig.dataset.connectionConfig, connectionConfig.open);
+        setConnectionConfigOpen(connectionConfig.open);
         return;
       }
       const aiPromptSection = event.target.closest("[data-ai-prompt-section]");
@@ -15444,22 +13674,6 @@
         }
         return;
       }
-      const aiBotSection = event.target.closest("[data-ai-bot-section]");
-      if (aiBotSection) {
-        const section = aiBotSection.dataset.aiBotSection;
-        if (section === "auto-reply") {
-          uiState = normalizeUiState({ ...uiState, aiBotAutoReplyOpen: aiBotSection.open });
-        } else if (section === "auto-feed") {
-          uiState = normalizeUiState({ ...uiState, aiBotAutoFeedOpen: aiBotSection.open });
-        }
-        persistUiState();
-        return;
-      }
-      const detail = event.target.closest(".better-settings__ai-bot-log-detail-wrap");
-      if (!detail) {
-        return;
-      }
-      syncAiBotLogDetailState(detail);
     }, true);
     panel.addEventListener("input", (event) => {
       if (!(event.target instanceof Element)) {
@@ -15497,17 +13711,6 @@
         saveAiSettingsFromPanel(panel);
       }
 
-      if (event.target.matches(".better-settings__ai-bot-base-url, .better-settings__ai-bot-model, .better-settings__ai-bot-api-key, .better-settings__ai-bot-poll-minutes, .better-settings__ai-bot-feed-poll-minutes, .better-settings__ai-bot-fresh-minutes, .better-settings__ai-bot-reply-limit, .better-settings__ai-bot-history-limit, .better-settings__ai-bot-whitelist, .better-settings__ai-bot-rejected-keywords, .better-settings__ai-bot-comment-prompt, .better-settings__ai-bot-feed-comment-prompt")) {
-        if (event.target.matches(".better-settings__ai-bot-whitelist, .better-settings__ai-bot-rejected-keywords, .better-settings__ai-bot-comment-prompt, .better-settings__ai-bot-feed-comment-prompt")) {
-          syncAutoHeightTextarea(event.target);
-          repositionSettingsPanelIfOpen();
-        }
-        if (event.target.matches(".better-settings__ai-bot-model")) {
-          syncAiBotModelSelect(panel);
-          filterAiModelOptionsFromInput(panel, event.target, true);
-        }
-        saveAiBotSettingsFromPanel(panel, { silentStatus: true });
-      }
     });
     panel.addEventListener("change", (event) => {
       if (!(event.target instanceof Element)) {
@@ -15529,66 +13732,6 @@
 
       if (event.target.matches(".better-settings__ai-provider")) {
         syncAiProviderDefaultBaseUrl(panel);
-        return;
-      }
-
-      if (event.target.matches(".better-settings__ai-bot-consent-checkbox")) {
-        const confirmButton = panel.querySelector(".better-settings__ai-bot-consent-confirm");
-        if (confirmButton) {
-          confirmButton.disabled = !event.target.checked;
-        }
-        return;
-      }
-
-      if (event.target.matches(".better-settings__ai-bot-provider")) {
-        syncAiBotProviderDefaultBaseUrl(panel);
-        return;
-      }
-
-      if (event.target.matches(".better-settings__ai-bot-base-url")) {
-        loadCachedAiBotModelOptions(panel);
-        return;
-      }
-
-      if (event.target.matches(".better-settings__ai-bot-poll-minutes, .better-settings__ai-bot-feed-poll-minutes, .better-settings__ai-bot-fresh-minutes, .better-settings__ai-bot-reply-limit, .better-settings__ai-bot-history-limit, .better-settings__ai-bot-whitelist, .better-settings__ai-bot-rejected-keywords, .better-settings__ai-bot-reply-mentions, .better-settings__ai-bot-reply-comments, .better-settings__ai-bot-comment-home-feed, .better-settings__ai-bot-feed-select-strategy, .better-settings__ai-bot-allow-emoji, .better-settings__ai-bot-global-history")) {
-        const normalized = getAiBotSettingsFormValues(panel);
-        const pollInput = panel.querySelector(".better-settings__ai-bot-poll-minutes");
-        const feedPollInput = panel.querySelector(".better-settings__ai-bot-feed-poll-minutes");
-        const freshInput = panel.querySelector(".better-settings__ai-bot-fresh-minutes");
-        const replyLimitInput = panel.querySelector(".better-settings__ai-bot-reply-limit");
-        const historyLimitInput = panel.querySelector(".better-settings__ai-bot-history-limit");
-        const whitelistInput = panel.querySelector(".better-settings__ai-bot-whitelist");
-        const rejectedKeywordsInput = panel.querySelector(".better-settings__ai-bot-rejected-keywords");
-        if (pollInput) {
-          pollInput.value = normalized.pollMinutes;
-        }
-        if (feedPollInput) {
-          feedPollInput.value = normalized.feedPollMinutes;
-        }
-        if (freshInput) {
-          freshInput.value = normalized.messageFreshMinutes;
-        }
-        if (replyLimitInput) {
-          replyLimitInput.value = normalized.replyLimitPerLinkUser;
-        }
-        if (historyLimitInput) {
-          historyLimitInput.value = normalized.globalHistoryLimit;
-        }
-        if (whitelistInput) {
-          whitelistInput.value = normalized.whitelistUserIds.join("\n");
-          syncAutoHeightTextarea(whitelistInput);
-        }
-        if (rejectedKeywordsInput) {
-          rejectedKeywordsInput.value = normalized.rejectedReplyKeywords.join("\n");
-          syncAutoHeightTextarea(rejectedKeywordsInput);
-        }
-        if (event.target.matches(".better-settings__ai-bot-comment-home-feed")) {
-          const feedSection = panel.querySelector(".better-settings__feed-poll-section");
-          if (feedSection) {
-            feedSection.open = event.target.checked;
-          }
-        }
-        saveAiBotSettingsFromPanel(panel);
         return;
       }
 
@@ -15649,7 +13792,6 @@
     if (panel) {
       panel.hidden = true;
     }
-    stopAiBotLogAutoRefresh();
     button?.setAttribute("aria-expanded", "false");
   }
 
@@ -15696,8 +13838,6 @@
       panel.querySelector(".better-settings__input")?.focus();
       bindSettingsPanelOutsideClick();
       bindSettingsPanelResizeSync();
-    } else {
-      stopAiBotLogAutoRefresh();
     }
   }
 
@@ -15706,8 +13846,7 @@
     const standaloneTabs = [
       SETTINGS_TABS.BLOCKED,
       SETTINGS_TABS.GENERAL,
-      SETTINGS_TABS.AI,
-      ...(AI_BOT_FEATURE_ENABLED ? [SETTINGS_TABS.AIBOT, SETTINGS_TABS.AIBOT_LOGS] : [])
+      SETTINGS_TABS.AI
     ];
     if (blockedScopes.includes(tab)) {
       activeBlockedKeywordScope = normalizeBlockedKeywordScope(tab);
@@ -15725,12 +13864,7 @@
     button.setAttribute("aria-expanded", "true");
     renderSettingsPanel();
     positionSettingsPanel(panel, button);
-    panel.querySelector(activeSettingsTab === SETTINGS_TABS.AI ? ".better-settings__ai-base-url" : (activeSettingsTab === SETTINGS_TABS.AIBOT ? ".better-settings__ai-bot-base-url" : (activeSettingsTab === SETTINGS_TABS.AIBOT_LOGS ? ".better-settings__ai-bot-refresh-logs" : (activeSettingsTab === SETTINGS_TABS.GENERAL ? ".better-settings__layout-total-range" : ".better-settings__input"))))?.focus();
-    if (activeSettingsTab === SETTINGS_TABS.AIBOT_LOGS) {
-      startAiBotLogAutoRefresh();
-    } else {
-      stopAiBotLogAutoRefresh();
-    }
+    panel.querySelector(activeSettingsTab === SETTINGS_TABS.AI ? ".better-settings__ai-base-url" : (activeSettingsTab === SETTINGS_TABS.GENERAL ? ".better-settings__layout-total-range" : ".better-settings__input"))?.focus();
     bindSettingsPanelOutsideClick();
     bindSettingsPanelResizeSync();
   }
@@ -17555,68 +15689,6 @@
       }
       if (Object.prototype.hasOwnProperty.call(values, HOT_SEARCH_DISABLED_STORAGE_KEY)) {
         syncHotSearchDisabledState(values[HOT_SEARCH_DISABLED_STORAGE_KEY]);
-      }
-      if (Object.prototype.hasOwnProperty.call(values, AI_BOT_SETTINGS_STORAGE_KEY)) {
-        aiBotSettings = normalizeAiBotSettings(values[AI_BOT_SETTINGS_STORAGE_KEY]);
-        const settingsPanel = document.querySelector(`.${SETTINGS_PANEL_CLASS}`);
-        const isEditingAiBotSettings = activeSettingsTab === SETTINGS_TABS.AIBOT
-          && settingsPanel
-          && !settingsPanel.hidden
-          && settingsPanel.contains(document.activeElement);
-        if (!isEditingAiBotSettings) {
-          renderSettingsPanel();
-        }
-      }
-      if (Object.prototype.hasOwnProperty.call(values, AI_BOT_CONSENT_STORAGE_KEY)) {
-        aiBotConsentAccepted = values[AI_BOT_CONSENT_STORAGE_KEY] === true;
-        if (activeSettingsTab === SETTINGS_TABS.AIBOT) {
-          renderSettingsPanel();
-        }
-      }
-      if (Object.prototype.hasOwnProperty.call(values, AI_BOT_LOGS_STORAGE_KEY)) {
-        aiBotLogs = normalizeAiBotLogs(values[AI_BOT_LOGS_STORAGE_KEY]);
-        if (activeSettingsTab === SETTINGS_TABS.AIBOT_LOGS) {
-          updateAiBotRuntimeLogList();
-        }
-      }
-      if (Object.prototype.hasOwnProperty.call(values, AI_BOT_MESSAGE_LOGS_STORAGE_KEY)) {
-        aiBotMessageLogs = normalizeAiBotMessageLogs(values[AI_BOT_MESSAGE_LOGS_STORAGE_KEY]);
-        if (activeSettingsTab === SETTINGS_TABS.AIBOT_LOGS) {
-          refreshAiBotTodayStatsPanel();
-          loadEmojis().finally(() => {
-            const messageLogList = document.querySelector(`.${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-message-logs`);
-            if (messageLogList) {
-              const signature = getAiBotMessageLogSignature();
-              if (messageLogList.dataset.signature === signature) {
-                return;
-              }
-              const previousScrollTop = messageLogList.scrollTop;
-              const wasNearTop = previousScrollTop <= 4;
-              messageLogList.innerHTML = renderAiBotMessageLogItemsHtml();
-              messageLogList.dataset.signature = signature;
-              messageLogList.scrollTop = wasNearTop ? 0 : Math.min(previousScrollTop, messageLogList.scrollHeight);
-            }
-          });
-        }
-      }
-      if (Object.prototype.hasOwnProperty.call(values, AI_BOT_REPLY_QUEUE_STORAGE_KEY)) {
-        aiBotReplyQueue = normalizeAiBotReplyQueue(values[AI_BOT_REPLY_QUEUE_STORAGE_KEY]);
-        if (activeSettingsTab === SETTINGS_TABS.AIBOT_LOGS) {
-          loadEmojis().finally(() => {
-            const pendingLogList = document.querySelector(`.${SETTINGS_PANEL_CLASS} [data-ai-bot-log-panel="pending"]`);
-            if (pendingLogList) {
-              const signature = `${aiBotReplyQueue.length}:${aiBotReplyQueue.slice(0, 5).map((item) => String(item?.messageId || item?.queuedAt || "")).join("|")}`;
-              if (pendingLogList.dataset.signature === signature) {
-                return;
-              }
-              const previousScrollTop = pendingLogList.scrollTop;
-              const wasNearTop = previousScrollTop <= 4;
-              pendingLogList.innerHTML = renderAiBotReplyQueueItemsHtml();
-              pendingLogList.dataset.signature = signature;
-              pendingLogList.scrollTop = wasNearTop ? 0 : Math.min(previousScrollTop, pendingLogList.scrollHeight);
-            }
-          });
-        }
       }
     });
   }

@@ -6,9 +6,6 @@
   "description": "__MSG_extensionDescription__",
   "permissions": [
     "storage",
-    "alarms",
-    "notifications",
-    "cookies",
     "declarativeNetRequestWithHostAccess"
   ],
   "host_permissions": [

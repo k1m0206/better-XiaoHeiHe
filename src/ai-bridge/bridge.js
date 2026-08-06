@@ -207,26 +207,6 @@ let currentSettings = normalizeAiSettings();
     });
   }
 
-  function requestAiBotRuntime(detail = {}) {
-    const id = detail?.id || "";
-    const type = String(detail?.type || "");
-    if (!id || !type) {
-      return;
-    }
-
-    sendRuntimeMessageSafely({
-      type,
-      detail: detail?.detail || {}
-    }, "请求失败", (response) => {
-      window.dispatchEvent(new CustomEvent(AI_BOT_RUNTIME_RESPONSE_EVENT, {
-        detail: stringifyEventDetail({
-          id,
-          ...(response || { ok: false, error: "请求失败" })
-        })
-      }));
-    });
-  }
-
   function getRequestedLocalSettingsKeys(detail) {
     const requestedKeys = Array.isArray(detail?.keys) ? detail.keys : LOCAL_SETTINGS_STORAGE_KEYS;
     return requestedKeys.filter((key) => LOCAL_SETTINGS_STORAGE_KEYS.includes(key));
@@ -293,7 +273,6 @@ let currentSettings = normalizeAiSettings();
   window.addEventListener(AI_CHAT_REQUEST_EVENT, (event) => requestChat(parseEventDetail(event.detail)));
   window.addEventListener(AI_MODEL_LIST_REQUEST_EVENT, (event) => requestModelList(parseEventDetail(event.detail)));
   window.addEventListener(SANITIZED_COOKIE_RULE_REQUEST_EVENT, (event) => requestSanitizedCookieRuleChange(parseEventDetail(event.detail)));
-  window.addEventListener(AI_BOT_RUNTIME_REQUEST_EVENT, (event) => requestAiBotRuntime(parseEventDetail(event.detail)));
   window.addEventListener(LOCAL_SETTINGS_REQUEST_EVENT, (event) => readLocalSettings(parseEventDetail(event.detail)));
   window.addEventListener(LOCAL_SETTINGS_SAVE_EVENT, (event) => saveLocalSettings(parseEventDetail(event.detail)));
 

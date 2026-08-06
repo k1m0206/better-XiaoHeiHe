@@ -238,68 +238,6 @@
       if (Object.prototype.hasOwnProperty.call(values, HOT_SEARCH_DISABLED_STORAGE_KEY)) {
         syncHotSearchDisabledState(values[HOT_SEARCH_DISABLED_STORAGE_KEY]);
       }
-      if (Object.prototype.hasOwnProperty.call(values, AI_BOT_SETTINGS_STORAGE_KEY)) {
-        aiBotSettings = normalizeAiBotSettings(values[AI_BOT_SETTINGS_STORAGE_KEY]);
-        const settingsPanel = document.querySelector(`.${SETTINGS_PANEL_CLASS}`);
-        const isEditingAiBotSettings = activeSettingsTab === SETTINGS_TABS.AIBOT
-          && settingsPanel
-          && !settingsPanel.hidden
-          && settingsPanel.contains(document.activeElement);
-        if (!isEditingAiBotSettings) {
-          renderSettingsPanel();
-        }
-      }
-      if (Object.prototype.hasOwnProperty.call(values, AI_BOT_CONSENT_STORAGE_KEY)) {
-        aiBotConsentAccepted = values[AI_BOT_CONSENT_STORAGE_KEY] === true;
-        if (activeSettingsTab === SETTINGS_TABS.AIBOT) {
-          renderSettingsPanel();
-        }
-      }
-      if (Object.prototype.hasOwnProperty.call(values, AI_BOT_LOGS_STORAGE_KEY)) {
-        aiBotLogs = normalizeAiBotLogs(values[AI_BOT_LOGS_STORAGE_KEY]);
-        if (activeSettingsTab === SETTINGS_TABS.AIBOT_LOGS) {
-          updateAiBotRuntimeLogList();
-        }
-      }
-      if (Object.prototype.hasOwnProperty.call(values, AI_BOT_MESSAGE_LOGS_STORAGE_KEY)) {
-        aiBotMessageLogs = normalizeAiBotMessageLogs(values[AI_BOT_MESSAGE_LOGS_STORAGE_KEY]);
-        if (activeSettingsTab === SETTINGS_TABS.AIBOT_LOGS) {
-          refreshAiBotTodayStatsPanel();
-          loadEmojis().finally(() => {
-            const messageLogList = document.querySelector(`.${SETTINGS_PANEL_CLASS} .better-settings__ai-bot-message-logs`);
-            if (messageLogList) {
-              const signature = getAiBotMessageLogSignature();
-              if (messageLogList.dataset.signature === signature) {
-                return;
-              }
-              const previousScrollTop = messageLogList.scrollTop;
-              const wasNearTop = previousScrollTop <= 4;
-              messageLogList.innerHTML = renderAiBotMessageLogItemsHtml();
-              messageLogList.dataset.signature = signature;
-              messageLogList.scrollTop = wasNearTop ? 0 : Math.min(previousScrollTop, messageLogList.scrollHeight);
-            }
-          });
-        }
-      }
-      if (Object.prototype.hasOwnProperty.call(values, AI_BOT_REPLY_QUEUE_STORAGE_KEY)) {
-        aiBotReplyQueue = normalizeAiBotReplyQueue(values[AI_BOT_REPLY_QUEUE_STORAGE_KEY]);
-        if (activeSettingsTab === SETTINGS_TABS.AIBOT_LOGS) {
-          loadEmojis().finally(() => {
-            const pendingLogList = document.querySelector(`.${SETTINGS_PANEL_CLASS} [data-ai-bot-log-panel="pending"]`);
-            if (pendingLogList) {
-              const signature = `${aiBotReplyQueue.length}:${aiBotReplyQueue.slice(0, 5).map((item) => String(item?.messageId || item?.queuedAt || "")).join("|")}`;
-              if (pendingLogList.dataset.signature === signature) {
-                return;
-              }
-              const previousScrollTop = pendingLogList.scrollTop;
-              const wasNearTop = previousScrollTop <= 4;
-              pendingLogList.innerHTML = renderAiBotReplyQueueItemsHtml();
-              pendingLogList.dataset.signature = signature;
-              pendingLogList.scrollTop = wasNearTop ? 0 : Math.min(previousScrollTop, pendingLogList.scrollHeight);
-            }
-          });
-        }
-      }
     });
   }
 
