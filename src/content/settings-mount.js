@@ -246,6 +246,11 @@
         return;
       }
 
+      if (event.target.matches(".better-settings__video-posts-toggle")) {
+        setVideoPostsBlocked(event.target.checked);
+        return;
+      }
+
       if (event.target.matches(".better-settings__level-range")) {
         updateLevelFilter(event.target.dataset.scope, {
           maxLevel: event.target.value

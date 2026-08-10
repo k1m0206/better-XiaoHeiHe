@@ -125,7 +125,8 @@
       `.${ROW_CLASS}`,
       ".hb-bbs-home",
       ".bbs-home__content-list",
-      ".bbs-home__content-item"
+      ".bbs-home__content-item",
+      ".bbs-content__video_wrapper"
     ].join(", ");
 
     return mutations.some((mutation) => {
@@ -209,6 +210,9 @@
       if (event.key === COMMENT_PREVIEW_SORT_STORAGE_KEY) {
         syncCommentPreviewSortState(localStorage.getItem(COMMENT_PREVIEW_SORT_STORAGE_KEY));
       }
+      if (event.key === VIDEO_POSTS_BLOCKED_STORAGE_KEY) {
+        syncVideoPostsBlockedState(localStorage.getItem(VIDEO_POSTS_BLOCKED_STORAGE_KEY));
+      }
     });
 
     window.addEventListener(LOCAL_SETTINGS_CHANGED_EVENT, (event) => {
@@ -225,6 +229,9 @@
       }
       if (Object.prototype.hasOwnProperty.call(values, COMMENT_PREVIEW_SORT_STORAGE_KEY)) {
         syncCommentPreviewSortState(values[COMMENT_PREVIEW_SORT_STORAGE_KEY]);
+      }
+      if (Object.prototype.hasOwnProperty.call(values, VIDEO_POSTS_BLOCKED_STORAGE_KEY)) {
+        syncVideoPostsBlockedState(values[VIDEO_POSTS_BLOCKED_STORAGE_KEY]);
       }
       if (Object.prototype.hasOwnProperty.call(values, UI_STATE_STORAGE_KEY)) {
         syncUiState(values[UI_STATE_STORAGE_KEY]);

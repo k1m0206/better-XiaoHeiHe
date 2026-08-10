@@ -9,6 +9,7 @@
   const BLOCKED_KEYWORDS_STORAGE_KEY = "better-xiaoheihe-blocked-keywords";
   const LEVEL_FILTERS_STORAGE_KEY = "better-xiaoheihe-level-filters";
   const COMMENT_PREVIEW_SORT_STORAGE_KEY = "better-xiaoheihe-comment-preview-sort";
+  const VIDEO_POSTS_BLOCKED_STORAGE_KEY = "better-xiaoheihe-video-posts-blocked";
   const AI_SETTINGS_STORAGE_KEY = "better-xiaoheihe-ai-settings";
   const AI_MODEL_CACHE_STORAGE_KEY = "better-xiaoheihe-ai-model-cache";
   const UI_STATE_STORAGE_KEY = "better-xiaoheihe-ui-state";
@@ -21,6 +22,7 @@
     BLOCKED_KEYWORDS_STORAGE_KEY,
     LEVEL_FILTERS_STORAGE_KEY,
     COMMENT_PREVIEW_SORT_STORAGE_KEY,
+    VIDEO_POSTS_BLOCKED_STORAGE_KEY,
     UI_STATE_STORAGE_KEY,
     COMMENT_EMOJI_USAGE_STORAGE_KEY,
     FEED_LAYOUT_SETTINGS_STORAGE_KEY,

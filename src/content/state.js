@@ -131,6 +131,7 @@
   const capturedApiParams = {};
   let hideCyComments = false;
   let commentPreviewSort = COMMENT_PREVIEW_SORTS.DEFAULT;
+  let videoPostsBlocked = false;
   let blockedKeywords = [];
   let levelFilters = normalizeLevelFilters({});
   let aiSettings = normalizeAiSettings();
@@ -427,6 +428,17 @@
     hideCyComments = savedState;
     syncCyToggleControls();
     refreshAllCommentFilters();
+  }
+
+  function syncVideoPostsBlockedState(savedState) {
+    const normalizedState = savedState === true || savedState === "1" || savedState === "true";
+    if (normalizedState === videoPostsBlocked) {
+      return;
+    }
+
+    videoPostsBlocked = normalizedState;
+    renderSettingsPanel();
+    refreshAllKeywordFilters();
   }
 
   function normalizeCommentPreviewSort(sort) {
@@ -735,6 +747,9 @@
     blockedKeywords = normalizeBlockedKeywords(values[BLOCKED_KEYWORDS_STORAGE_KEY]);
     levelFilters = normalizeLevelFilters(values[LEVEL_FILTERS_STORAGE_KEY]);
     commentPreviewSort = normalizeCommentPreviewSort(values[COMMENT_PREVIEW_SORT_STORAGE_KEY]);
+    videoPostsBlocked = values[VIDEO_POSTS_BLOCKED_STORAGE_KEY] === true
+      || values[VIDEO_POSTS_BLOCKED_STORAGE_KEY] === "1"
+      || values[VIDEO_POSTS_BLOCKED_STORAGE_KEY] === "true";
     uiState = normalizeUiState(values[UI_STATE_STORAGE_KEY]);
     emojiUsageStats = normalizeEmojiUsageStats(values[COMMENT_EMOJI_USAGE_STORAGE_KEY]);
     feedLayoutSettings = normalizeFeedLayoutSettings(values[FEED_LAYOUT_SETTINGS_STORAGE_KEY]);
@@ -789,6 +804,12 @@
     } else {
       nextValues[COMMENT_PREVIEW_SORT_STORAGE_KEY] = COMMENT_PREVIEW_SORTS.DEFAULT;
     }
+
+    nextValues[VIDEO_POSTS_BLOCKED_STORAGE_KEY] = keysPresent[VIDEO_POSTS_BLOCKED_STORAGE_KEY]
+      ? values[VIDEO_POSTS_BLOCKED_STORAGE_KEY] === true
+        || values[VIDEO_POSTS_BLOCKED_STORAGE_KEY] === "1"
+        || values[VIDEO_POSTS_BLOCKED_STORAGE_KEY] === "true"
+      : false;
 
     nextValues[UI_STATE_STORAGE_KEY] = keysPresent[UI_STATE_STORAGE_KEY]
       ? normalizeUiState(values[UI_STATE_STORAGE_KEY])

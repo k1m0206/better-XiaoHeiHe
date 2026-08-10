@@ -9,6 +9,7 @@
   const BLOCKED_KEYWORDS_STORAGE_KEY = "better-xiaoheihe-blocked-keywords";
   const LEVEL_FILTERS_STORAGE_KEY = "better-xiaoheihe-level-filters";
   const COMMENT_PREVIEW_SORT_STORAGE_KEY = "better-xiaoheihe-comment-preview-sort";
+  const VIDEO_POSTS_BLOCKED_STORAGE_KEY = "better-xiaoheihe-video-posts-blocked";
   const AI_SETTINGS_STORAGE_KEY = "better-xiaoheihe-ai-settings";
   const AI_MODEL_CACHE_STORAGE_KEY = "better-xiaoheihe-ai-model-cache";
   const UI_STATE_STORAGE_KEY = "better-xiaoheihe-ui-state";
@@ -21,6 +22,7 @@
     BLOCKED_KEYWORDS_STORAGE_KEY,
     LEVEL_FILTERS_STORAGE_KEY,
     COMMENT_PREVIEW_SORT_STORAGE_KEY,
+    VIDEO_POSTS_BLOCKED_STORAGE_KEY,
     UI_STATE_STORAGE_KEY,
     COMMENT_EMOJI_USAGE_STORAGE_KEY,
     FEED_LAYOUT_SETTINGS_STORAGE_KEY,
@@ -269,6 +271,7 @@
   const capturedApiParams = {};
   let hideCyComments = false;
   let commentPreviewSort = COMMENT_PREVIEW_SORTS.DEFAULT;
+  let videoPostsBlocked = false;
   let blockedKeywords = [];
   let levelFilters = normalizeLevelFilters({});
   let aiSettings = normalizeAiSettings();
@@ -565,6 +568,17 @@
     hideCyComments = savedState;
     syncCyToggleControls();
     refreshAllCommentFilters();
+  }
+
+  function syncVideoPostsBlockedState(savedState) {
+    const normalizedState = savedState === true || savedState === "1" || savedState === "true";
+    if (normalizedState === videoPostsBlocked) {
+      return;
+    }
+
+    videoPostsBlocked = normalizedState;
+    renderSettingsPanel();
+    refreshAllKeywordFilters();
   }
 
   function normalizeCommentPreviewSort(sort) {
@@ -873,6 +887,9 @@
     blockedKeywords = normalizeBlockedKeywords(values[BLOCKED_KEYWORDS_STORAGE_KEY]);
     levelFilters = normalizeLevelFilters(values[LEVEL_FILTERS_STORAGE_KEY]);
     commentPreviewSort = normalizeCommentPreviewSort(values[COMMENT_PREVIEW_SORT_STORAGE_KEY]);
+    videoPostsBlocked = values[VIDEO_POSTS_BLOCKED_STORAGE_KEY] === true
+      || values[VIDEO_POSTS_BLOCKED_STORAGE_KEY] === "1"
+      || values[VIDEO_POSTS_BLOCKED_STORAGE_KEY] === "true";
     uiState = normalizeUiState(values[UI_STATE_STORAGE_KEY]);
     emojiUsageStats = normalizeEmojiUsageStats(values[COMMENT_EMOJI_USAGE_STORAGE_KEY]);
     feedLayoutSettings = normalizeFeedLayoutSettings(values[FEED_LAYOUT_SETTINGS_STORAGE_KEY]);
@@ -927,6 +944,12 @@
     } else {
       nextValues[COMMENT_PREVIEW_SORT_STORAGE_KEY] = COMMENT_PREVIEW_SORTS.DEFAULT;
     }
+
+    nextValues[VIDEO_POSTS_BLOCKED_STORAGE_KEY] = keysPresent[VIDEO_POSTS_BLOCKED_STORAGE_KEY]
+      ? values[VIDEO_POSTS_BLOCKED_STORAGE_KEY] === true
+        || values[VIDEO_POSTS_BLOCKED_STORAGE_KEY] === "1"
+        || values[VIDEO_POSTS_BLOCKED_STORAGE_KEY] === "true"
+      : false;
 
     nextValues[UI_STATE_STORAGE_KEY] = keysPresent[UI_STATE_STORAGE_KEY]
       ? normalizeUiState(values[UI_STATE_STORAGE_KEY])
@@ -10982,6 +11005,12 @@
     ].filter(Boolean).join("\n");
   }
 
+  function isVideoFeedItem(item) {
+    return Boolean(item?.querySelector(
+      ".bbs-content__video_wrapper, .bbs-content__video-cover, .bbs-content__video-play-btn, video, source[type^=\"video/\"]"
+    ));
+  }
+
   function getFeedItemTopicText(item) {
     return Array.from(item.querySelectorAll(".content-tag-text, .bbs-new-style-bottom__rich-stack .bbs-new-style-bottom__rich-node"))
       .map((tag) => tag.textContent?.trim())
@@ -11153,11 +11182,13 @@
       getFeedItemTopicText(item)
     ].filter(Boolean).join("\n");
 
-    return isBlockedTextByKeyword(
-      feedText,
-      BLOCKED_KEYWORD_SCOPES.FEED,
-      getFeedItemBlockedTargetKey(item, BLOCKED_KEYWORD_SCOPES.FEED)
-    ) || shouldHideByLevel(getFeedItemUserLevel(item), BLOCKED_KEYWORD_SCOPES.FEED);
+    return (videoPostsBlocked && isVideoFeedItem(item))
+      || isBlockedTextByKeyword(
+        feedText,
+        BLOCKED_KEYWORD_SCOPES.FEED,
+        getFeedItemBlockedTargetKey(item, BLOCKED_KEYWORD_SCOPES.FEED)
+      )
+      || shouldHideByLevel(getFeedItemUserLevel(item), BLOCKED_KEYWORD_SCOPES.FEED);
   }
 
   function getTopicEntryText(entry) {
@@ -12470,7 +12501,7 @@
   function ensureFeedItemFallbackImages(item, detail) {
     const existing = item?.querySelector(".better-feed-fallback-images");
     const imageUrls = Array.isArray(detail?.feedImageUrls) ? detail.feedImageUrls.filter(isSafeCommentImageUrl) : [];
-    if (!item || hasNativeFeedImages(item) || !imageUrls.length) {
+    if (!item || isVideoFeedItem(item) || hasNativeFeedImages(item) || !imageUrls.length) {
       existing?.remove();
       syncFeedItemImageState(item);
       return;
@@ -12777,6 +12808,15 @@
       count: 0,
       scope: normalizeBlockedKeywordScope(scope)
     }]);
+    renderSettingsPanel();
+    scheduleKeywordFiltersRefresh();
+  }
+
+  function setVideoPostsBlocked(enabled) {
+    videoPostsBlocked = Boolean(enabled);
+    saveLocalSettings({
+      [VIDEO_POSTS_BLOCKED_STORAGE_KEY]: videoPostsBlocked
+    });
     renderSettingsPanel();
     scheduleKeywordFiltersRefresh();
   }
@@ -13142,6 +13182,23 @@
         </div>
         <input class="better-settings__level-range" type="range" min="${LEVEL_FILTER_MIN}" max="${LEVEL_FILTER_MAX}" step="1" value="${escapeHtml(activeLevelFilter.maxLevel)}" data-scope="${escapeHtml(activeScope)}">
       </div>
+      ${activeScope === BLOCKED_KEYWORD_SCOPES.FEED ? `
+        <div class="better-settings__section">
+          <div class="better-settings__level-row">
+            <span class="better-settings__section-title">屏蔽视频帖子</span>
+            <label class="better-settings__ai-master-toggle" title="${videoPostsBlocked ? "关闭" : "开启"}视频帖子屏蔽">
+              <input class="better-settings__video-posts-toggle" type="checkbox" aria-label="屏蔽视频帖子"${videoPostsBlocked ? " checked" : ""}>
+              <span class="better-settings__ai-master-control" aria-hidden="true">
+                <span class="better-settings__ai-status${videoPostsBlocked ? " is-on" : ""}">${videoPostsBlocked ? "已开启" : "未开启"}</span>
+                <span class="better-settings__ai-master-track">
+                  <span class="better-settings__ai-master-thumb"></span>
+                </span>
+              </span>
+            </label>
+          </div>
+          <div class="better-settings__desc">隐藏视频帖子。</div>
+        </div>
+      ` : ""}
       <div class="better-settings__section">
         <div class="better-settings__section-title">屏蔽关键词</div>
         <div class="better-settings__desc">评论关键词隐藏评论；帖子关键词同时匹配标题、正文和分区/话题，命中后隐藏整条帖子。</div>
@@ -13757,6 +13814,11 @@
         if (toggle) {
           toggle.title = `${enabled ? "关闭" : "开启"}${BLOCKED_KEYWORD_SCOPE_LABELS[scope]}等级过滤`;
         }
+        return;
+      }
+
+      if (event.target.matches(".better-settings__video-posts-toggle")) {
+        setVideoPostsBlocked(event.target.checked);
         return;
       }
 
@@ -15577,7 +15639,8 @@
       `.${ROW_CLASS}`,
       ".hb-bbs-home",
       ".bbs-home__content-list",
-      ".bbs-home__content-item"
+      ".bbs-home__content-item",
+      ".bbs-content__video_wrapper"
     ].join(", ");
 
     return mutations.some((mutation) => {
@@ -15661,6 +15724,9 @@
       if (event.key === COMMENT_PREVIEW_SORT_STORAGE_KEY) {
         syncCommentPreviewSortState(localStorage.getItem(COMMENT_PREVIEW_SORT_STORAGE_KEY));
       }
+      if (event.key === VIDEO_POSTS_BLOCKED_STORAGE_KEY) {
+        syncVideoPostsBlockedState(localStorage.getItem(VIDEO_POSTS_BLOCKED_STORAGE_KEY));
+      }
     });
 
     window.addEventListener(LOCAL_SETTINGS_CHANGED_EVENT, (event) => {
@@ -15677,6 +15743,9 @@
       }
       if (Object.prototype.hasOwnProperty.call(values, COMMENT_PREVIEW_SORT_STORAGE_KEY)) {
         syncCommentPreviewSortState(values[COMMENT_PREVIEW_SORT_STORAGE_KEY]);
+      }
+      if (Object.prototype.hasOwnProperty.call(values, VIDEO_POSTS_BLOCKED_STORAGE_KEY)) {
+        syncVideoPostsBlockedState(values[VIDEO_POSTS_BLOCKED_STORAGE_KEY]);
       }
       if (Object.prototype.hasOwnProperty.call(values, UI_STATE_STORAGE_KEY)) {
         syncUiState(values[UI_STATE_STORAGE_KEY]);

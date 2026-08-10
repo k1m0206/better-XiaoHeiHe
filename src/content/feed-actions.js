@@ -312,7 +312,7 @@
   function ensureFeedItemFallbackImages(item, detail) {
     const existing = item?.querySelector(".better-feed-fallback-images");
     const imageUrls = Array.isArray(detail?.feedImageUrls) ? detail.feedImageUrls.filter(isSafeCommentImageUrl) : [];
-    if (!item || hasNativeFeedImages(item) || !imageUrls.length) {
+    if (!item || isVideoFeedItem(item) || hasNativeFeedImages(item) || !imageUrls.length) {
       existing?.remove();
       syncFeedItemImageState(item);
       return;

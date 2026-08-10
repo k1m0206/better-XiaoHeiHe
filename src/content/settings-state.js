@@ -45,6 +45,15 @@
     scheduleKeywordFiltersRefresh();
   }
 
+  function setVideoPostsBlocked(enabled) {
+    videoPostsBlocked = Boolean(enabled);
+    saveLocalSettings({
+      [VIDEO_POSTS_BLOCKED_STORAGE_KEY]: videoPostsBlocked
+    });
+    renderSettingsPanel();
+    scheduleKeywordFiltersRefresh();
+  }
+
   function addFeedBlockedKeywordFromTopic(topicText) {
     const normalized = normalizeBlockedKeyword(topicText);
     if (!normalized) {

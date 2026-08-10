@@ -43,6 +43,23 @@
         </div>
         <input class="better-settings__level-range" type="range" min="${LEVEL_FILTER_MIN}" max="${LEVEL_FILTER_MAX}" step="1" value="${escapeHtml(activeLevelFilter.maxLevel)}" data-scope="${escapeHtml(activeScope)}">
       </div>
+      ${activeScope === BLOCKED_KEYWORD_SCOPES.FEED ? `
+        <div class="better-settings__section">
+          <div class="better-settings__level-row">
+            <span class="better-settings__section-title">屏蔽视频帖子</span>
+            <label class="better-settings__ai-master-toggle" title="${videoPostsBlocked ? "关闭" : "开启"}视频帖子屏蔽">
+              <input class="better-settings__video-posts-toggle" type="checkbox" aria-label="屏蔽视频帖子"${videoPostsBlocked ? " checked" : ""}>
+              <span class="better-settings__ai-master-control" aria-hidden="true">
+                <span class="better-settings__ai-status${videoPostsBlocked ? " is-on" : ""}">${videoPostsBlocked ? "已开启" : "未开启"}</span>
+                <span class="better-settings__ai-master-track">
+                  <span class="better-settings__ai-master-thumb"></span>
+                </span>
+              </span>
+            </label>
+          </div>
+          <div class="better-settings__desc">隐藏视频帖子。</div>
+        </div>
+      ` : ""}
       <div class="better-settings__section">
         <div class="better-settings__section-title">屏蔽关键词</div>
         <div class="better-settings__desc">评论关键词隐藏评论；帖子关键词同时匹配标题、正文和分区/话题，命中后隐藏整条帖子。</div>

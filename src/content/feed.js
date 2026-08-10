@@ -1858,6 +1858,12 @@
     ].filter(Boolean).join("\n");
   }
 
+  function isVideoFeedItem(item) {
+    return Boolean(item?.querySelector(
+      ".bbs-content__video_wrapper, .bbs-content__video-cover, .bbs-content__video-play-btn, video, source[type^=\"video/\"]"
+    ));
+  }
+
   function getFeedItemTopicText(item) {
     return Array.from(item.querySelectorAll(".content-tag-text, .bbs-new-style-bottom__rich-stack .bbs-new-style-bottom__rich-node"))
       .map((tag) => tag.textContent?.trim())
@@ -2029,11 +2035,13 @@
       getFeedItemTopicText(item)
     ].filter(Boolean).join("\n");
 
-    return isBlockedTextByKeyword(
-      feedText,
-      BLOCKED_KEYWORD_SCOPES.FEED,
-      getFeedItemBlockedTargetKey(item, BLOCKED_KEYWORD_SCOPES.FEED)
-    ) || shouldHideByLevel(getFeedItemUserLevel(item), BLOCKED_KEYWORD_SCOPES.FEED);
+    return (videoPostsBlocked && isVideoFeedItem(item))
+      || isBlockedTextByKeyword(
+        feedText,
+        BLOCKED_KEYWORD_SCOPES.FEED,
+        getFeedItemBlockedTargetKey(item, BLOCKED_KEYWORD_SCOPES.FEED)
+      )
+      || shouldHideByLevel(getFeedItemUserLevel(item), BLOCKED_KEYWORD_SCOPES.FEED);
   }
 
   function getTopicEntryText(entry) {
