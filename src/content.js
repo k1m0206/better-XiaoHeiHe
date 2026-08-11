@@ -16,6 +16,8 @@
   const COMMENT_EMOJI_USAGE_STORAGE_KEY = "better-xiaoheihe-comment-emoji-usage";
   const FEED_LAYOUT_SETTINGS_STORAGE_KEY = "better-xiaoheihe-feed-layout-settings";
   const HOT_SEARCH_DISABLED_STORAGE_KEY = "better-xiaoheihe-hot-search-disabled";
+  const SIMILAR_CONTENT_DISABLED_STORAGE_KEY = "better-xiaoheihe-similar-content-disabled";
+  const RECOMMENDED_COMMUNITIES_DISABLED_STORAGE_KEY = "better-xiaoheihe-recommended-communities-disabled";
 
   const LOCAL_SETTINGS_STORAGE_KEYS = [
     HIDE_CY_COMMENTS_STORAGE_KEY,
@@ -26,7 +28,9 @@
     UI_STATE_STORAGE_KEY,
     COMMENT_EMOJI_USAGE_STORAGE_KEY,
     FEED_LAYOUT_SETTINGS_STORAGE_KEY,
-    HOT_SEARCH_DISABLED_STORAGE_KEY
+    HOT_SEARCH_DISABLED_STORAGE_KEY,
+    SIMILAR_CONTENT_DISABLED_STORAGE_KEY,
+    RECOMMENDED_COMMUNITIES_DISABLED_STORAGE_KEY
   ];
 
   const LOCAL_SETTINGS_REQUEST_EVENT = "better-xiaoheihe-local-settings-request";
@@ -172,6 +176,9 @@
   const SETTINGS_ENTRY_CLASS = "better-xiaoheihe-settings-entry";
   const SETTINGS_PANEL_CLASS = "better-xiaoheihe-settings-panel";
   const AI_SUMMARY_MODAL_CLASS = "better-xiaoheihe-ai-summary-modal";
+  const RELATED_CONTENT_MOUNT_CLASS = "better-link-related-content";
+  const RELATED_TOPIC_ROW_CLASS = "better-link-related-topic-list";
+  const RELATED_CONTENT_CLOSE_CLASS = "better-link-related-close";
   const TOPIC_BLOCK_MENU_CLASS = "better-xiaoheihe-topic-block-menu";
   const HOT_SEARCH_SIDEBAR_CLASS = "better-xiaoheihe-hot-search-sidebar";
   const HOT_SEARCH_SIDEBAR_OPEN_CLASS = "better-xiaoheihe-hot-search-sidebar--open";
@@ -288,10 +295,13 @@
   let activeSettingsTab = SETTINGS_TABS.GENERAL;
   let hotSearchPromise = null;
   let hotSearchDisabled = false;
+  let similarContentDisabled = false;
+  let recommendedCommunitiesDisabled = false;
   let leftMenuOriginalPosition = null;
   let emojiPromise = null;
   let scheduled = false;
   let handlingPage = false;
+  let lastHandledLinkPagePath = "";
   let savedScrollY = null;
   let linkPageFilterRefreshTimer = null;
   let previewObserver = null;
@@ -895,6 +905,8 @@
     emojiUsageStats = normalizeEmojiUsageStats(values[COMMENT_EMOJI_USAGE_STORAGE_KEY]);
     feedLayoutSettings = normalizeFeedLayoutSettings(values[FEED_LAYOUT_SETTINGS_STORAGE_KEY]);
     hotSearchDisabled = values[HOT_SEARCH_DISABLED_STORAGE_KEY] === true;
+    similarContentDisabled = values[SIMILAR_CONTENT_DISABLED_STORAGE_KEY] === true;
+    recommendedCommunitiesDisabled = values[RECOMMENDED_COMMUNITIES_DISABLED_STORAGE_KEY] === true;
     applyFeedLayoutSettings();
   }
 
@@ -963,6 +975,12 @@
       : normalizeFeedLayoutSettings();
     nextValues[HOT_SEARCH_DISABLED_STORAGE_KEY] = keysPresent[HOT_SEARCH_DISABLED_STORAGE_KEY]
       ? values[HOT_SEARCH_DISABLED_STORAGE_KEY] === true
+      : false;
+    nextValues[SIMILAR_CONTENT_DISABLED_STORAGE_KEY] = keysPresent[SIMILAR_CONTENT_DISABLED_STORAGE_KEY]
+      ? values[SIMILAR_CONTENT_DISABLED_STORAGE_KEY] === true
+      : false;
+    nextValues[RECOMMENDED_COMMUNITIES_DISABLED_STORAGE_KEY] = keysPresent[RECOMMENDED_COMMUNITIES_DISABLED_STORAGE_KEY]
+      ? values[RECOMMENDED_COMMUNITIES_DISABLED_STORAGE_KEY] === true
       : false;
 
     applyLocalSettingsValues(nextValues);
@@ -2951,6 +2969,80 @@
         align-items: center;
         justify-content: space-between;
         gap: 16px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__visibility-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__visibility-item {
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        min-width: 0;
+        min-height: 50px;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 10px 11px;
+        border: 1px solid #e5ebf2;
+        border-radius: 10px;
+        background: linear-gradient(145deg, #fff 0%, #f8fafc 100%);
+        box-shadow: 0 2px 7px rgba(31, 45, 61, 0.04);
+        transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__visibility-item:hover {
+        border-color: #cbdcf0;
+        box-shadow: 0 5px 12px rgba(39, 117, 209, 0.08);
+        transform: translateY(-1px);
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__visibility-copy {
+        min-width: 0;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__visibility-item .better-settings__section-title {
+        margin: 0;
+        overflow: hidden;
+        color: #2d3a48;
+        text-overflow: ellipsis;
+        font-size: 13px;
+        line-height: 18px;
+        white-space: nowrap;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__visibility-item .better-settings__desc {
+        margin: 0;
+        line-height: 17px;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__visibility-toggle {
+        display: inline-flex;
+        align-self: center;
+        flex: 0 0 auto;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        cursor: pointer;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__visibility-toggle[aria-checked="true"] .better-settings__level-switch {
+        background: #2775d1;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__visibility-toggle[aria-checked="true"] .better-settings__level-switch::after {
+        transform: translateX(20px);
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__visibility-toggle:focus-visible {
+        outline: none;
+      }
+
+      .${SETTINGS_PANEL_CLASS} .better-settings__visibility-toggle:focus-visible .better-settings__level-switch {
+        outline: 2px solid rgba(39, 117, 209, 0.35);
+        outline-offset: 2px;
       }
 
       .${SETTINGS_PANEL_CLASS} .better-settings__hot-search-copy {
@@ -6364,6 +6456,304 @@
         max-width: 100% !important;
       }
 
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${RELATED_CONTENT_MOUNT_CLASS} {
+        box-sizing: border-box;
+        grid-column: 1;
+        min-width: 0;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin-top: 16px;
+        padding: 18px;
+        border: 1px solid #e8edf3;
+        border-radius: 12px;
+        background: #fff;
+        box-shadow: 0 6px 18px rgba(31, 45, 61, 0.05);
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${RELATED_CONTENT_MOUNT_CLASS}[hidden] {
+        display: none !important;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${RELATED_CONTENT_MOUNT_CLASS} .bbs-link__related-recommend[hidden] {
+        display: none !important;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${RELATED_CONTENT_MOUNT_CLASS} .${RELATED_CONTENT_CLOSE_CLASS} {
+        box-sizing: border-box;
+        display: inline-flex;
+        width: 24px;
+        height: 24px;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 auto;
+        margin: 0 0 0 auto;
+        padding: 0;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        color: #9aa5b1;
+        cursor: pointer;
+        font-size: 20px;
+        font-weight: 400;
+        line-height: 24px;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${RELATED_CONTENT_MOUNT_CLASS} .${RELATED_CONTENT_CLOSE_CLASS}:hover,
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${RELATED_CONTENT_MOUNT_CLASS} .${RELATED_CONTENT_CLOSE_CLASS}:focus-visible {
+        outline: none;
+        background: #f0f3f6;
+        color: #4e5b68;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${RELATED_CONTENT_MOUNT_CLASS} .related-recommend__container {
+        box-sizing: border-box;
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+        width: 100%;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${RELATED_CONTENT_MOUNT_CLASS} .related-recommend__container--header {
+        margin-bottom: 10px;
+        color: #2f3842;
+        font-size: 16px;
+        font-weight: 600;
+        line-height: 24px;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${RELATED_CONTENT_MOUNT_CLASS} .bbs-link__related-recommend + .bbs-link__related-recommend {
+        margin-top: 16px;
+        padding-top: 16px;
+        border-top: 1px solid #e8edf3;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${RELATED_CONTENT_MOUNT_CLASS} .bbs-link__related-recommend.content .related-recommend__container--header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #eef2f6;
+        color: #202a35;
+        font-size: 16px;
+        font-weight: 700;
+        line-height: 22px;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${RELATED_CONTENT_MOUNT_CLASS} .bbs-link__related-recommend.content .related-recommend__container--header::before {
+        display: block;
+        width: 4px;
+        height: 18px;
+        border-radius: 999px;
+        background: #2775d1;
+        content: "";
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${RELATED_CONTENT_MOUNT_CLASS} .bbs-link__related-recommend.content .related-recommend__link-item--content {
+        display: flex !important;
+        align-items: center;
+        gap: 16px;
+        height: auto !important;
+        min-height: 78px;
+        margin: 0;
+        max-height: none !important;
+        overflow: visible !important;
+        padding: 12px 10px;
+        border: 0;
+        border-bottom: 1px solid #eef2f6;
+        border-radius: 8px;
+        transition: background-color 0.18s ease, transform 0.18s ease;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${RELATED_CONTENT_MOUNT_CLASS} .bbs-link__related-recommend.content .related-recommend__link-item--content:last-child {
+        border-bottom: 0;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${RELATED_CONTENT_MOUNT_CLASS} .bbs-link__related-recommend.content .related-recommend__link-item--content:hover {
+        background: #f6f9fd;
+        transform: translateX(2px);
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${RELATED_CONTENT_MOUNT_CLASS} .bbs-link__related-recommend.content .related-recommend__link-item--left {
+        display: flex !important;
+        flex-direction: column;
+        flex: 1 1 auto !important;
+        height: auto !important;
+        min-width: 0;
+        max-width: none !important;
+        visibility: visible !important;
+        gap: 5px;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${RELATED_CONTENT_MOUNT_CLASS} .bbs-link__related-recommend.content .link-item__title,
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${RELATED_CONTENT_MOUNT_CLASS} .bbs-link__related-recommend.content .link-item__desc {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${RELATED_CONTENT_MOUNT_CLASS} .bbs-link__related-recommend.content .link-item__title {
+        display: -webkit-box !important;
+        height: auto !important;
+        max-height: 40px !important;
+        color: #283442 !important;
+        font-size: 14px;
+        font-weight: 600;
+        line-height: 20px;
+        opacity: 1 !important;
+        visibility: visible !important;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${RELATED_CONTENT_MOUNT_CLASS} .bbs-link__related-recommend.content .link-item__desc {
+        display: -webkit-box !important;
+        height: auto !important;
+        max-height: 36px !important;
+        color: #8995a3 !important;
+        font-size: 12px;
+        line-height: 18px;
+        opacity: 1 !important;
+        visibility: visible !important;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${RELATED_CONTENT_MOUNT_CLASS} .bbs-link__related-recommend.content .related-recommend__link-item--right {
+        box-sizing: border-box;
+        width: 104px;
+        height: 64px;
+        overflow: hidden;
+        border-radius: 8px;
+        background: #f1f4f7;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${RELATED_CONTENT_MOUNT_CLASS} .bbs-link__related-recommend.content .related-recommend__link-item--right .link-item__image,
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${RELATED_CONTENT_MOUNT_CLASS} .bbs-link__related-recommend.content .related-recommend__link-item--right .hb-cpt__image-elem {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${RELATED_CONTENT_MOUNT_CLASS} .related-recommend__link-item--content,
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${RELATED_CONTENT_MOUNT_CLASS} .related-recommend__link-item--topic {
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        min-width: 0;
+        width: 100%;
+        padding: 10px 0;
+        border-bottom: 1px solid #f1f3f5;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${RELATED_CONTENT_MOUNT_CLASS} .related-recommend__link-item--content:last-child,
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${RELATED_CONTENT_MOUNT_CLASS} .related-recommend__link-item--topic:last-child {
+        border-bottom: 0;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${RELATED_CONTENT_MOUNT_CLASS} .related-recommend__link-item--content:hover,
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${RELATED_CONTENT_MOUNT_CLASS} .related-recommend__link-item--topic:hover {
+        background: #f7f9fb;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${RELATED_CONTENT_MOUNT_CLASS} .${RELATED_TOPIC_ROW_CLASS} {
+        box-sizing: border-box;
+        display: flex;
+        flex-wrap: nowrap;
+        align-items: stretch;
+        gap: 12px;
+        width: 100%;
+        max-width: 100%;
+        overflow: visible !important;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${RELATED_CONTENT_MOUNT_CLASS} .bbs-link__related-recommend.topic .related-recommend__container--header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #eef2f6;
+        color: #202a35;
+        font-size: 16px;
+        font-weight: 700;
+        line-height: 22px;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${RELATED_CONTENT_MOUNT_CLASS} .bbs-link__related-recommend.topic .related-recommend__container--header::before {
+        display: block;
+        width: 4px;
+        height: 18px;
+        border-radius: 999px;
+        background: #62a76b;
+        content: "";
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${RELATED_CONTENT_MOUNT_CLASS} .${RELATED_TOPIC_ROW_CLASS} .related-recommend__link-item--topic {
+        align-items: center;
+        justify-content: flex-start;
+        flex-direction: column;
+        flex: 1 1 0;
+        gap: 6px;
+        width: auto;
+        min-width: 0;
+        max-width: none;
+        min-height: 96px;
+        border: 0;
+        border: 1px solid #e6ebf1;
+        border-radius: 10px;
+        background: linear-gradient(180deg, #fff 0%, #f6f9fc 100%);
+        box-shadow: 0 3px 10px rgba(31, 45, 61, 0.04);
+        padding: 12px 8px 10px;
+        text-align: center;
+        transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${RELATED_CONTENT_MOUNT_CLASS} .${RELATED_TOPIC_ROW_CLASS} .related-recommend__link-item--topic:hover,
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${RELATED_CONTENT_MOUNT_CLASS} .${RELATED_TOPIC_ROW_CLASS} .related-recommend__link-item--topic:focus-visible {
+        border-color: #a9c8ec;
+        box-shadow: 0 7px 16px rgba(39, 117, 209, 0.12);
+        outline: none;
+        transform: translateY(-2px);
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${RELATED_CONTENT_MOUNT_CLASS} .${RELATED_TOPIC_ROW_CLASS} .hot-topic-item__icon {
+        display: block;
+        flex: 0 0 auto;
+        width: 52px;
+        height: 52px;
+        border: 1px solid rgba(31, 45, 61, 0.06);
+        border-radius: 12px;
+        background: #fff;
+        box-shadow: 0 2px 6px rgba(31, 45, 61, 0.08);
+        object-fit: cover;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${RELATED_CONTENT_MOUNT_CLASS} .${RELATED_TOPIC_ROW_CLASS} .hot-topic-item__cotnent {
+        box-sizing: border-box;
+        min-width: 0;
+        width: 100%;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${RELATED_CONTENT_MOUNT_CLASS} .${RELATED_TOPIC_ROW_CLASS} .hot-topic-item__name {
+        display: -webkit-box;
+        width: 100%;
+        max-height: 36px;
+        margin: 0;
+        overflow: hidden;
+        color: #344150;
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 18px;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${RELATED_CONTENT_MOUNT_CLASS} .${RELATED_TOPIC_ROW_CLASS} .hot-topic__look {
+        display: none !important;
+      }
+
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-bbs-post,
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-bbs-image-text,
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-bbs__video {
@@ -6608,6 +6998,12 @@
         .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-bbs-link__content {
           width: 100% !important;
           max-width: 100% !important;
+        }
+
+        .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${RELATED_CONTENT_MOUNT_CLASS} {
+          width: 100% !important;
+          max-width: 100% !important;
+          margin-top: 16px;
         }
 
         .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .link-comment {
@@ -13283,15 +13679,32 @@
         </div>
         <button class="better-settings__text-button better-settings__layout-reset" type="button">恢复默认值</button>
       </div>
-      <div class="better-settings__section better-settings__hot-search-section">
-        <div class="better-settings__hot-search-row">
-          <div class="better-settings__hot-search-copy">
-            <div class="better-settings__section-title">黑盒热搜</div>
-            <div class="better-settings__desc">控制首页和搜索页左侧的悬浮热搜入口。</div>
+      <div class="better-settings__section better-settings__visibility-section">
+        <div class="better-settings__visibility-grid">
+          <div class="better-settings__visibility-item">
+            <div class="better-settings__visibility-copy">
+              <div class="better-settings__section-title">相似内容</div>
+            </div>
+            <button class="better-settings__visibility-toggle better-settings__similar-content-toggle" type="button" role="switch" aria-checked="${similarContentDisabled ? "false" : "true"}" aria-label="${similarContentDisabled ? "恢复显示相似内容" : "关闭相似内容"}" title="${similarContentDisabled ? "恢复显示相似内容" : "关闭相似内容"}">
+              <span class="better-settings__level-switch" aria-hidden="true"></span>
+            </button>
           </div>
-          <button class="better-settings__hot-search-toggle" type="button" role="switch" aria-checked="${hotSearchDisabled ? "false" : "true"}" aria-label="${hotSearchDisabled ? "恢复显示黑盒热搜" : "永久关闭黑盒热搜"}" title="${hotSearchDisabled ? "恢复显示热搜" : "永久关闭热搜"}">
-            <span class="better-settings__level-switch" aria-hidden="true"></span>
-          </button>
+          <div class="better-settings__visibility-item">
+            <div class="better-settings__visibility-copy">
+              <div class="better-settings__section-title">为你推荐</div>
+            </div>
+            <button class="better-settings__visibility-toggle better-settings__recommended-communities-toggle" type="button" role="switch" aria-checked="${recommendedCommunitiesDisabled ? "false" : "true"}" aria-label="${recommendedCommunitiesDisabled ? "恢复显示为你推荐" : "关闭为你推荐"}" title="${recommendedCommunitiesDisabled ? "恢复显示为你推荐" : "关闭为你推荐"}">
+              <span class="better-settings__level-switch" aria-hidden="true"></span>
+            </button>
+          </div>
+          <div class="better-settings__visibility-item">
+            <div class="better-settings__visibility-copy">
+              <div class="better-settings__section-title">黑盒热搜</div>
+            </div>
+            <button class="better-settings__visibility-toggle better-settings__hot-search-toggle" type="button" role="switch" aria-checked="${hotSearchDisabled ? "false" : "true"}" aria-label="${hotSearchDisabled ? "恢复显示黑盒热搜" : "关闭黑盒热搜"}" title="${hotSearchDisabled ? "恢复显示热搜" : "关闭黑盒热搜"}">
+              <span class="better-settings__level-switch" aria-hidden="true"></span>
+            </button>
+          </div>
         </div>
       </div>
       <div class="better-settings__external-links">
@@ -13702,6 +14115,18 @@
       const hotSearchToggleButton = event.target.closest(".better-settings__hot-search-toggle");
       if (hotSearchToggleButton && panel.contains(hotSearchToggleButton)) {
         setHotSearchDisabled(!hotSearchDisabled);
+        return;
+      }
+
+      const similarContentToggleButton = event.target.closest(".better-settings__similar-content-toggle");
+      if (similarContentToggleButton && panel.contains(similarContentToggleButton)) {
+        setSimilarContentDisabled(!similarContentDisabled);
+        return;
+      }
+
+      const recommendedCommunitiesToggleButton = event.target.closest(".better-settings__recommended-communities-toggle");
+      if (recommendedCommunitiesToggleButton && panel.contains(recommendedCommunitiesToggleButton)) {
+        setRecommendedCommunitiesDisabled(!recommendedCommunitiesDisabled);
         return;
       }
 
@@ -15520,11 +15945,218 @@
     return toolbar;
   }
 
-  function addFilterToBbsLink() {
+  function restoreLinkPageRelatedContent() {
+    const mountPoints = [...document.querySelectorAll(`#page-bbs-link .${RELATED_CONTENT_MOUNT_CLASS}`)];
+    if (!mountPoints.length) {
+      return;
+    }
+
+    const source = document.querySelector('#page-bbs-link .cpt-right-side .dynamic-content');
+    if (source) {
+      mountPoints.forEach((mountPoint) => {
+        [...mountPoint.children].forEach((block) => source.appendChild(block));
+        mountPoint.remove();
+      });
+    }
+  }
+
+  function ensureLinkPageRelatedTopicRow(mountPoint) {
+    const topicContainer = mountPoint.querySelector(
+      '.bbs-link__related-recommend.topic .related-recommend__container'
+    );
+    if (!topicContainer) {
+      return;
+    }
+
+    let topicRow = topicContainer.querySelector(`.${RELATED_TOPIC_ROW_CLASS}`);
+    if (!topicRow) {
+      topicRow = document.createElement('div');
+      topicRow.className = RELATED_TOPIC_ROW_CLASS;
+      topicRow.setAttribute('role', 'list');
+      topicContainer.append(topicRow);
+    }
+
+    [...topicContainer.children]
+      .filter((child) => child.matches('.related-recommend__link-item--topic'))
+      .forEach((topic) => topicRow.appendChild(topic));
+
+    topicRow.querySelectorAll('.related-recommend__link-item--topic').forEach((topic) => {
+      if (topic.dataset.betterTopicClickBound === 'true') {
+        return;
+      }
+
+      const triggerTopicButton = () => topic.querySelector('.hot-topic__look')?.click();
+      topic.dataset.betterTopicClickBound = 'true';
+      topic.setAttribute('role', 'button');
+      topic.tabIndex = 0;
+      topic.addEventListener('click', (event) => {
+        if (event.target.closest('.hot-topic__look')) {
+          return;
+        }
+        triggerTopicButton();
+      });
+      topic.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') {
+          return;
+        }
+        event.preventDefault();
+        triggerTopicButton();
+      });
+    });
+  }
+
+  function hasLinkPageSimilarContent(block) {
+    return Boolean(block?.querySelector('.related-recommend__link-item--content'));
+  }
+
+  function isStoredBooleanEnabled(value) {
+    return value === true || value === '1' || value === 'true';
+  }
+
+  function syncSimilarContentDisabledState(savedState) {
+    const isDisabled = isStoredBooleanEnabled(savedState);
+    if (isDisabled === similarContentDisabled) {
+      return;
+    }
+
+    similarContentDisabled = isDisabled;
+    moveLinkPageRelatedContent();
+    if (activeSettingsTab === SETTINGS_TABS.GENERAL) {
+      renderSettingsPanel();
+    }
+  }
+
+  function setSimilarContentDisabled(isDisabled) {
+    syncSimilarContentDisabledState(isDisabled);
+    saveLocalSettings({
+      [SIMILAR_CONTENT_DISABLED_STORAGE_KEY]: isDisabled === true
+    });
+  }
+
+  function syncRecommendedCommunitiesDisabledState(savedState) {
+    const isDisabled = isStoredBooleanEnabled(savedState);
+    if (isDisabled === recommendedCommunitiesDisabled) {
+      return;
+    }
+
+    recommendedCommunitiesDisabled = isDisabled;
+    moveLinkPageRelatedContent();
+    if (activeSettingsTab === SETTINGS_TABS.GENERAL) {
+      renderSettingsPanel();
+    }
+  }
+
+  function setRecommendedCommunitiesDisabled(isDisabled) {
+    syncRecommendedCommunitiesDisabledState(isDisabled);
+    saveLocalSettings({
+      [RECOMMENDED_COMMUNITIES_DISABLED_STORAGE_KEY]: isDisabled === true
+    });
+  }
+
+  function ensureLinkPageRelatedCloseButton(block, type) {
+    const header = block.querySelector('.related-recommend__container--header');
+    if (!header) {
+      return;
+    }
+
+    let closeButton = header.querySelector(`.${RELATED_CONTENT_CLOSE_CLASS}`);
+    if (!closeButton) {
+      closeButton = document.createElement('button');
+      closeButton.className = RELATED_CONTENT_CLOSE_CLASS;
+      closeButton.type = 'button';
+      closeButton.textContent = '×';
+      closeButton.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (type === 'content') {
+          setSimilarContentDisabled(true);
+        } else {
+          setRecommendedCommunitiesDisabled(true);
+        }
+      });
+      header.appendChild(closeButton);
+    }
+
+    const label = type === 'content' ? '相似内容' : '为你推荐';
+    closeButton.setAttribute('aria-label', `关闭${label}`);
+    closeButton.setAttribute('title', `关闭${label}`);
+  }
+
+  function updateLinkPageRelatedContentVisibility(mountPoint, hasSimilarContent) {
+    const contentBlock = mountPoint.querySelector('.bbs-link__related-recommend.content');
+    const topicBlock = mountPoint.querySelector('.bbs-link__related-recommend.topic');
+    if (contentBlock) {
+      ensureLinkPageRelatedCloseButton(contentBlock, 'content');
+      contentBlock.hidden = similarContentDisabled;
+    }
+    if (topicBlock) {
+      ensureLinkPageRelatedCloseButton(topicBlock, 'topic');
+      topicBlock.hidden = recommendedCommunitiesDisabled || !hasSimilarContent;
+    }
+
+    mountPoint.hidden = ![contentBlock, topicBlock].some((block) => block && !block.hidden);
+  }
+
+  function moveLinkPageRelatedContent() {
     if (!isLinkPage()) {
       return;
     }
 
+    const source = document.querySelector('#page-bbs-link .cpt-right-side .dynamic-content');
+    const postContent = document.querySelector('#page-bbs-link .hb-bbs-link__content');
+    const existingMountPoint = document.querySelector(`#page-bbs-link .${RELATED_CONTENT_MOUNT_CLASS}`);
+    if (!source || !postContent) {
+      return;
+    }
+
+    const blocks = [...source.children].filter((child) => (
+      child.matches('.bbs-link__related-recommend.content, .bbs-link__related-recommend.topic')
+    ));
+    const sourceContentBlock = blocks.find((block) => block.classList.contains('content'));
+    const mountedContentBlock = existingMountPoint?.querySelector('.bbs-link__related-recommend.content');
+    const hasSimilarContent = hasLinkPageSimilarContent(sourceContentBlock)
+      || hasLinkPageSimilarContent(mountedContentBlock);
+    if (!hasSimilarContent) {
+      if (existingMountPoint) {
+        existingMountPoint.hidden = true;
+      }
+      return;
+    }
+
+    const blocksToMove = blocks.filter((block) => {
+      if (block.classList.contains('content')) {
+        return !similarContentDisabled;
+      }
+      return !recommendedCommunitiesDisabled;
+    });
+
+    if (!blocksToMove.length && !existingMountPoint) {
+      return;
+    }
+
+    let mountPoint = existingMountPoint;
+    if (!mountPoint) {
+      mountPoint = document.createElement('section');
+      mountPoint.className = RELATED_CONTENT_MOUNT_CLASS;
+      mountPoint.setAttribute('aria-label', '相关内容');
+      postContent.insertAdjacentElement('afterend', mountPoint);
+    }
+
+    blocksToMove.forEach((block) => mountPoint.appendChild(block));
+    if (mountPoint.querySelector('.bbs-link__related-recommend.topic')) {
+      ensureLinkPageRelatedTopicRow(mountPoint);
+    }
+    updateLinkPageRelatedContentVisibility(mountPoint, hasSimilarContent);
+  }
+
+  function addFilterToBbsLink({ moveRelatedContent = true } = {}) {
+    if (!isLinkPage()) {
+      return;
+    }
+
+    if (moveRelatedContent) {
+      moveLinkPageRelatedContent();
+    }
     ensureLinkPageCommentUserLevels();
     moveLinkPageEmptyStateIntoCommentPanel();
     ensureLinkPageAiSummaryButton();
@@ -15556,7 +16188,19 @@
   // BEGIN src\content\navigation.js
 // 路由监听、页面观察、全局事件绑定和启动流程。
 // 本文件由原入口文件等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
+  function removeLinkPageRelatedContent() {
+    document.querySelectorAll(`#page-bbs-link .${RELATED_CONTENT_MOUNT_CLASS}`).forEach((mountPoint) => {
+      mountPoint.remove();
+    });
+  }
+
   function handlePage() {
+    const currentLinkPagePath = isLinkPage()
+      ? `${window.location.pathname}${window.location.search}${window.location.hash}`
+      : "";
+    const isNewLinkPage = Boolean(currentLinkPagePath)
+      && currentLinkPagePath !== lastHandledLinkPagePath;
+
     if (!isEnhancedPage()) {
       document.documentElement.classList.remove(HOME_LAYOUT_CLASS);
       document.documentElement.classList.remove(LINK_DETAIL_LAYOUT_CLASS);
@@ -15566,6 +16210,8 @@
       removeSettingsEntry();
       removeHeaderMoreMenu();
       closeTopicBlockMenu();
+      restoreLinkPageRelatedContent();
+      lastHandledLinkPagePath = "";
       return;
     }
 
@@ -15583,8 +16229,14 @@
     moveSearchHotListToLeftSidebar();
     removeRightContent();
     if (isLinkPage()) {
-      addFilterToBbsLink();
+      if (isNewLinkPage) {
+        removeLinkPageRelatedContent();
+      }
+      addFilterToBbsLink({ moveRelatedContent: !isNewLinkPage });
+      lastHandledLinkPagePath = currentLinkPagePath;
     } else {
+      restoreLinkPageRelatedContent();
+      lastHandledLinkPagePath = "";
       enhanceFeed();
       if (wasLinkPage && savedScrollY !== null) {
         const targetY = savedScrollY;
@@ -15624,9 +16276,13 @@
     if (linkPageFilterRefreshTimer) {
       window.clearTimeout(linkPageFilterRefreshTimer);
     }
-    window.requestAnimationFrame(updateLinkPageFilterControls);
+    window.requestAnimationFrame(() => {
+      moveLinkPageRelatedContent();
+      updateLinkPageFilterControls();
+    });
     linkPageFilterRefreshTimer = window.setTimeout(() => {
       linkPageFilterRefreshTimer = null;
+      moveLinkPageRelatedContent();
       ensureLinkPageFilterControls();
       updateLinkPageFilterControls();
     }, 160);
@@ -15656,7 +16312,12 @@
     const setupStructureSelector = [
       '.link-comment .hb-cpt__pagination-inner',
       '.hb-bbs-link__header',
-      '.scroll-list__no-more-desc'
+      '.scroll-list__no-more-desc',
+      '.cpt-right-side .dynamic-content',
+      '.cpt-right-side .bbs-link__related-recommend',
+      `.${RELATED_CONTENT_MOUNT_CLASS} .bbs-link__related-recommend.content`,
+      `.${RELATED_CONTENT_MOUNT_CLASS}`,
+      `.${RELATED_TOPIC_ROW_CLASS}`
     ].join(', ');
 
     return mutations.some((mutation) => {
@@ -15769,6 +16430,12 @@
       if (event.key === VIDEO_POSTS_BLOCKED_STORAGE_KEY) {
         syncVideoPostsBlockedState(localStorage.getItem(VIDEO_POSTS_BLOCKED_STORAGE_KEY));
       }
+      if (event.key === SIMILAR_CONTENT_DISABLED_STORAGE_KEY) {
+        syncSimilarContentDisabledState(localStorage.getItem(SIMILAR_CONTENT_DISABLED_STORAGE_KEY));
+      }
+      if (event.key === RECOMMENDED_COMMUNITIES_DISABLED_STORAGE_KEY) {
+        syncRecommendedCommunitiesDisabledState(localStorage.getItem(RECOMMENDED_COMMUNITIES_DISABLED_STORAGE_KEY));
+      }
     });
 
     window.addEventListener(LOCAL_SETTINGS_CHANGED_EVENT, (event) => {
@@ -15800,6 +16467,12 @@
       }
       if (Object.prototype.hasOwnProperty.call(values, HOT_SEARCH_DISABLED_STORAGE_KEY)) {
         syncHotSearchDisabledState(values[HOT_SEARCH_DISABLED_STORAGE_KEY]);
+      }
+      if (Object.prototype.hasOwnProperty.call(values, SIMILAR_CONTENT_DISABLED_STORAGE_KEY)) {
+        syncSimilarContentDisabledState(values[SIMILAR_CONTENT_DISABLED_STORAGE_KEY]);
+      }
+      if (Object.prototype.hasOwnProperty.call(values, RECOMMENDED_COMMUNITIES_DISABLED_STORAGE_KEY)) {
+        syncRecommendedCommunitiesDisabledState(values[RECOMMENDED_COMMUNITIES_DISABLED_STORAGE_KEY]);
       }
     });
   }

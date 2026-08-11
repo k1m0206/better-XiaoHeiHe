@@ -1,6 +1,18 @@
 // 路由监听、页面观察、全局事件绑定和启动流程。
 // 本文件由原入口文件等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
+  function removeLinkPageRelatedContent() {
+    document.querySelectorAll(`#page-bbs-link .${RELATED_CONTENT_MOUNT_CLASS}`).forEach((mountPoint) => {
+      mountPoint.remove();
+    });
+  }
+
   function handlePage() {
+    const currentLinkPagePath = isLinkPage()
+      ? `${window.location.pathname}${window.location.search}${window.location.hash}`
+      : "";
+    const isNewLinkPage = Boolean(currentLinkPagePath)
+      && currentLinkPagePath !== lastHandledLinkPagePath;
+
     if (!isEnhancedPage()) {
       document.documentElement.classList.remove(HOME_LAYOUT_CLASS);
       document.documentElement.classList.remove(LINK_DETAIL_LAYOUT_CLASS);
@@ -10,6 +22,8 @@
       removeSettingsEntry();
       removeHeaderMoreMenu();
       closeTopicBlockMenu();
+      restoreLinkPageRelatedContent();
+      lastHandledLinkPagePath = "";
       return;
     }
 
@@ -27,8 +41,14 @@
     moveSearchHotListToLeftSidebar();
     removeRightContent();
     if (isLinkPage()) {
-      addFilterToBbsLink();
+      if (isNewLinkPage) {
+        removeLinkPageRelatedContent();
+      }
+      addFilterToBbsLink({ moveRelatedContent: !isNewLinkPage });
+      lastHandledLinkPagePath = currentLinkPagePath;
     } else {
+      restoreLinkPageRelatedContent();
+      lastHandledLinkPagePath = "";
       enhanceFeed();
       if (wasLinkPage && savedScrollY !== null) {
         const targetY = savedScrollY;
@@ -68,9 +88,13 @@
     if (linkPageFilterRefreshTimer) {
       window.clearTimeout(linkPageFilterRefreshTimer);
     }
-    window.requestAnimationFrame(updateLinkPageFilterControls);
+    window.requestAnimationFrame(() => {
+      moveLinkPageRelatedContent();
+      updateLinkPageFilterControls();
+    });
     linkPageFilterRefreshTimer = window.setTimeout(() => {
       linkPageFilterRefreshTimer = null;
+      moveLinkPageRelatedContent();
       ensureLinkPageFilterControls();
       updateLinkPageFilterControls();
     }, 160);
@@ -100,7 +124,12 @@
     const setupStructureSelector = [
       '.link-comment .hb-cpt__pagination-inner',
       '.hb-bbs-link__header',
-      '.scroll-list__no-more-desc'
+      '.scroll-list__no-more-desc',
+      '.cpt-right-side .dynamic-content',
+      '.cpt-right-side .bbs-link__related-recommend',
+      `.${RELATED_CONTENT_MOUNT_CLASS} .bbs-link__related-recommend.content`,
+      `.${RELATED_CONTENT_MOUNT_CLASS}`,
+      `.${RELATED_TOPIC_ROW_CLASS}`
     ].join(', ');
 
     return mutations.some((mutation) => {
@@ -213,6 +242,12 @@
       if (event.key === VIDEO_POSTS_BLOCKED_STORAGE_KEY) {
         syncVideoPostsBlockedState(localStorage.getItem(VIDEO_POSTS_BLOCKED_STORAGE_KEY));
       }
+      if (event.key === SIMILAR_CONTENT_DISABLED_STORAGE_KEY) {
+        syncSimilarContentDisabledState(localStorage.getItem(SIMILAR_CONTENT_DISABLED_STORAGE_KEY));
+      }
+      if (event.key === RECOMMENDED_COMMUNITIES_DISABLED_STORAGE_KEY) {
+        syncRecommendedCommunitiesDisabledState(localStorage.getItem(RECOMMENDED_COMMUNITIES_DISABLED_STORAGE_KEY));
+      }
     });
 
     window.addEventListener(LOCAL_SETTINGS_CHANGED_EVENT, (event) => {
@@ -244,6 +279,12 @@
       }
       if (Object.prototype.hasOwnProperty.call(values, HOT_SEARCH_DISABLED_STORAGE_KEY)) {
         syncHotSearchDisabledState(values[HOT_SEARCH_DISABLED_STORAGE_KEY]);
+      }
+      if (Object.prototype.hasOwnProperty.call(values, SIMILAR_CONTENT_DISABLED_STORAGE_KEY)) {
+        syncSimilarContentDisabledState(values[SIMILAR_CONTENT_DISABLED_STORAGE_KEY]);
+      }
+      if (Object.prototype.hasOwnProperty.call(values, RECOMMENDED_COMMUNITIES_DISABLED_STORAGE_KEY)) {
+        syncRecommendedCommunitiesDisabledState(values[RECOMMENDED_COMMUNITIES_DISABLED_STORAGE_KEY]);
       }
     });
   }

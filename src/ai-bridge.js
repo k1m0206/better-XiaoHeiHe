@@ -16,6 +16,8 @@
   const COMMENT_EMOJI_USAGE_STORAGE_KEY = "better-xiaoheihe-comment-emoji-usage";
   const FEED_LAYOUT_SETTINGS_STORAGE_KEY = "better-xiaoheihe-feed-layout-settings";
   const HOT_SEARCH_DISABLED_STORAGE_KEY = "better-xiaoheihe-hot-search-disabled";
+  const SIMILAR_CONTENT_DISABLED_STORAGE_KEY = "better-xiaoheihe-similar-content-disabled";
+  const RECOMMENDED_COMMUNITIES_DISABLED_STORAGE_KEY = "better-xiaoheihe-recommended-communities-disabled";
 
   const LOCAL_SETTINGS_STORAGE_KEYS = [
     HIDE_CY_COMMENTS_STORAGE_KEY,
@@ -26,7 +28,9 @@
     UI_STATE_STORAGE_KEY,
     COMMENT_EMOJI_USAGE_STORAGE_KEY,
     FEED_LAYOUT_SETTINGS_STORAGE_KEY,
-    HOT_SEARCH_DISABLED_STORAGE_KEY
+    HOT_SEARCH_DISABLED_STORAGE_KEY,
+    SIMILAR_CONTENT_DISABLED_STORAGE_KEY,
+    RECOMMENDED_COMMUNITIES_DISABLED_STORAGE_KEY
   ];
 
   const LOCAL_SETTINGS_REQUEST_EVENT = "better-xiaoheihe-local-settings-request";

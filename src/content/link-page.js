@@ -291,11 +291,218 @@
     return toolbar;
   }
 
-  function addFilterToBbsLink() {
+  function restoreLinkPageRelatedContent() {
+    const mountPoints = [...document.querySelectorAll(`#page-bbs-link .${RELATED_CONTENT_MOUNT_CLASS}`)];
+    if (!mountPoints.length) {
+      return;
+    }
+
+    const source = document.querySelector('#page-bbs-link .cpt-right-side .dynamic-content');
+    if (source) {
+      mountPoints.forEach((mountPoint) => {
+        [...mountPoint.children].forEach((block) => source.appendChild(block));
+        mountPoint.remove();
+      });
+    }
+  }
+
+  function ensureLinkPageRelatedTopicRow(mountPoint) {
+    const topicContainer = mountPoint.querySelector(
+      '.bbs-link__related-recommend.topic .related-recommend__container'
+    );
+    if (!topicContainer) {
+      return;
+    }
+
+    let topicRow = topicContainer.querySelector(`.${RELATED_TOPIC_ROW_CLASS}`);
+    if (!topicRow) {
+      topicRow = document.createElement('div');
+      topicRow.className = RELATED_TOPIC_ROW_CLASS;
+      topicRow.setAttribute('role', 'list');
+      topicContainer.append(topicRow);
+    }
+
+    [...topicContainer.children]
+      .filter((child) => child.matches('.related-recommend__link-item--topic'))
+      .forEach((topic) => topicRow.appendChild(topic));
+
+    topicRow.querySelectorAll('.related-recommend__link-item--topic').forEach((topic) => {
+      if (topic.dataset.betterTopicClickBound === 'true') {
+        return;
+      }
+
+      const triggerTopicButton = () => topic.querySelector('.hot-topic__look')?.click();
+      topic.dataset.betterTopicClickBound = 'true';
+      topic.setAttribute('role', 'button');
+      topic.tabIndex = 0;
+      topic.addEventListener('click', (event) => {
+        if (event.target.closest('.hot-topic__look')) {
+          return;
+        }
+        triggerTopicButton();
+      });
+      topic.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') {
+          return;
+        }
+        event.preventDefault();
+        triggerTopicButton();
+      });
+    });
+  }
+
+  function hasLinkPageSimilarContent(block) {
+    return Boolean(block?.querySelector('.related-recommend__link-item--content'));
+  }
+
+  function isStoredBooleanEnabled(value) {
+    return value === true || value === '1' || value === 'true';
+  }
+
+  function syncSimilarContentDisabledState(savedState) {
+    const isDisabled = isStoredBooleanEnabled(savedState);
+    if (isDisabled === similarContentDisabled) {
+      return;
+    }
+
+    similarContentDisabled = isDisabled;
+    moveLinkPageRelatedContent();
+    if (activeSettingsTab === SETTINGS_TABS.GENERAL) {
+      renderSettingsPanel();
+    }
+  }
+
+  function setSimilarContentDisabled(isDisabled) {
+    syncSimilarContentDisabledState(isDisabled);
+    saveLocalSettings({
+      [SIMILAR_CONTENT_DISABLED_STORAGE_KEY]: isDisabled === true
+    });
+  }
+
+  function syncRecommendedCommunitiesDisabledState(savedState) {
+    const isDisabled = isStoredBooleanEnabled(savedState);
+    if (isDisabled === recommendedCommunitiesDisabled) {
+      return;
+    }
+
+    recommendedCommunitiesDisabled = isDisabled;
+    moveLinkPageRelatedContent();
+    if (activeSettingsTab === SETTINGS_TABS.GENERAL) {
+      renderSettingsPanel();
+    }
+  }
+
+  function setRecommendedCommunitiesDisabled(isDisabled) {
+    syncRecommendedCommunitiesDisabledState(isDisabled);
+    saveLocalSettings({
+      [RECOMMENDED_COMMUNITIES_DISABLED_STORAGE_KEY]: isDisabled === true
+    });
+  }
+
+  function ensureLinkPageRelatedCloseButton(block, type) {
+    const header = block.querySelector('.related-recommend__container--header');
+    if (!header) {
+      return;
+    }
+
+    let closeButton = header.querySelector(`.${RELATED_CONTENT_CLOSE_CLASS}`);
+    if (!closeButton) {
+      closeButton = document.createElement('button');
+      closeButton.className = RELATED_CONTENT_CLOSE_CLASS;
+      closeButton.type = 'button';
+      closeButton.textContent = '×';
+      closeButton.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (type === 'content') {
+          setSimilarContentDisabled(true);
+        } else {
+          setRecommendedCommunitiesDisabled(true);
+        }
+      });
+      header.appendChild(closeButton);
+    }
+
+    const label = type === 'content' ? '相似内容' : '为你推荐';
+    closeButton.setAttribute('aria-label', `关闭${label}`);
+    closeButton.setAttribute('title', `关闭${label}`);
+  }
+
+  function updateLinkPageRelatedContentVisibility(mountPoint, hasSimilarContent) {
+    const contentBlock = mountPoint.querySelector('.bbs-link__related-recommend.content');
+    const topicBlock = mountPoint.querySelector('.bbs-link__related-recommend.topic');
+    if (contentBlock) {
+      ensureLinkPageRelatedCloseButton(contentBlock, 'content');
+      contentBlock.hidden = similarContentDisabled;
+    }
+    if (topicBlock) {
+      ensureLinkPageRelatedCloseButton(topicBlock, 'topic');
+      topicBlock.hidden = recommendedCommunitiesDisabled || !hasSimilarContent;
+    }
+
+    mountPoint.hidden = ![contentBlock, topicBlock].some((block) => block && !block.hidden);
+  }
+
+  function moveLinkPageRelatedContent() {
     if (!isLinkPage()) {
       return;
     }
 
+    const source = document.querySelector('#page-bbs-link .cpt-right-side .dynamic-content');
+    const postContent = document.querySelector('#page-bbs-link .hb-bbs-link__content');
+    const existingMountPoint = document.querySelector(`#page-bbs-link .${RELATED_CONTENT_MOUNT_CLASS}`);
+    if (!source || !postContent) {
+      return;
+    }
+
+    const blocks = [...source.children].filter((child) => (
+      child.matches('.bbs-link__related-recommend.content, .bbs-link__related-recommend.topic')
+    ));
+    const sourceContentBlock = blocks.find((block) => block.classList.contains('content'));
+    const mountedContentBlock = existingMountPoint?.querySelector('.bbs-link__related-recommend.content');
+    const hasSimilarContent = hasLinkPageSimilarContent(sourceContentBlock)
+      || hasLinkPageSimilarContent(mountedContentBlock);
+    if (!hasSimilarContent) {
+      if (existingMountPoint) {
+        existingMountPoint.hidden = true;
+      }
+      return;
+    }
+
+    const blocksToMove = blocks.filter((block) => {
+      if (block.classList.contains('content')) {
+        return !similarContentDisabled;
+      }
+      return !recommendedCommunitiesDisabled;
+    });
+
+    if (!blocksToMove.length && !existingMountPoint) {
+      return;
+    }
+
+    let mountPoint = existingMountPoint;
+    if (!mountPoint) {
+      mountPoint = document.createElement('section');
+      mountPoint.className = RELATED_CONTENT_MOUNT_CLASS;
+      mountPoint.setAttribute('aria-label', '相关内容');
+      postContent.insertAdjacentElement('afterend', mountPoint);
+    }
+
+    blocksToMove.forEach((block) => mountPoint.appendChild(block));
+    if (mountPoint.querySelector('.bbs-link__related-recommend.topic')) {
+      ensureLinkPageRelatedTopicRow(mountPoint);
+    }
+    updateLinkPageRelatedContentVisibility(mountPoint, hasSimilarContent);
+  }
+
+  function addFilterToBbsLink({ moveRelatedContent = true } = {}) {
+    if (!isLinkPage()) {
+      return;
+    }
+
+    if (moveRelatedContent) {
+      moveLinkPageRelatedContent();
+    }
     ensureLinkPageCommentUserLevels();
     moveLinkPageEmptyStateIntoCommentPanel();
     ensureLinkPageAiSummaryButton();

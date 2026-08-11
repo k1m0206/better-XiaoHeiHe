@@ -102,15 +102,32 @@
         </div>
         <button class="better-settings__text-button better-settings__layout-reset" type="button">恢复默认值</button>
       </div>
-      <div class="better-settings__section better-settings__hot-search-section">
-        <div class="better-settings__hot-search-row">
-          <div class="better-settings__hot-search-copy">
-            <div class="better-settings__section-title">黑盒热搜</div>
-            <div class="better-settings__desc">控制首页和搜索页左侧的悬浮热搜入口。</div>
+      <div class="better-settings__section better-settings__visibility-section">
+        <div class="better-settings__visibility-grid">
+          <div class="better-settings__visibility-item">
+            <div class="better-settings__visibility-copy">
+              <div class="better-settings__section-title">相似内容</div>
+            </div>
+            <button class="better-settings__visibility-toggle better-settings__similar-content-toggle" type="button" role="switch" aria-checked="${similarContentDisabled ? "false" : "true"}" aria-label="${similarContentDisabled ? "恢复显示相似内容" : "关闭相似内容"}" title="${similarContentDisabled ? "恢复显示相似内容" : "关闭相似内容"}">
+              <span class="better-settings__level-switch" aria-hidden="true"></span>
+            </button>
           </div>
-          <button class="better-settings__hot-search-toggle" type="button" role="switch" aria-checked="${hotSearchDisabled ? "false" : "true"}" aria-label="${hotSearchDisabled ? "恢复显示黑盒热搜" : "永久关闭黑盒热搜"}" title="${hotSearchDisabled ? "恢复显示热搜" : "永久关闭热搜"}">
-            <span class="better-settings__level-switch" aria-hidden="true"></span>
-          </button>
+          <div class="better-settings__visibility-item">
+            <div class="better-settings__visibility-copy">
+              <div class="better-settings__section-title">为你推荐</div>
+            </div>
+            <button class="better-settings__visibility-toggle better-settings__recommended-communities-toggle" type="button" role="switch" aria-checked="${recommendedCommunitiesDisabled ? "false" : "true"}" aria-label="${recommendedCommunitiesDisabled ? "恢复显示为你推荐" : "关闭为你推荐"}" title="${recommendedCommunitiesDisabled ? "恢复显示为你推荐" : "关闭为你推荐"}">
+              <span class="better-settings__level-switch" aria-hidden="true"></span>
+            </button>
+          </div>
+          <div class="better-settings__visibility-item">
+            <div class="better-settings__visibility-copy">
+              <div class="better-settings__section-title">黑盒热搜</div>
+            </div>
+            <button class="better-settings__visibility-toggle better-settings__hot-search-toggle" type="button" role="switch" aria-checked="${hotSearchDisabled ? "false" : "true"}" aria-label="${hotSearchDisabled ? "恢复显示黑盒热搜" : "关闭黑盒热搜"}" title="${hotSearchDisabled ? "恢复显示热搜" : "关闭黑盒热搜"}">
+              <span class="better-settings__level-switch" aria-hidden="true"></span>
+            </button>
+          </div>
         </div>
       </div>
       <div class="better-settings__external-links">

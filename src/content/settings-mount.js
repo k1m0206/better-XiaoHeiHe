@@ -92,6 +92,18 @@
         return;
       }
 
+      const similarContentToggleButton = event.target.closest(".better-settings__similar-content-toggle");
+      if (similarContentToggleButton && panel.contains(similarContentToggleButton)) {
+        setSimilarContentDisabled(!similarContentDisabled);
+        return;
+      }
+
+      const recommendedCommunitiesToggleButton = event.target.closest(".better-settings__recommended-communities-toggle");
+      if (recommendedCommunitiesToggleButton && panel.contains(recommendedCommunitiesToggleButton)) {
+        setRecommendedCommunitiesDisabled(!recommendedCommunitiesDisabled);
+        return;
+      }
+
       const resetPromptButton = event.target.closest(".better-settings__ai-reset-prompt");
       if (resetPromptButton && panel.contains(resetPromptButton)) {
         const promptInput = panel.querySelector(".better-settings__ai-summary-prompt");

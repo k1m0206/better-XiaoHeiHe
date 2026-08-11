@@ -32,6 +32,9 @@
   const SETTINGS_ENTRY_CLASS = "better-xiaoheihe-settings-entry";
   const SETTINGS_PANEL_CLASS = "better-xiaoheihe-settings-panel";
   const AI_SUMMARY_MODAL_CLASS = "better-xiaoheihe-ai-summary-modal";
+  const RELATED_CONTENT_MOUNT_CLASS = "better-link-related-content";
+  const RELATED_TOPIC_ROW_CLASS = "better-link-related-topic-list";
+  const RELATED_CONTENT_CLOSE_CLASS = "better-link-related-close";
   const TOPIC_BLOCK_MENU_CLASS = "better-xiaoheihe-topic-block-menu";
   const HOT_SEARCH_SIDEBAR_CLASS = "better-xiaoheihe-hot-search-sidebar";
   const HOT_SEARCH_SIDEBAR_OPEN_CLASS = "better-xiaoheihe-hot-search-sidebar--open";
@@ -148,10 +151,13 @@
   let activeSettingsTab = SETTINGS_TABS.GENERAL;
   let hotSearchPromise = null;
   let hotSearchDisabled = false;
+  let similarContentDisabled = false;
+  let recommendedCommunitiesDisabled = false;
   let leftMenuOriginalPosition = null;
   let emojiPromise = null;
   let scheduled = false;
   let handlingPage = false;
+  let lastHandledLinkPagePath = "";
   let savedScrollY = null;
   let linkPageFilterRefreshTimer = null;
   let previewObserver = null;
@@ -755,6 +761,8 @@
     emojiUsageStats = normalizeEmojiUsageStats(values[COMMENT_EMOJI_USAGE_STORAGE_KEY]);
     feedLayoutSettings = normalizeFeedLayoutSettings(values[FEED_LAYOUT_SETTINGS_STORAGE_KEY]);
     hotSearchDisabled = values[HOT_SEARCH_DISABLED_STORAGE_KEY] === true;
+    similarContentDisabled = values[SIMILAR_CONTENT_DISABLED_STORAGE_KEY] === true;
+    recommendedCommunitiesDisabled = values[RECOMMENDED_COMMUNITIES_DISABLED_STORAGE_KEY] === true;
     applyFeedLayoutSettings();
   }
 
@@ -823,6 +831,12 @@
       : normalizeFeedLayoutSettings();
     nextValues[HOT_SEARCH_DISABLED_STORAGE_KEY] = keysPresent[HOT_SEARCH_DISABLED_STORAGE_KEY]
       ? values[HOT_SEARCH_DISABLED_STORAGE_KEY] === true
+      : false;
+    nextValues[SIMILAR_CONTENT_DISABLED_STORAGE_KEY] = keysPresent[SIMILAR_CONTENT_DISABLED_STORAGE_KEY]
+      ? values[SIMILAR_CONTENT_DISABLED_STORAGE_KEY] === true
+      : false;
+    nextValues[RECOMMENDED_COMMUNITIES_DISABLED_STORAGE_KEY] = keysPresent[RECOMMENDED_COMMUNITIES_DISABLED_STORAGE_KEY]
+      ? values[RECOMMENDED_COMMUNITIES_DISABLED_STORAGE_KEY] === true
       : false;
 
     applyLocalSettingsValues(nextValues);
