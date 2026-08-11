@@ -194,6 +194,7 @@
   let activeImageViewerImages = [];
   let activeImageViewerIndex = 0;
   let imageViewerScale = 1;
+  let imageViewerRotation = 0;
   let imageViewerOffsetX = 0;
   let imageViewerOffsetY = 0;
   let imageViewerDragState = null;

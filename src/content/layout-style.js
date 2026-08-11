@@ -4755,7 +4755,7 @@
         cursor: zoom-in;
         touch-action: none;
         user-select: none;
-        transition: opacity 0.14s ease, transform 0.12s ease-out;
+        transition: opacity 0.14s ease, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
         will-change: opacity, transform;
       }
 
@@ -4853,7 +4853,9 @@
 
       .${IMAGE_VIEWER_CLASS} .better-image-viewer__close,
       .${IMAGE_VIEWER_CLASS} .better-image-viewer__prev,
-      .${IMAGE_VIEWER_CLASS} .better-image-viewer__next {
+      .${IMAGE_VIEWER_CLASS} .better-image-viewer__next,
+      .${IMAGE_VIEWER_CLASS} .better-image-viewer__rotate-left,
+      .${IMAGE_VIEWER_CLASS} .better-image-viewer__rotate-right {
         position: absolute;
         display: inline-flex;
         width: 42px;
@@ -4871,7 +4873,9 @@
 
       .${IMAGE_VIEWER_CLASS} .better-image-viewer__close:hover,
       .${IMAGE_VIEWER_CLASS} .better-image-viewer__prev:hover,
-      .${IMAGE_VIEWER_CLASS} .better-image-viewer__next:hover {
+      .${IMAGE_VIEWER_CLASS} .better-image-viewer__next:hover,
+      .${IMAGE_VIEWER_CLASS} .better-image-viewer__rotate-left:hover,
+      .${IMAGE_VIEWER_CLASS} .better-image-viewer__rotate-right:hover {
         background: rgba(255, 255, 255, 0.24);
       }
 
@@ -4886,6 +4890,16 @@
 
       .${IMAGE_VIEWER_CLASS} .better-image-viewer__next {
         right: 28px;
+      }
+
+      .${IMAGE_VIEWER_CLASS} .better-image-viewer__rotate-left {
+        bottom: 24px;
+        left: calc(50% - 106px);
+      }
+
+      .${IMAGE_VIEWER_CLASS} .better-image-viewer__rotate-right {
+        right: calc(50% - 106px);
+        bottom: 24px;
       }
 
       .${IMAGE_VIEWER_CLASS} .better-image-viewer__counter {

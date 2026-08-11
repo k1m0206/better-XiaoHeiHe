@@ -394,6 +394,8 @@
       <button class="better-image-viewer__prev" type="button" aria-label="上一张">‹</button>
       <img class="better-image-viewer__image" alt="">
       <button class="better-image-viewer__next" type="button" aria-label="下一张">›</button>
+      <button class="better-image-viewer__rotate-left" type="button" aria-label="向左旋转图片" title="向左旋转">↶</button>
+      <button class="better-image-viewer__rotate-right" type="button" aria-label="向右旋转图片" title="向右旋转">↷</button>
       <div class="better-image-viewer__counter"></div>
     `;
     viewer.addEventListener("click", (event) => {
@@ -413,6 +415,16 @@
 
       if (event.target.closest(".better-image-viewer__next")) {
         showImageViewerAt(activeImageViewerIndex + 1);
+        return;
+      }
+
+      if (event.target.closest(".better-image-viewer__rotate-left")) {
+        rotateImageViewer(viewer, -90);
+        return;
+      }
+
+      if (event.target.closest(".better-image-viewer__rotate-right")) {
+        rotateImageViewer(viewer, 90);
       }
     });
     viewer.addEventListener("wheel", (event) => {
@@ -437,9 +449,13 @@
   }
 
   function getImageViewerOffsetBounds(image) {
+    const rotation = ((imageViewerRotation % 360) + 360) % 360;
+    const isQuarterTurn = rotation === 90 || rotation === 270;
+    const width = isQuarterTurn ? image.clientHeight : image.clientWidth;
+    const height = isQuarterTurn ? image.clientWidth : image.clientHeight;
     return {
-      x: Math.max(0, (image.clientWidth * imageViewerScale - window.innerWidth) / 2),
-      y: Math.max(0, (image.clientHeight * imageViewerScale - window.innerHeight) / 2)
+      x: Math.max(0, (width * imageViewerScale - window.innerWidth) / 2),
+      y: Math.max(0, (height * imageViewerScale - window.innerHeight) / 2)
     };
   }
 
@@ -453,11 +469,11 @@
     imageViewerOffsetX = Math.min(bounds.x, Math.max(-bounds.x, imageViewerOffsetX));
     imageViewerOffsetY = Math.min(bounds.y, Math.max(-bounds.y, imageViewerOffsetY));
     viewer.classList.toggle("better-image-viewer--zoomed", imageViewerScale > 1);
-    if (imageViewerScale === 1 && imageViewerOffsetX === 0 && imageViewerOffsetY === 0) {
+    if (imageViewerScale === 1 && imageViewerRotation === 0 && imageViewerOffsetX === 0 && imageViewerOffsetY === 0) {
       image.style.removeProperty("transform");
       return;
     }
-    image.style.transform = `translate3d(${imageViewerOffsetX}px, ${imageViewerOffsetY}px, 0) scale(${imageViewerScale})`;
+    image.style.transform = `translate3d(${imageViewerOffsetX}px, ${imageViewerOffsetY}px, 0) rotate(${imageViewerRotation}deg) scale(${imageViewerScale})`;
   }
 
   function setImageViewerScale(viewer, scale) {
@@ -471,6 +487,16 @@
       imageViewerOffsetX = 0;
       imageViewerOffsetY = 0;
     }
+    renderImageViewerTransform(viewer);
+  }
+
+  function rotateImageViewer(viewer, degrees) {
+    const image = viewer.querySelector(".better-image-viewer__image");
+    if (!image) {
+      return;
+    }
+
+    imageViewerRotation += degrees;
     renderImageViewerTransform(viewer);
   }
 
@@ -518,6 +544,7 @@
   function resetImageViewerScale(viewer) {
     imageViewerDragState = null;
     imageViewerScale = 1;
+    imageViewerRotation = 0;
     imageViewerOffsetX = 0;
     imageViewerOffsetY = 0;
     viewer.classList.remove("better-image-viewer--zoomed", "better-image-viewer--dragging");
