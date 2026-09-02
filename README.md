@@ -103,6 +103,12 @@ src/shared/
 .\scripts\build-source-bundles.ps1
 ```
 
+评论发送接口的离线回归测试（需要 Node.js，不会发送网络请求）：
+
+```powershell
+node --test scripts/test-comment-create.cjs
+```
+
 ### 打包
 
 生成 Chrome/Edge 上传包：
@@ -171,9 +177,9 @@ POST /bbs/app/profile/award/link
 POST /bbs/app/comment/create
 ```
 
-其中评论创建接口使用 `https://workshopapi.xiaoheihe.cn`，其余上表接口仍使用各自当前的网页接口域名。
+评论创建接口使用 `https://api.xiaoheihe.cn/bbs/app/comment/create`，通过当前网页登录 Cookie 鉴权，不再携带 `heybox_id` URL 参数。
 
-扩展会复用页面请求中已经出现的网页环境参数，并按请求实时生成 `hkey`、`_time`、`nonce`；Workshop 写接口还会生成 `_rnd`。修改接口参数或签名逻辑时，应同步更新对应代码注释和 `doc/` 中的接口文档。
+扩展会复用页面请求中已经出现的网页环境参数，并按请求实时生成 `hkey`、`_time`、`nonce`；评论创建接口继续沿用版本 15 的 `_rnd` 附加签名和 `web_version=3.0`。修改接口参数或签名逻辑时，应同步更新对应代码注释和 `doc/` 中的接口文档。
 
 评论列表和楼中楼查询会优先尝试去除个人标识的请求；失败时回退到当前网页登录态。扩展不会临时移除或修改浏览器中的小黑盒登录 Cookie。
 
