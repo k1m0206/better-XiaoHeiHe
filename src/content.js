@@ -404,11 +404,18 @@
 
   function applyFeedLayoutSettings() {
     const layout = feedLayoutSettings;
+    const commentRatio = (100 - layout.postWidth) / 100;
     const root = document.documentElement;
     root.style.setProperty("--better-feed-total-width", `${layout.totalWidth}vw`);
     root.style.setProperty("--better-feed-half-width", `${layout.totalWidth / 2}vw`);
     root.style.setProperty("--better-feed-post-column", `${layout.postWidth}fr`);
     root.style.setProperty("--better-feed-comment-column", `${100 - layout.postWidth}fr`);
+    root.style.setProperty("--better-feed-detail-total-width", `${layout.totalWidth}%`);
+    root.style.setProperty("--better-feed-detail-inset", `${(100 - layout.totalWidth) / 2}%`);
+    root.style.setProperty(
+      "--better-feed-detail-comment-width",
+      `calc(${layout.totalWidth * commentRatio}% - ${16 * commentRatio}px)`
+    );
   }
 
   function updateFeedLayoutSetting(nextLayout, options = {}) {
@@ -6347,23 +6354,58 @@
         opacity: 0.65;
       }
 
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-page__app .hb-website__container,
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-page__app .hb-layout__main,
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-page__app .hb-layout-main__container,
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-page__app .hb-layout__content {
+        padding-right: 0 !important;
+        padding-left: 0 !important;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-layout-main__container--left {
+        display: none !important;
+        width: 0 !important;
+        min-width: 0 !important;
+        flex: 0 0 0 !important;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} #app > main:has(> #page-bbs-link) {
+        box-sizing: border-box !important;
+        width: 100% !important;
+        max-width: none !important;
+        margin-right: 0 !important;
+        margin-left: 0 !important;
+        padding-right: 0 !important;
+        padding-left: 0 !important;
+      }
+
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-layout-main__container--main {
         box-sizing: border-box;
-        width: min(1280px, calc(100vw - 192px)) !important;
+        left: auto !important;
+        flex: 0 0 var(--better-feed-total-width, 92vw) !important;
+        width: var(--better-feed-total-width, 92vw) !important;
         max-width: none !important;
         margin-right: auto !important;
         margin-left: auto !important;
       }
 
-      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} #page-bbs-link,
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} #page-bbs-link {
+        box-sizing: border-box !important;
+        min-width: 0 !important;
+        width: var(--better-feed-detail-total-width, 92%) !important;
+        max-width: 100% !important;
+        margin-right: auto !important;
+        margin-left: auto !important;
+      }
+
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} #page-bbs-link > .content,
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} #page-bbs-link > .content > .list {
         box-sizing: border-box !important;
         min-width: 0 !important;
-        width: min(1280px, calc(100vw - 192px)) !important;
-        max-width: none !important;
-        margin-right: auto !important;
-        margin-left: auto !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin-right: 0 !important;
+        margin-left: 0 !important;
       }
 
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} #page-bbs-link {
@@ -6400,13 +6442,13 @@
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-bbs-link {
         overflow: visible !important;
         width: 100% !important;
-        max-width: none !important;
+        max-width: 100% !important;
       }
 
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-bbs-link {
         box-sizing: border-box;
         display: grid !important;
-        grid-template-columns: minmax(0, 3fr) minmax(360px, 2fr);
+        grid-template-columns: minmax(0, var(--better-feed-post-column, 70fr)) minmax(0, var(--better-feed-comment-column, 30fr));
         align-items: start;
         gap: 16px;
         width: 100% !important;
@@ -6782,9 +6824,10 @@
 
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-bbs-post .post__container {
         box-sizing: border-box;
-        width: min(100%, 960px) !important;
-        margin-right: auto !important;
-        margin-left: auto !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin-right: 0 !important;
+        margin-left: 0 !important;
       }
 
       .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .hb-bbs-post .com-img-item {
@@ -6812,15 +6855,15 @@
         grid-column: 2;
         position: fixed !important;
         top: 76px !important;
-        right: max(96px, calc((100vw - 1280px) * 0.5)) !important;
+        right: var(--better-feed-detail-inset, 4%) !important;
         z-index: 30;
         height: calc(100vh - 168px);
         max-height: calc(100vh - 168px);
         min-height: 0;
         overflow-x: hidden;
         overflow-y: auto;
-        width: clamp(360px, 34vw, 520px) !important;
-        max-width: calc(100vw - 192px) !important;
+        width: var(--better-feed-detail-comment-width, calc(27.6% - 4.8px)) !important;
+        max-width: none !important;
         padding: 0 0 12px 16px;
         border-left: 1px solid #eef0f2;
         background: #fff;
@@ -6952,12 +6995,12 @@
         box-sizing: border-box;
         grid-column: 2;
         position: fixed !important;
-        right: max(96px, calc((100vw - 1280px) * 0.5)) !important;
+        right: var(--better-feed-detail-inset, 4%) !important;
         bottom: 12px !important;
         left: auto !important;
         z-index: 31;
-        width: clamp(360px, 34vw, 520px) !important;
-        max-width: calc(100vw - 192px) !important;
+        width: var(--better-feed-detail-comment-width, calc(27.6% - 4.8px)) !important;
+        max-width: none !important;
         margin-top: -8px;
         border-left: 1px solid #eef0f2;
         background: #fff;

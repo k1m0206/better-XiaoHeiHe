@@ -260,11 +260,18 @@
 
   function applyFeedLayoutSettings() {
     const layout = feedLayoutSettings;
+    const commentRatio = (100 - layout.postWidth) / 100;
     const root = document.documentElement;
     root.style.setProperty("--better-feed-total-width", `${layout.totalWidth}vw`);
     root.style.setProperty("--better-feed-half-width", `${layout.totalWidth / 2}vw`);
     root.style.setProperty("--better-feed-post-column", `${layout.postWidth}fr`);
     root.style.setProperty("--better-feed-comment-column", `${100 - layout.postWidth}fr`);
+    root.style.setProperty("--better-feed-detail-total-width", `${layout.totalWidth}%`);
+    root.style.setProperty("--better-feed-detail-inset", `${(100 - layout.totalWidth) / 2}%`);
+    root.style.setProperty(
+      "--better-feed-detail-comment-width",
+      `calc(${layout.totalWidth * commentRatio}% - ${16 * commentRatio}px)`
+    );
   }
 
   function updateFeedLayoutSetting(nextLayout, options = {}) {
