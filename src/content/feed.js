@@ -1240,7 +1240,19 @@
     const range = selection.getRangeAt(0);
     range.deleteContents();
 
-    const insertedNode = emoji?.img
+    let isSafeEmojiImg = false;
+    if (emoji?.img) {
+      try {
+        const emojiImgUrl = new URL(emoji.img, window.location.origin);
+        isSafeEmojiImg =
+          ["http:", "https:", "chrome-extension:", "moz-extension:"].includes(emojiImgUrl.protocol) ||
+          /^data:image\//i.test(emoji.img);
+      } catch {
+        isSafeEmojiImg = false;
+      }
+    }
+
+    const insertedNode = isSafeEmojiImg
       ? document.createElement("img")
       : document.createTextNode(emojiText);
     if (insertedNode instanceof HTMLImageElement) {
