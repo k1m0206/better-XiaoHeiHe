@@ -183,7 +183,9 @@
       const data = JSON.parse(payload);
       if (data?.protocol_type === "openLink") {
         const linkId = data?.link?.linkid;
-        return /^\d+$/.test(String(linkId)) ? `/app/bbs/link/${linkId}` : "";
+        return linkId != null && LINK_ID_REGEXP.test(String(linkId))
+          ? `/app/bbs/link/${linkId}`
+          : "";
       }
 
       if (data?.protocol_type === "openGameDetail") {

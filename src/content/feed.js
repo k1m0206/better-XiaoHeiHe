@@ -1871,7 +1871,7 @@
 
   function getLinkIdFromItem(item) {
     const href = item.getAttribute("href") || "";
-    return href.match(/\/app\/bbs\/link\/(\d+)/)?.[1] || "";
+    return getLinkIdFromUrl(href);
   }
 
   function getCommentCountFromItem(item) {

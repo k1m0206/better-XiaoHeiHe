@@ -1,7 +1,8 @@
 // 页面状态、配置归一化、本地设置同步。
 // 本文件由原入口文件等价拆分而来，请通过 scripts/build-source-bundles.ps1 重新生成入口文件。
   const ENHANCED_PATH_PREFIXES = ["/app/bbs", "/app/topic/link", "/app/user/profile", "/app/user/favour", "/app/search"];
-  const LINK_PATH_REGEXP = /^\/app\/bbs\/link\/(\d+)/;
+  const LINK_ID_REGEXP = /^[0-9A-Za-z_-]+$/;
+  const LINK_PATH_REGEXP = /^\/app\/bbs\/link\/([0-9A-Za-z_-]+)(?:\/|$)/;
   const RIGHT_CONTENT_SELECTOR = [
     ".hb-layout__content--right",
     ".cpt-right-side",
@@ -213,11 +214,20 @@
   }
 
   function isLinkPage() {
-    return LINK_PATH_REGEXP.test(window.location.pathname);
+    return Boolean(getCurrentLinkId());
   }
 
   function getCurrentLinkId() {
-    return window.location.pathname.match(LINK_PATH_REGEXP)?.[1] || "";
+    return getLinkIdFromUrl(window.location.href);
+  }
+
+  function getLinkIdFromUrl(value) {
+    try {
+      const url = new URL(value, window.location.href);
+      return url.pathname.match(LINK_PATH_REGEXP)?.[1] || "";
+    } catch {
+      return "";
+    }
   }
 
   function isSearchPage() {
