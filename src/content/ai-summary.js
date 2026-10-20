@@ -775,7 +775,15 @@
       return;
     }
     button.classList.toggle("is-complete", isComplete);
-    button.textContent = isComplete ? "" : "AI";
+    // 文章顶部工具条按钮带图标 + 文字两个子节点，直接改 textContent 会把图标一起清掉。
+    const label = button.querySelector("[data-ai-button-label]");
+    if (label) {
+      label.textContent = isComplete
+        ? (button.dataset.aiDoneLabel || "查看总结")
+        : (button.dataset.aiIdleLabel || "AI 总结");
+    } else {
+      button.textContent = isComplete ? "" : "AI";
+    }
     button.title = isComplete ? "查看 AI 总结" : "AI 总结";
     button.setAttribute("aria-label", button.title);
   }

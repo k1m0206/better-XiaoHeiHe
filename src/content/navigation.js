@@ -21,8 +21,11 @@
       removeFavoriteEntry();
       removeSettingsEntry();
       removeHeaderMoreMenu();
+      removeLinkPageToolbar();
+      restoreNativeLinkPageActions();
       closeTopicBlockMenu();
       restoreLinkPageRelatedContent();
+      resetBrowseHistoryRecordState();
       lastHandledLinkPagePath = "";
       return;
     }
@@ -32,7 +35,10 @@
     injectLayoutStyle();
     ensureHeaderMoreMenu();
     ensureFavoriteEntry();
+    ensureBrowseHistoryEntry();
     ensureSettingsEntry();
+    // 文章工具条挂在全局搜索框左侧；非文章页会自动移除。
+    ensureLinkPageToolbar();
 
     document.documentElement.classList.add(HOME_LAYOUT_CLASS);
     document.documentElement.classList.toggle(LINK_DETAIL_LAYOUT_CLASS, isLinkPage());
@@ -48,7 +54,10 @@
       lastHandledLinkPagePath = currentLinkPagePath;
     } else {
       restoreLinkPageRelatedContent();
+      restoreNativeLinkPageActions();
+      removeLinkPageToolbar();
       lastHandledLinkPagePath = "";
+      resetBrowseHistoryRecordState();
       enhanceFeed();
       if (wasLinkPage && savedScrollY !== null) {
         const targetY = savedScrollY;
@@ -189,7 +198,11 @@
   }
 
   function installRouteHooks() {
-    window.addEventListener("popstate", scheduleHandlePageAfterRoute);
+    window.addEventListener("popstate", () => {
+      // 站内前进/后退也算一次站内路由变更，供文章工具条的“返回”判断。
+      internalRouteCount += 1;
+      scheduleHandlePageAfterRoute();
+    });
 
     const originalPushState = history.pushState;
     const originalReplaceState = history.replaceState;
@@ -197,6 +210,7 @@
     history.pushState = function (...args) {
       savedScrollY = window.scrollY;
       const result = originalPushState.apply(this, args);
+      internalRouteCount += 1;
       scheduleHandlePageAfterRoute();
       return result;
     };
@@ -248,6 +262,13 @@
       if (event.key === RECOMMENDED_COMMUNITIES_DISABLED_STORAGE_KEY) {
         syncRecommendedCommunitiesDisabledState(localStorage.getItem(RECOMMENDED_COMMUNITIES_DISABLED_STORAGE_KEY));
       }
+      if (event.key === BROWSE_HISTORY_STORAGE_KEY) {
+        try {
+          syncBrowseHistoryState(JSON.parse(localStorage.getItem(BROWSE_HISTORY_STORAGE_KEY) || "[]"));
+        } catch {
+          syncBrowseHistoryState([]);
+        }
+      }
     });
 
     window.addEventListener(LOCAL_SETTINGS_CHANGED_EVENT, (event) => {
@@ -285,6 +306,9 @@
       }
       if (Object.prototype.hasOwnProperty.call(values, RECOMMENDED_COMMUNITIES_DISABLED_STORAGE_KEY)) {
         syncRecommendedCommunitiesDisabledState(values[RECOMMENDED_COMMUNITIES_DISABLED_STORAGE_KEY]);
+      }
+      if (Object.prototype.hasOwnProperty.call(values, BROWSE_HISTORY_STORAGE_KEY)) {
+        syncBrowseHistoryState(values[BROWSE_HISTORY_STORAGE_KEY]);
       }
     });
   }
