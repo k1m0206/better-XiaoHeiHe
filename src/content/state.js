@@ -30,6 +30,37 @@
   const HEADER_MORE_MENU_SOURCE_CLASS = "better-xiaoheihe-header-more-menu__source";
   const MESSAGE_POPOVER_CLASS = "better-xiaoheihe-message-popover";
   const FAVORITE_POPOVER_CLASS = "better-xiaoheihe-favorite-popover";
+  const BROWSE_HISTORY_ENTRY_CLASS = "better-xiaoheihe-history-entry";
+  const BROWSE_HISTORY_POPOVER_CLASS = "better-xiaoheihe-history-popover";
+  const FAVORITE_ALL_FOLDER_ID = "__all__";
+  const FAVORITE_SCHEMA_VERSION = 1;
+  const FAVORITE_PAGE_LIMIT = 20;
+  const FAVORITE_MAX_PAGES = 12;
+  const FAVORITE_MAX_ITEMS = 240;
+  const FAVORITE_SEARCH_DEBOUNCE = 250;
+  const FAVORITE_FOLDER_NAME_MAX_LENGTH = 30;
+  const FAVORITE_FOLDER_COVER_LIMIT = 3;
+  const FAVORITE_TAB_IDS = {
+    CONTENT: "content",
+    FOLDERS: "folders",
+    CY: "cy"
+  };
+  const FAVORITE_TABS = [
+    { id: FAVORITE_TAB_IDS.CONTENT, label: "内容" },
+    { id: FAVORITE_TAB_IDS.FOLDERS, label: "收藏夹" },
+    { id: FAVORITE_TAB_IDS.CY, label: "CY" }
+  ];
+  // 文章详情页顶部工具条（返回 / AI 总结 / 复制链接），挂在全局搜索框左侧的同一行。
+  const LINK_PAGE_TOOLBAR_CLASS = "better-link-page-toolbar";
+  const LINK_PAGE_TOOLBAR_BACK_CLASS = "better-link-page-toolbar__back";
+  const LINK_PAGE_TOOLBAR_SUMMARY_CLASS = "better-link-page-toolbar__summary";
+  const LINK_PAGE_TOOLBAR_COPY_CLASS = "better-link-page-toolbar__copy";
+  const HEADER_TOAST_CLASS = "better-xiaoheihe-toast";
+  const TOAST_DURATION = 2000;
+  const BROWSE_HISTORY_SCHEMA_VERSION = 1;
+  const BROWSE_HISTORY_MAX_ENTRIES = 200;
+  const BROWSE_HISTORY_PANEL_LIMIT = 50;
+  const BROWSE_HISTORY_RECORD_TIMEOUT = 12000;
   const SETTINGS_ENTRY_CLASS = "better-xiaoheihe-settings-entry";
   const SETTINGS_PANEL_CLASS = "better-xiaoheihe-settings-panel";
   const AI_SUMMARY_MODAL_CLASS = "better-xiaoheihe-ai-summary-modal";
@@ -170,6 +201,20 @@
   let favoriteEntryClickBound = false;
   let favoriteEntryLastPointerHandledAt = 0;
   let favoritePopoverOutsideClickBound = false;
+  let browseHistoryEntryClickBound = false;
+  let browseHistoryEntryLastPointerHandledAt = 0;
+  let browseHistoryPopoverOutsideClickBound = false;
+  let favoriteSearchTimer = null;
+  let favoriteBrowserRequestToken = 0;
+  let favoriteFoldersCache = null;
+  let favoriteAllItemsPromise = null;
+  let favoriteDialogOutsideClickBound = false;
+  let headerToastTimer = null;
+  // 站内 SPA 路由变更次数，用于判断“返回”是否应回到站内上一页。
+  let internalRouteCount = 0;
+  let browseHistoryReady = false;
+  let browseHistoryPromptRecordPath = "";
+  let browseHistoryRecordTimer = null;
   let headerMessageClickBound = false;
   let headerSearchHistoryOutsideClickBound = false;
   let headerMoreMenuOutsideClickBound = false;
@@ -190,12 +235,51 @@
       award: { messages: [], offset: 0, hasMore: true, loading: false }
     }
   };
-  const favoritePopoverState = {
+  // 收藏浏览器：tab 为“内容 / 收藏夹 / CY”三个标签；
+  // 收藏夹标签内部再用 folderView 区分目录层（list）和某个分夹的内容层（items）。
+  const favoriteBrowserState = {
+    tab: FAVORITE_TAB_IDS.CONTENT,
+    folderView: "list",
+    folderId: "",
+    folderName: "",
+    query: "",
+    folders: [],
     items: [],
     offset: 0,
     hasMore: true,
+    loading: false,
+    searching: false,
+    foldersLoading: false,
+    error: "",
+    loaded: false,
+    foldersLoaded: false,
+    foldersScrollTop: 0,
+    dialogOpen: false,
+    dialogName: "",
+    dialogError: "",
+    dialogSubmitting: false,
+    dialogUnsupported: false,
+    dialogFocusPending: false,
+    cy: {
+      loaded: false,
+      loading: false,
+      error: "",
+      unsupported: false,
+      items: []
+    }
+  };
+  // 收藏接口返回的帖子缓存；complete 表示已经翻到最后一页，搜索只依赖它。
+  const favoriteItemStore = {
+    items: [],
+    complete: false,
     loading: false
   };
+  const browseHistoryState = {
+    items: [],
+    loading: false,
+    error: ""
+  };
+  let browseHistoryItems = [];
   const pageScrollLockOwners = new Set();
   let pageScrollLockState = null;
   let activeImageViewerImages = [];
@@ -780,6 +864,8 @@
     hotSearchDisabled = values[HOT_SEARCH_DISABLED_STORAGE_KEY] === true;
     similarContentDisabled = values[SIMILAR_CONTENT_DISABLED_STORAGE_KEY] === true;
     recommendedCommunitiesDisabled = values[RECOMMENDED_COMMUNITIES_DISABLED_STORAGE_KEY] === true;
+    browseHistoryReady = true;
+    syncBrowseHistoryState(values[BROWSE_HISTORY_STORAGE_KEY]);
     applyFeedLayoutSettings();
   }
 
@@ -855,6 +941,9 @@
     nextValues[RECOMMENDED_COMMUNITIES_DISABLED_STORAGE_KEY] = keysPresent[RECOMMENDED_COMMUNITIES_DISABLED_STORAGE_KEY]
       ? values[RECOMMENDED_COMMUNITIES_DISABLED_STORAGE_KEY] === true
       : false;
+    nextValues[BROWSE_HISTORY_STORAGE_KEY] = keysPresent[BROWSE_HISTORY_STORAGE_KEY]
+      ? values[BROWSE_HISTORY_STORAGE_KEY]
+      : [];
 
     applyLocalSettingsValues(nextValues);
 

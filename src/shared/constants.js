@@ -13,6 +13,8 @@
   const HOT_SEARCH_DISABLED_STORAGE_KEY = "better-xiaoheihe-hot-search-disabled";
   const SIMILAR_CONTENT_DISABLED_STORAGE_KEY = "better-xiaoheihe-similar-content-disabled";
   const RECOMMENDED_COMMUNITIES_DISABLED_STORAGE_KEY = "better-xiaoheihe-recommended-communities-disabled";
+  // 浏览历史只保存在 chrome.storage.local，用于顶部“浏览历史”面板。
+  const BROWSE_HISTORY_STORAGE_KEY = "better-xiaoheihe-browse-history";
 
   const LOCAL_SETTINGS_STORAGE_KEYS = [
     HIDE_CY_COMMENTS_STORAGE_KEY,
@@ -25,7 +27,8 @@
     FEED_LAYOUT_SETTINGS_STORAGE_KEY,
     HOT_SEARCH_DISABLED_STORAGE_KEY,
     SIMILAR_CONTENT_DISABLED_STORAGE_KEY,
-    RECOMMENDED_COMMUNITIES_DISABLED_STORAGE_KEY
+    RECOMMENDED_COMMUNITIES_DISABLED_STORAGE_KEY,
+    BROWSE_HISTORY_STORAGE_KEY
   ];
 
   const LOCAL_SETTINGS_REQUEST_EVENT = "better-xiaoheihe-local-settings-request";
