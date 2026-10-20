@@ -61,6 +61,8 @@ Join-SourceBundle `
     "src\content\settings-shell.js",
     "src\content\ai-settings-actions.js",
     "src\content\settings-mount.js",
+    "src\content\favorite-browser.js",
+    "src\content\browse-history.js",
     "src\content\header.js",
     "src\content\link-page.js",
     "src\content\navigation.js"

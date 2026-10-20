@@ -15,13 +15,16 @@
 - 评论支持“默认”“最新”“作者优先”三种排序方式。
 - 帖子详情页使用左右分栏布局，并在右侧提供评论排序和“屏蔽 CY”工具栏。
 - 帖子图片支持大图预览、多图切换、滚轮缩放和放大后拖动查看。
+- 帖子详情页把“返回”“AI 总结”“复制链接”三个操作移到顶部搜索框左侧，页面内不再保留重复入口。
 
 ### 顶部导航
 
 - 提供全局搜索框，并读取 `website:bbs-search-history` 展示搜索历史。
 - 搜索框支持历史筛选、点击历史项搜索，以及保存新搜索关键词。
 - 提供回复消息和点赞消息入口，支持分页加载。
-- 提供收藏入口，可在弹层中浏览收藏帖子。
+- 提供收藏入口，弹层内分“内容 / 收藏夹 / CY”三个标签：内容浏览全部收藏帖子，收藏夹按分夹目录浏览并在分夹内搜索，CY 在缺少网页版数据时显示明确的空状态。
+- 提供浏览历史入口，按最近浏览时间倒序展示打开过的帖子；历史只保存在本地，可一键清空。
+- 从浏览历史和收藏夹打开的帖子使用新标签页，不替换当前页面。
 - 将“小黑盒加速器”“黑盒语音”“黑盒工坊”“开放平台”“加入我们”收纳到“更多”二级菜单。
 - 将社区左侧目录折叠到顶部菜单，点击页面其他区域可关闭。
 - 点击扩展图标会打开小黑盒社区首页。
@@ -172,10 +175,13 @@ GET  /bbs/app/comment/sub/comments
 GET  /bbs/app/api/emojis/list
 GET  /bbs/app/user/message
 GET  /bbs/app/feeds
+GET  /bbs/web/profile/favours
 POST /bbs/app/comment/support
 POST /bbs/app/profile/award/link
 POST /bbs/app/comment/create
 ```
+
+收藏入口使用 `/bbs/web/profile/favours` 分页读取收藏帖子。截至当前版本，该接口的响应里没有确认可用的收藏夹分组字段，因此收藏夹适配层（`src/content/favorite-browser.js`）会在响应里检测分组数组：检测到就展示真实收藏夹，检测不到就只展示一个“全部收藏”分组并在弹层中说明原因；接入真实分组接口时只需替换 `loadFavoriteFolders()` 和 `loadFavoriteItems()`。
 
 评论创建接口使用 `https://api.xiaoheihe.cn/bbs/app/comment/create`，通过当前网页登录 Cookie 鉴权，不再携带 `heybox_id` URL 参数。
 

@@ -557,6 +557,7 @@
       entry.remove();
     });
     removeFavoritePopover();
+    removeBrowseHistoryEntry();
   }
 
   function removeHeaderSearch() {
