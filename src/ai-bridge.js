@@ -18,6 +18,8 @@
   const HOT_SEARCH_DISABLED_STORAGE_KEY = "better-xiaoheihe-hot-search-disabled";
   const SIMILAR_CONTENT_DISABLED_STORAGE_KEY = "better-xiaoheihe-similar-content-disabled";
   const RECOMMENDED_COMMUNITIES_DISABLED_STORAGE_KEY = "better-xiaoheihe-recommended-communities-disabled";
+  // 浏览历史只保存在 chrome.storage.local，用于顶部“浏览历史”面板。
+  const BROWSE_HISTORY_STORAGE_KEY = "better-xiaoheihe-browse-history";
 
   const LOCAL_SETTINGS_STORAGE_KEYS = [
     HIDE_CY_COMMENTS_STORAGE_KEY,
@@ -30,7 +32,8 @@
     FEED_LAYOUT_SETTINGS_STORAGE_KEY,
     HOT_SEARCH_DISABLED_STORAGE_KEY,
     SIMILAR_CONTENT_DISABLED_STORAGE_KEY,
-    RECOMMENDED_COMMUNITIES_DISABLED_STORAGE_KEY
+    RECOMMENDED_COMMUNITIES_DISABLED_STORAGE_KEY,
+    BROWSE_HISTORY_STORAGE_KEY
   ];
 
   const LOCAL_SETTINGS_REQUEST_EVENT = "better-xiaoheihe-local-settings-request";
@@ -107,6 +110,38 @@
         seen.add(normalized);
         return true;
       });
+  }
+
+  // 收藏夹搜索和历史记录共用的纯文本工具：不执行正则、不区分英文大小写、压缩连续空白。
+  function normalizeSearchText(value) {
+    return String(value ?? "")
+      .toLocaleLowerCase()
+      .replace(/[\s\u3000]+/g, " ")
+      .trim();
+  }
+
+  function splitSearchKeywords(query) {
+    const normalized = normalizeSearchText(query);
+    return normalized ? normalized.split(" ").filter(Boolean) : [];
+  }
+
+  function matchesSearchKeywords(haystack, keywords) {
+    const list = Array.isArray(keywords) ? keywords : splitSearchKeywords(keywords);
+    if (!list.length) {
+      return true;
+    }
+
+    const text = normalizeSearchText(haystack);
+    return list.every((keyword) => text.includes(keyword));
+  }
+
+  function truncateText(value, maxLength) {
+    const text = String(value ?? "").trim();
+    const limit = Math.max(0, Number(maxLength) || 0);
+    if (!limit || text.length <= limit) {
+      return text;
+    }
+    return `${text.slice(0, Math.max(1, limit - 1))}…`;
   }
   // END src\shared\normalizers.js
   // BEGIN src\ai-bridge\bridge.js

@@ -41,3 +41,35 @@
         return true;
       });
   }
+
+  // 收藏夹搜索和历史记录共用的纯文本工具：不执行正则、不区分英文大小写、压缩连续空白。
+  function normalizeSearchText(value) {
+    return String(value ?? "")
+      .toLocaleLowerCase()
+      .replace(/[\s\u3000]+/g, " ")
+      .trim();
+  }
+
+  function splitSearchKeywords(query) {
+    const normalized = normalizeSearchText(query);
+    return normalized ? normalized.split(" ").filter(Boolean) : [];
+  }
+
+  function matchesSearchKeywords(haystack, keywords) {
+    const list = Array.isArray(keywords) ? keywords : splitSearchKeywords(keywords);
+    if (!list.length) {
+      return true;
+    }
+
+    const text = normalizeSearchText(haystack);
+    return list.every((keyword) => text.includes(keyword));
+  }
+
+  function truncateText(value, maxLength) {
+    const text = String(value ?? "").trim();
+    const limit = Math.max(0, Number(maxLength) || 0);
+    if (!limit || text.length <= limit) {
+      return text;
+    }
+    return `${text.slice(0, Math.max(1, limit - 1))}…`;
+  }

@@ -202,41 +202,28 @@
   }
 
   function getLinkPageAiSummaryButton() {
-    return document.querySelector(".hb-bbs-link__header .better-link-page-ai-summary");
+    return document.querySelector(`.${LINK_PAGE_TOOLBAR_SUMMARY_CLASS}`)
+      || document.querySelector(".hb-bbs-link__header .better-link-page-ai-summary");
   }
 
   function ensureLinkPageAiSummaryButton() {
-    document.querySelectorAll(".link-comment .better-link-page-ai-summary").forEach((button) => {
-      button.remove();
+    // AI 总结入口已迁移到顶部工具条（header.js 的 ensureLinkPageToolbar），
+    // 这里只负责清理旧版挂在白色横条里的按钮，并同步工具条按钮的 AI 开关和完成态。
+    document.querySelectorAll(".hb-bbs-link__header .better-link-page-ai-summary").forEach((button) => {
+      if (!button.closest(`.${LINK_PAGE_TOOLBAR_CLASS}`)) {
+        button.remove();
+      }
     });
 
-    const mountPoint = document.querySelector(".hb-bbs-link__header .page-header__container");
-    let button = getLinkPageAiSummaryButton();
-    if (!isAiFeatureEnabled()) {
-      button?.remove();
-      return;
-    }
-    if (!mountPoint) {
-      return;
-    }
-
+    const button = getLinkPageAiSummaryButton();
     if (!button) {
-      button = document.createElement("button");
-      button.className = "better-ai-summary-button better-link-page-ai-summary";
-      button.type = "button";
-      button.title = "AI 总结";
-      button.setAttribute("aria-label", "AI 总结");
-      button.textContent = "AI";
-      button.addEventListener("click", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        summarizeLinkPage(button);
-      });
+      return;
     }
-
-    if (button.parentElement !== mountPoint) {
-      mountPoint.appendChild(button);
+    if (!isAiFeatureEnabled()) {
+      button.hidden = true;
+      return;
     }
+    button.hidden = false;
     const linkId = getCurrentLinkId();
     setAiButtonComplete(button, Boolean(linkId && aiSummaryCache.has(linkId)));
   }
@@ -499,6 +486,9 @@
     if (!isLinkPage()) {
       return;
     }
+
+    // 只在这里记录一次浏览历史：详情页主要容器和标题出现后才写入，加载失败不会留下记录。
+    scheduleBrowseHistoryRecord();
 
     if (moveRelatedContent) {
       moveLinkPageRelatedContent();
