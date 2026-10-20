@@ -214,6 +214,7 @@
   const FAVORITE_ALL_FOLDER_ID = "__all__";
   const FAVORITE_SCHEMA_VERSION = 1;
   const FAVORITE_PAGE_LIMIT = 20;
+  const FAVORITE_INITIAL_PAGE_COUNT = 5;
   const FAVORITE_MAX_PAGES = 12;
   const FAVORITE_MAX_ITEMS = 240;
   const FAVORITE_SEARCH_DEBOUNCE = 250;
@@ -229,9 +230,8 @@
     { id: FAVORITE_TAB_IDS.FOLDERS, label: "收藏夹" },
     { id: FAVORITE_TAB_IDS.CY, label: "CY" }
   ];
-  // 文章详情页顶部工具条（返回 / AI 总结 / 复制链接），挂在全局搜索框左侧的同一行。
+  // 文章详情页顶部工具条（AI 总结 / 复制链接），挂在全局搜索框左侧的同一行。
   const LINK_PAGE_TOOLBAR_CLASS = "better-link-page-toolbar";
-  const LINK_PAGE_TOOLBAR_BACK_CLASS = "better-link-page-toolbar__back";
   const LINK_PAGE_TOOLBAR_SUMMARY_CLASS = "better-link-page-toolbar__summary";
   const LINK_PAGE_TOOLBAR_COPY_CLASS = "better-link-page-toolbar__copy";
   const HEADER_TOAST_CLASS = "better-xiaoheihe-toast";
@@ -387,10 +387,9 @@
   let favoriteBrowserRequestToken = 0;
   let favoriteFoldersCache = null;
   let favoriteAllItemsPromise = null;
+  let favoriteInitialItemsPromise = null;
   let favoriteDialogOutsideClickBound = false;
   let headerToastTimer = null;
-  // 站内 SPA 路由变更次数，用于判断“返回”是否应回到站内上一页。
-  let internalRouteCount = 0;
   let browseHistoryReady = false;
   let browseHistoryPromptRecordPath = "";
   let browseHistoryRecordTimer = null;
@@ -450,6 +449,7 @@
   // 收藏接口返回的帖子缓存；complete 表示已经翻到最后一页，搜索只依赖它。
   const favoriteItemStore = {
     items: [],
+    offset: 0,
     complete: false,
     loading: false
   };
@@ -7518,13 +7518,6 @@
         outline-offset: 2px;
       }
 
-      .better-browse-history__summary {
-        padding: 2px 2px 8px;
-        color: #8a9299;
-        font-size: 12px;
-        line-height: 18px;
-      }
-
       /* ---------------- 收藏夹浏览器 ---------------- */
       .better-favorite-browser__summary-row {
         display: flex;
@@ -8161,7 +8154,7 @@
         transform: translate(-50%, 0);
       }
 
-      /* 文章顶部工具条：返回 / AI 总结 / 复制链接（与搜索框同一行，不使用绝对定位） */
+      /* 文章顶部工具条：AI 总结 / 复制链接（与搜索框同一行，不使用绝对定位） */
       .${LINK_PAGE_TOOLBAR_CLASS} {
         box-sizing: border-box;
         display: none;
@@ -8250,7 +8243,41 @@
         content: none;
       }
 
-      /* 原生横条里被工具条取代的入口（返回 / AI / 复制）隐藏，避免重复按钮 */
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${LINK_PAGE_TOOLBAR_CLASS} > button.better-ai-summary-button.is-loading {
+        border-color: #c8dcf4;
+        background: #f0f6fd;
+        color: #2775d1;
+        cursor: wait;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${LINK_PAGE_TOOLBAR_CLASS} > button.better-ai-summary-button.is-loading .better-link-page-toolbar__icon svg {
+        display: none;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${LINK_PAGE_TOOLBAR_CLASS} > button.better-ai-summary-button.is-loading .better-link-page-toolbar__icon::after {
+        box-sizing: border-box;
+        width: 14px;
+        height: 14px;
+        border: 2px solid #c8dcf4;
+        border-top-color: #2775d1;
+        border-radius: 50%;
+        content: "";
+        animation: better-link-page-ai-summary-spin 0.8s linear infinite;
+      }
+
+      @keyframes better-link-page-ai-summary-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${LINK_PAGE_TOOLBAR_CLASS} > button.better-ai-summary-button.is-loading .better-link-page-toolbar__icon::after {
+          animation-duration: 2.4s;
+        }
+      }
+
+      /* 原生横条里被工具条取代的 AI / 复制入口隐藏；保留站点原生返回按钮 */
       [data-better-relocated-action="true"] {
         display: none !important;
       }
@@ -9355,20 +9382,39 @@
   }
 
   function getReplyMessageTopicName(message) {
-    const topic = Array.isArray(message?.topics) ? message.topics[0] : message?.topic;
-    return String(message?.topic_name || topic?.name || "").trim();
+    const topic = Array.isArray(message?.topics) ? message.topics[0]
+      : (message?.topic || (Array.isArray(message?.link?.topics) ? message.link.topics[0] : message?.link?.topic)
+        || message?.link_info?.topic || message?.link_detail?.topic || message?.link_data?.topic);
+    return String(
+      message?.topic_name
+      || message?.section_name
+      || message?.link_topic_name
+      || message?.link_section_name
+      || topic?.name
+      || topic?.title
+      || findFirstFieldDeep(message, ["topic_name", "topicName", "link_topic_name", "section_name", "sectionName", "link_section_name", "forum_name", "board_name"])
+      || ""
+    ).trim();
   }
 
   function getReplyMessageTopicIcon(message) {
-    const topic = Array.isArray(message?.topics) ? message.topics[0] : message?.topic;
+    const topic = Array.isArray(message?.topics) ? message.topics[0]
+      : (message?.topic || (Array.isArray(message?.link?.topics) ? message.link.topics[0] : message?.link?.topic)
+        || message?.link_info?.topic || message?.link_detail?.topic || message?.link_data?.topic);
     return String(
       message?.topic_icon
       || message?.topic_pic_url
       || message?.topic_img
+      || message?.section_icon
+      || message?.section_pic_url
+      || message?.link_topic_icon
+      || message?.link_topic_pic_url
+      || message?.link_section_icon
       || topic?.pic_url
       || topic?.icon
       || topic?.img
       || topic?.avatar
+      || findFirstFieldDeep(message, ["topic_icon", "topic_pic_url", "link_topic_icon", "link_topic_pic_url", "section_icon", "section_pic_url", "link_section_icon"])
       || ""
     ).trim();
   }
@@ -10727,9 +10773,12 @@
     const richText = parseLinkRichText(link.text);
     const feedImageUrls = uniqueStrings(Array.isArray(link.imgs) ? link.imgs : []);
     const feedThumbnailUrls = uniqueStrings(Array.isArray(link.thumbs) ? link.thumbs : []);
+    const firstTopic = Array.isArray(link.topics) ? link.topics.find((topic) => topic && typeof topic === "object") : null;
+    const authorLevel = link.user?.level_info?.level || link.user?.level || link.user?.user_level || "";
     return {
       title: String(link.title || "").trim(),
       author: String(link.user?.username || link.user?.nickname || "").trim(),
+      authorLevel: authorLevel ? `Lv.${authorLevel}` : "",
       content: richText.content || String(link.description || "").trim(),
       imageUrls: uniqueStrings([...richText.imageUrls, ...feedImageUrls]),
       feedImageUrls,
@@ -10738,7 +10787,8 @@
         ...(Array.isArray(link.topics) ? link.topics.map((topic) => topic?.name) : []),
         ...(Array.isArray(link.tags) ? link.tags.map((tag) => tag?.text || tag?.name) : []),
         ...(Array.isArray(link.hashtags) ? link.hashtags.map((tag) => tag?.text || tag?.name) : [])
-      ]).join("\n")
+      ]).join("\n"),
+      topicIcon: String(firstTopic?.pic_url || firstTopic?.icon || firstTopic?.img || firstTopic?.avatar || "").trim()
     };
   }
 
@@ -15652,7 +15702,7 @@
 
   // END src\content\settings-mount.js
   // BEGIN src\content\favorite-browser.js
-// 收藏夹数据适配、收藏夹两级浏览、收藏夹内搜索。
+// 收藏帖子列表、分页与搜索。
 // 本文件由 scripts/build-source-bundles.ps1 拼入 src/content.js，请勿直接修改生成文件。
   // ---------------------------------------------------------------------------
   // 收藏夹适配层
@@ -15983,6 +16033,7 @@
       const list = Array.isArray(rawItems) ? rawItems : [];
       return {
         items: list.map((item) => normalizeFavoriteItem(item)).filter(Boolean),
+        rawCount: list.length,
         folders: detectFavoriteFoldersFromPayload(data),
         hasMore: list.length >= limit,
         total: readFirstNumberField(data?.result, ["total", "count", "link_num", "total_count"])
@@ -15998,6 +16049,10 @@
     return fetchFavoritePage({ offset: 0, limit: FAVORITE_PAGE_LIMIT }).then((page) => {
       if (!favoriteItemStore.complete) {
         mergeFavoriteItems(page.items);
+        favoriteItemStore.offset = Math.max(favoriteItemStore.offset, page.rawCount);
+        if (!page.hasMore || !page.rawCount || !page.items.length) {
+          favoriteItemStore.complete = true;
+        }
       }
       const folders = buildFavoriteFolderList(page.items, page.folders, page.total);
       favoriteFoldersCache = folders;
@@ -16026,6 +16081,9 @@
     if (favoriteItemStore.complete) {
       return Promise.resolve(favoriteItemStore);
     }
+    if (favoriteInitialItemsPromise) {
+      return favoriteInitialItemsPromise.then(() => ensureAllFavoriteItems());
+    }
     if (favoriteAllItemsPromise) {
       return favoriteAllItemsPromise;
     }
@@ -16038,10 +16096,11 @@
             break;
           }
           const payload = await fetchFavoritePage({
-            offset: favoriteItemStore.items.length,
+            offset: favoriteItemStore.offset,
             limit: FAVORITE_PAGE_LIMIT
           });
           mergeFavoriteItems(payload.items);
+          favoriteItemStore.offset += payload.rawCount;
           if (!payload.hasMore || !payload.items.length) {
             favoriteItemStore.complete = true;
             break;
@@ -16055,6 +16114,40 @@
     });
 
     return favoriteAllItemsPromise;
+  }
+
+  function loadFavoriteItemsThroughPage(pageCount) {
+    if (favoriteInitialItemsPromise) {
+      return favoriteInitialItemsPromise;
+    }
+
+    const targetOffset = Math.max(1, Number(pageCount) || 1) * FAVORITE_PAGE_LIMIT;
+    favoriteItemStore.loading = true;
+    favoriteInitialItemsPromise = Promise.resolve().then(async () => {
+      while (!favoriteItemStore.complete && favoriteItemStore.offset < targetOffset) {
+        const payload = await fetchFavoritePage({
+          offset: favoriteItemStore.offset,
+          limit: FAVORITE_PAGE_LIMIT
+        });
+        mergeFavoriteItems(payload.items);
+        favoriteItemStore.offset += payload.rawCount;
+        if (!payload.hasMore || !payload.rawCount || !payload.items.length) {
+          favoriteItemStore.complete = true;
+          break;
+        }
+        favoriteBrowserState.items = getFavoriteFolderItems(FAVORITE_ALL_FOLDER_ID);
+        favoriteBrowserState.hasMore = !favoriteItemStore.complete;
+        if (!favoriteBrowserState.query) {
+          renderFavoriteList();
+        }
+      }
+      return favoriteItemStore;
+    }).finally(() => {
+      favoriteItemStore.loading = false;
+      favoriteInitialItemsPromise = null;
+    });
+
+    return favoriteInitialItemsPromise;
   }
 
   function getFavoriteFolderItems(folderId) {
@@ -16165,13 +16258,13 @@
   }
 
   function renderPostBrowserTopic(item) {
-    if (!item.topicName) {
+    if (!item.topicName && !item.topicIcon) {
       return "";
     }
     return `
-      <span class="better-message-popover__topic">
+      <span class="better-message-popover__topic" title="${escapeHtml(item.topicName || "帖子话题")}" aria-label="${escapeHtml(item.topicName || "帖子话题")}">
         ${item.topicIcon ? `<img class="better-message-popover__topic-icon" src="${escapeHtml(item.topicIcon)}" alt="">` : ""}
-        ${escapeHtml(item.topicName)}
+        ${escapeHtml(item.topicName || "")}
       </span>
     `;
   }
@@ -16456,13 +16549,7 @@
       return;
     }
 
-    if (state.tab === FAVORITE_TAB_IDS.FOLDERS && state.folderView === "list") {
-      list.innerHTML = renderFavoriteFoldersDirectory();
-    } else if (state.tab === FAVORITE_TAB_IDS.CY) {
-      list.innerHTML = renderFavoriteCyContent();
-    } else {
-      list.innerHTML = renderFavoritePostsList(options);
-    }
+    list.innerHTML = renderFavoritePostsList(options);
 
     if (footer) {
       footer.textContent = renderFavoriteFooterText();
@@ -16479,8 +16566,7 @@
 
     body.innerHTML = `
       <div class="better-favorite-browser__head">
-        ${renderFavoriteTabs()}
-        <div class="better-favorite-browser__pane" data-favorite-pane>${renderFavoritePane()}</div>
+        <div class="better-favorite-browser__pane" data-favorite-pane>${renderFavoriteSearchBox("搜索收藏内容")}</div>
       </div>
       <div class="better-favorite-browser__list" data-favorite-list role="list"></div>
       <div class="better-message-popover__footer-state" data-favorite-footer></div>
@@ -16550,15 +16636,7 @@
       }
     }).catch(() => {});
 
-    loadFavoriteTabs().then((tabs) => {
-      if (!Array.isArray(tabs) || !tabs.length || JSON.stringify(tabs) === JSON.stringify(favoriteTabsRuntime)) {
-        return;
-      }
-      favoriteTabsRuntime = tabs;
-      renderFavoriteBrowser();
-    }).catch(() => {});
-
-    return refreshFavoriteFolders({ silent: true });
+    return refreshFavoriteContent();
   }
 
   function switchFavoriteTab(tabId) {
@@ -16619,12 +16697,29 @@
       state.items = getFavoriteFolderItems(FAVORITE_ALL_FOLDER_ID);
       state.hasMore = !favoriteItemStore.complete;
       renderFavoriteList({ animateFrom: 0 });
+      if (favoriteItemStore.offset >= FAVORITE_INITIAL_PAGE_COUNT * FAVORITE_PAGE_LIMIT || favoriteItemStore.complete) {
+        return undefined;
+      }
+
+      state.loading = true;
+      renderFavoriteList();
+      return loadFavoriteItemsThroughPage(FAVORITE_INITIAL_PAGE_COUNT);
     }).catch((error) => {
       if (token !== favoriteBrowserRequestToken) {
         return;
       }
       state.loading = false;
       state.error = error?.message || "收藏加载失败";
+      state.items = getFavoriteFolderItems(FAVORITE_ALL_FOLDER_ID);
+      state.hasMore = !favoriteItemStore.complete;
+      renderFavoriteList();
+    }).finally(() => {
+      if (token !== favoriteBrowserRequestToken) {
+        return;
+      }
+      state.loading = false;
+      state.items = getFavoriteFolderItems(FAVORITE_ALL_FOLDER_ID);
+      state.hasMore = !favoriteItemStore.complete;
       renderFavoriteList();
     });
   }
@@ -16800,13 +16895,14 @@
     const previousCount = state.items.length;
     state.loading = true;
     renderFavoriteList();
-    return fetchFavoritePage({ offset: favoriteItemStore.items.length, limit: FAVORITE_PAGE_LIMIT })
+    return fetchFavoritePage({ offset: favoriteItemStore.offset, limit: FAVORITE_PAGE_LIMIT })
       .then((payload) => {
         if (token !== favoriteBrowserRequestToken) {
           return;
         }
         mergeFavoriteItems(payload.items);
-        if (!payload.hasMore || !payload.items.length) {
+        favoriteItemStore.offset += payload.rawCount;
+        if (!payload.hasMore || !payload.rawCount || !payload.items.length) {
           favoriteItemStore.complete = true;
         }
         state.loading = false;
@@ -17041,66 +17137,9 @@
         return;
       }
 
-      const tabButton = event.target.closest("[data-favorite-tab]");
-      if (tabButton) {
-        event.preventDefault();
-        switchFavoriteTab(tabButton.dataset.favoriteTab || "");
-        return;
-      }
-      const dialogInput = event.target.closest("[data-favorite-dialog-input]");
-      if (dialogInput) {
-        event.preventDefault();
-        return;
-      }
-      if (event.target.closest("[data-favorite-dialog-mask]") && !event.target.closest(".better-favorite-browser__dialog")) {
-        event.preventDefault();
-        closeCreateFavoriteFolderDialog();
-        return;
-      }
-      if (event.target.closest("[data-favorite-dialog-cancel]")) {
-        event.preventDefault();
-        closeCreateFavoriteFolderDialog();
-        return;
-      }
-      if (event.target.closest("[data-favorite-dialog-submit]")) {
-        event.preventDefault();
-        submitCreateFavoriteFolder();
-        return;
-      }
-      if (event.target.closest("[data-favorite-open-site]")) {
-        event.preventDefault();
-        window.open("https://www.xiaoheihe.cn/app/user/favour", "_blank", "noopener");
-        closeCreateFavoriteFolderDialog();
-        return;
-      }
-      if (event.target.closest("[data-favorite-create]")) {
-        event.preventDefault();
-        openCreateFavoriteFolderDialog();
-        return;
-      }
-      const folderButton = event.target.closest("[data-favorite-folder-id]");
-      if (folderButton) {
-        event.preventDefault();
-        openFavoriteFolder(
-          folderButton.dataset.favoriteFolderId || "",
-          folderButton.dataset.favoriteFolderName || ""
-        );
-        return;
-      }
-      if (event.target.closest("[data-favorite-back]")) {
-        event.preventDefault();
-        backToFavoriteFolders();
-        return;
-      }
       if (event.target.closest("[data-favorite-search-clear]")) {
         event.preventDefault();
         clearFavoriteSearch();
-        return;
-      }
-      if (event.target.closest("[data-favorite-refresh]")) {
-        event.preventDefault();
-        favoriteFoldersCache = null;
-        refreshFavoriteFolders();
         return;
       }
       if (event.target.closest("[data-favorite-retry]")) {
@@ -17111,17 +17150,6 @@
 
     popover.addEventListener("input", (event) => {
       const target = event.target instanceof Element ? event.target : null;
-      const dialogField = target?.closest("[data-favorite-dialog-input]");
-      if (dialogField) {
-        favoriteBrowserState.dialogName = dialogField.value || "";
-        const errorNode = popover.querySelector("[data-favorite-dialog-error]");
-        if (errorNode) {
-          errorNode.hidden = true;
-          errorNode.textContent = "";
-        }
-        return;
-      }
-
       const input = target?.closest("[data-favorite-search]");
       if (!input) {
         return;
@@ -17135,21 +17163,6 @@
 
     popover.addEventListener("keydown", (event) => {
       const target = event.target instanceof Element ? event.target : null;
-      const dialogField = target?.closest("[data-favorite-dialog-input]");
-      if (dialogField) {
-        if (event.key === "Enter") {
-          event.preventDefault();
-          submitCreateFavoriteFolder();
-          return;
-        }
-        if (event.key === "Escape") {
-          event.preventDefault();
-          event.stopPropagation();
-          closeCreateFavoriteFolderDialog();
-        }
-        return;
-      }
-
       const input = target?.closest("[data-favorite-search]");
       if (!input) {
         return;
@@ -17205,7 +17218,9 @@
       author: normalizeHistoryText(raw.author, 40),
       authorId: normalizeHistoryText(raw.authorId, 32),
       authorAvatar: String(raw.authorAvatar || "").trim(),
+      authorLevel: String(raw.authorLevel || "").trim(),
       topicName: normalizeHistoryText(raw.topicName, 40),
+      topicIcon: String(raw.topicIcon || "").trim(),
       thumbnailUrl: String(raw.thumbnailUrl || imageUrls[0] || "").trim(),
       imageCount: Math.max(0, Number(raw.imageCount) || 0),
       imageUrls,
@@ -17231,7 +17246,7 @@
 
   function mergeBrowseHistoryEntry(existing, next) {
     const merged = existing ? { ...existing } : {};
-    ["title", "description", "author", "authorId", "authorAvatar", "topicName", "thumbnailUrl"].forEach((key) => {
+    ["title", "description", "author", "authorId", "authorAvatar", "authorLevel", "topicName", "topicIcon", "thumbnailUrl"].forEach((key) => {
       if (next[key]) {
         merged[key] = next[key];
       }
@@ -17340,8 +17355,12 @@
     const avatarNode = root.querySelector(".link-user__avatar img")
       || root.querySelector(".link-user .hb-cpt__avatar img")
       || root.querySelector(".link-user img");
+    const authorLevelNode = root.querySelector(".link-user .hb-cpt__level-tag, .link-user .hb-level-tag, .link-user .level-tag__wrapper");
     const authorHref = String(authorNode?.closest("a")?.getAttribute("href") || authorNode?.getAttribute("href") || "");
     const authorId = authorHref.match(/\/app\/user\/profile\/(\d+)/)?.[1] || "";
+    const topicTextNode = root.querySelector(".link-section-tags .content-tag-text");
+    const topicElement = topicTextNode?.closest(".content-list__tag-item, .hb-cpt__content-tag, a, [class*=tag]") || topicTextNode?.parentElement;
+    const topicIconNode = topicElement?.querySelector("img");
 
     return {
       id: linkId,
@@ -17350,7 +17369,9 @@
       author: normalizeHistoryText(authorNode?.textContent || detail?.author || "", 40),
       authorId,
       authorAvatar: String(avatarNode?.currentSrc || avatarNode?.src || "").trim(),
-      topicName: normalizeHistoryText(root.querySelector(".link-section-tags .content-tag-text")?.textContent || detail?.topic || "", 40),
+      authorLevel: normalizeUserLevel(authorLevelNode?.textContent || detail?.authorLevel || ""),
+      topicName: normalizeHistoryText(topicTextNode?.textContent || detail?.topic || "", 40),
+      topicIcon: String(topicIconNode?.currentSrc || topicIconNode?.src || detail?.topicIcon || "").trim(),
       thumbnailUrl: imageUrls[0] || "",
       imageCount: imageUrls.length,
       imageUrls,
@@ -17430,8 +17451,7 @@
 
   function renderBrowseHistoryItemMeta(item) {
     return `
-      <span class="better-favorite-popover__meta">${escapeHtml(formatBrowseHistoryTime(item.visitedAt) || "刚刚")}浏览</span>
-      ${item.imageCount > 1 ? `<span class="better-favorite-popover__meta">${escapeHtml(item.imageCount)} 张图</span>` : ""}
+      <span class="better-favorite-popover__meta">${escapeHtml(formatBrowseHistoryTime(item.visitedAt) || "刚刚")}</span>
       ${renderPostBrowserTopic(item)}
     `;
   }
@@ -17479,11 +17499,6 @@
     }
 
     body.innerHTML = `
-      <div class="better-browse-history__summary">
-        ${browseHistoryItems.length > items.length
-          ? `最近 ${items.length} 条 · 共 ${browseHistoryItems.length} 条`
-          : `共 ${items.length} 条`}
-      </div>
       <div class="better-browse-history__list" role="list">
         ${items.map((item, index) => renderPostBrowserItem(item, {
           openTarget: "history",
@@ -18110,16 +18125,9 @@
                 </span>
               ` : ""}
             </div>
-            ${message.topicName ? `
-              <div class="better-message-popover__media-row">
-                <span class="better-message-popover__topic">
-                  ${message.topicIcon ? `<img class="better-message-popover__topic-icon" src="${escapeHtml(message.topicIcon)}" alt="">` : ""}
-                  ${escapeHtml(message.topicName)}
-                </span>
-              </div>
-            ` : ""}
           </div>
         </div>
+        ${(message.topicName || message.topicIcon) ? `<div class="better-message-popover__media-row better-message-popover__message-topic-row">${renderPostBrowserTopic(message)}</div>` : ""}
       </a>
     `;
     }).join("") + (state.loading
@@ -18368,15 +18376,6 @@
     }
 
     headerMessageClickBound = true;
-    document.addEventListener("pointerdown", (event) => {
-      const button = event.target instanceof Element
-        ? event.target.closest(`.${HEADER_MESSAGE_CLASS}`)
-        : null;
-      if (!button) {
-        return;
-      }
-      handleHeaderMessageClick(event, button);
-    }, true);
     document.addEventListener("click", (event) => {
       const button = event.target instanceof Element
         ? event.target.closest(`.${HEADER_MESSAGE_CLASS}`)
@@ -18411,8 +18410,6 @@
         </i>
       `;
     }
-    button.onpointerdown = (event) => handleHeaderMessageClick(event, button);
-    button.onclick = (event) => handleHeaderMessageClick(event, button);
     bindHeaderMessageClickDelegation();
 
     const favoriteEntry = document.querySelector(`.${FAVORITE_ENTRY_CLASS}`);
@@ -18587,13 +18584,13 @@
   }
 
   // ---------------------------------------------------------------------------
-  // 文章详情页顶部工具条：返回 / AI 总结 / 复制链接
+  // 文章详情页顶部工具条：AI 总结 / 复制链接
   // 位置：全局搜索框左侧，与搜索框同处顶部一行 flex 布局（不使用固定坐标，
   // 窄窗口时由 CSS 收缩文字、保留图标和 tooltip）。
   // AI 按钮复用 link-page.js / ai-summary.js 的 summarizeLinkPage() 与按钮状态函数，
   // 不新增第二套请求逻辑；旧的白色横条 AI 按钮由 ensureLinkPageAiSummaryButton() 清理。
   // ---------------------------------------------------------------------------
-  const NATIVE_LINK_ACTION_LABELS = ["返回", "back", "ai", "ai总结", "ai 总结", "总结", "复制", "复制链接", "copy", "copy link"];
+  const NATIVE_LINK_ACTION_LABELS = ["ai", "ai总结", "ai 总结", "总结", "复制", "复制链接", "copy", "copy link"];
 
   function showHeaderToast(message) {
     if (!message) {
@@ -18654,25 +18651,6 @@
     return Promise.resolve(copyTextToClipboardFallback(text));
   }
 
-  function handleLinkPageToolbarBack(event) {
-    event.preventDefault();
-    event.stopPropagation();
-
-    // 只有站内来源才回退，避免把用户带回外部站点。
-    let sameOriginReferrer = false;
-    try {
-      sameOriginReferrer = Boolean(document.referrer) && new URL(document.referrer).origin === window.location.origin;
-    } catch (error) {
-      sameOriginReferrer = false;
-    }
-
-    if (internalRouteCount > 0 || (sameOriginReferrer && window.history.length > 1)) {
-      window.history.back();
-      return;
-    }
-    window.location.href = "/app/bbs/home";
-  }
-
   function handleLinkPageToolbarCopy(event) {
     event.preventDefault();
     event.stopPropagation();
@@ -18688,12 +18666,6 @@
     toolbar.setAttribute("role", "toolbar");
     toolbar.setAttribute("aria-label", "文章操作");
     toolbar.innerHTML = `
-      <button type="button" class="${LINK_PAGE_TOOLBAR_BACK_CLASS}" title="返回上一页" aria-label="返回">
-        <i class="better-link-page-toolbar__icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="16" height="16"><path d="M14.5 5.5 8 12l6.5 6.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
-        </i>
-        <span class="better-link-page-toolbar__label">返回</span>
-      </button>
       <button type="button" class="${LINK_PAGE_TOOLBAR_SUMMARY_CLASS} better-ai-summary-button better-link-page-ai-summary"
         title="AI 总结" aria-label="AI 总结" data-ai-idle-label="AI 总结" data-ai-done-label="查看总结">
         <i class="better-link-page-toolbar__icon" aria-hidden="true">
@@ -18709,7 +18681,6 @@
       </button>
     `;
 
-    toolbar.querySelector(`.${LINK_PAGE_TOOLBAR_BACK_CLASS}`)?.addEventListener("click", handleLinkPageToolbarBack);
     toolbar.querySelector(`.${LINK_PAGE_TOOLBAR_COPY_CLASS}`)?.addEventListener("click", handleLinkPageToolbarCopy);
     toolbar.querySelector(`.${LINK_PAGE_TOOLBAR_SUMMARY_CLASS}`)?.addEventListener("click", (event) => {
       event.preventDefault();
@@ -18746,6 +18717,10 @@
         .toLowerCase()
         .replace(/\s+/g, " ");
       if (!label) {
+        return;
+      }
+      if (label.includes("返回") || label === "back" || label.startsWith("back ") || label.endsWith(" back")) {
+        element.removeAttribute("data-better-relocated-action");
         return;
       }
       if (NATIVE_LINK_ACTION_LABELS.some((candidate) => label === candidate || label.includes(candidate))) {
@@ -19642,6 +19617,23 @@
     });
   }
 
+  function shouldRefreshHeaderChromeForMutations(mutations) {
+    const headerChromeSelector = [
+      ".hb-view-header .message-center__btn",
+      ".nav-actions .publish-btn",
+      ".nav .nav-links"
+    ].join(", ");
+
+    return mutations.some((mutation) => {
+      if (mutationTargetMatches(mutation, headerChromeSelector)) {
+        return true;
+      }
+
+      const changedNodes = [...mutation.addedNodes, ...mutation.removedNodes];
+      return changedNodes.some((node) => mutationNodeMatches(node, headerChromeSelector));
+    });
+  }
+
   function shouldRefreshHomePageForMutations(mutations) {
     const homeStructureSelector = [
       FEED_ITEM_SELECTOR,
@@ -19664,6 +19656,9 @@
         return;
       }
       if (isLinkPage()) {
+        if (shouldRefreshHeaderChromeForMutations(mutations)) {
+          scheduleHandlePage();
+        }
         if (shouldRefreshLinkPageForMutations(mutations)) {
           scheduleLinkPageFilterRefresh();
         }
@@ -19684,8 +19679,6 @@
 
   function installRouteHooks() {
     window.addEventListener("popstate", () => {
-      // 站内前进/后退也算一次站内路由变更，供文章工具条的“返回”判断。
-      internalRouteCount += 1;
       scheduleHandlePageAfterRoute();
     });
 
@@ -19695,7 +19688,6 @@
     history.pushState = function (...args) {
       savedScrollY = window.scrollY;
       const result = originalPushState.apply(this, args);
-      internalRouteCount += 1;
       scheduleHandlePageAfterRoute();
       return result;
     };

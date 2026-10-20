@@ -1,4 +1,4 @@
-// 收藏夹数据适配、收藏夹两级浏览、收藏夹内搜索。
+// 收藏帖子列表、分页与搜索。
 // 本文件由 scripts/build-source-bundles.ps1 拼入 src/content.js，请勿直接修改生成文件。
   // ---------------------------------------------------------------------------
   // 收藏夹适配层
@@ -329,6 +329,7 @@
       const list = Array.isArray(rawItems) ? rawItems : [];
       return {
         items: list.map((item) => normalizeFavoriteItem(item)).filter(Boolean),
+        rawCount: list.length,
         folders: detectFavoriteFoldersFromPayload(data),
         hasMore: list.length >= limit,
         total: readFirstNumberField(data?.result, ["total", "count", "link_num", "total_count"])
@@ -344,6 +345,10 @@
     return fetchFavoritePage({ offset: 0, limit: FAVORITE_PAGE_LIMIT }).then((page) => {
       if (!favoriteItemStore.complete) {
         mergeFavoriteItems(page.items);
+        favoriteItemStore.offset = Math.max(favoriteItemStore.offset, page.rawCount);
+        if (!page.hasMore || !page.rawCount || !page.items.length) {
+          favoriteItemStore.complete = true;
+        }
       }
       const folders = buildFavoriteFolderList(page.items, page.folders, page.total);
       favoriteFoldersCache = folders;
@@ -372,6 +377,9 @@
     if (favoriteItemStore.complete) {
       return Promise.resolve(favoriteItemStore);
     }
+    if (favoriteInitialItemsPromise) {
+      return favoriteInitialItemsPromise.then(() => ensureAllFavoriteItems());
+    }
     if (favoriteAllItemsPromise) {
       return favoriteAllItemsPromise;
     }
@@ -384,10 +392,11 @@
             break;
           }
           const payload = await fetchFavoritePage({
-            offset: favoriteItemStore.items.length,
+            offset: favoriteItemStore.offset,
             limit: FAVORITE_PAGE_LIMIT
           });
           mergeFavoriteItems(payload.items);
+          favoriteItemStore.offset += payload.rawCount;
           if (!payload.hasMore || !payload.items.length) {
             favoriteItemStore.complete = true;
             break;
@@ -401,6 +410,40 @@
     });
 
     return favoriteAllItemsPromise;
+  }
+
+  function loadFavoriteItemsThroughPage(pageCount) {
+    if (favoriteInitialItemsPromise) {
+      return favoriteInitialItemsPromise;
+    }
+
+    const targetOffset = Math.max(1, Number(pageCount) || 1) * FAVORITE_PAGE_LIMIT;
+    favoriteItemStore.loading = true;
+    favoriteInitialItemsPromise = Promise.resolve().then(async () => {
+      while (!favoriteItemStore.complete && favoriteItemStore.offset < targetOffset) {
+        const payload = await fetchFavoritePage({
+          offset: favoriteItemStore.offset,
+          limit: FAVORITE_PAGE_LIMIT
+        });
+        mergeFavoriteItems(payload.items);
+        favoriteItemStore.offset += payload.rawCount;
+        if (!payload.hasMore || !payload.rawCount || !payload.items.length) {
+          favoriteItemStore.complete = true;
+          break;
+        }
+        favoriteBrowserState.items = getFavoriteFolderItems(FAVORITE_ALL_FOLDER_ID);
+        favoriteBrowserState.hasMore = !favoriteItemStore.complete;
+        if (!favoriteBrowserState.query) {
+          renderFavoriteList();
+        }
+      }
+      return favoriteItemStore;
+    }).finally(() => {
+      favoriteItemStore.loading = false;
+      favoriteInitialItemsPromise = null;
+    });
+
+    return favoriteInitialItemsPromise;
   }
 
   function getFavoriteFolderItems(folderId) {
@@ -511,13 +554,13 @@
   }
 
   function renderPostBrowserTopic(item) {
-    if (!item.topicName) {
+    if (!item.topicName && !item.topicIcon) {
       return "";
     }
     return `
-      <span class="better-message-popover__topic">
+      <span class="better-message-popover__topic" title="${escapeHtml(item.topicName || "帖子话题")}" aria-label="${escapeHtml(item.topicName || "帖子话题")}">
         ${item.topicIcon ? `<img class="better-message-popover__topic-icon" src="${escapeHtml(item.topicIcon)}" alt="">` : ""}
-        ${escapeHtml(item.topicName)}
+        ${escapeHtml(item.topicName || "")}
       </span>
     `;
   }
@@ -802,13 +845,7 @@
       return;
     }
 
-    if (state.tab === FAVORITE_TAB_IDS.FOLDERS && state.folderView === "list") {
-      list.innerHTML = renderFavoriteFoldersDirectory();
-    } else if (state.tab === FAVORITE_TAB_IDS.CY) {
-      list.innerHTML = renderFavoriteCyContent();
-    } else {
-      list.innerHTML = renderFavoritePostsList(options);
-    }
+    list.innerHTML = renderFavoritePostsList(options);
 
     if (footer) {
       footer.textContent = renderFavoriteFooterText();
@@ -825,8 +862,7 @@
 
     body.innerHTML = `
       <div class="better-favorite-browser__head">
-        ${renderFavoriteTabs()}
-        <div class="better-favorite-browser__pane" data-favorite-pane>${renderFavoritePane()}</div>
+        <div class="better-favorite-browser__pane" data-favorite-pane>${renderFavoriteSearchBox("搜索收藏内容")}</div>
       </div>
       <div class="better-favorite-browser__list" data-favorite-list role="list"></div>
       <div class="better-message-popover__footer-state" data-favorite-footer></div>
@@ -896,15 +932,7 @@
       }
     }).catch(() => {});
 
-    loadFavoriteTabs().then((tabs) => {
-      if (!Array.isArray(tabs) || !tabs.length || JSON.stringify(tabs) === JSON.stringify(favoriteTabsRuntime)) {
-        return;
-      }
-      favoriteTabsRuntime = tabs;
-      renderFavoriteBrowser();
-    }).catch(() => {});
-
-    return refreshFavoriteFolders({ silent: true });
+    return refreshFavoriteContent();
   }
 
   function switchFavoriteTab(tabId) {
@@ -965,12 +993,29 @@
       state.items = getFavoriteFolderItems(FAVORITE_ALL_FOLDER_ID);
       state.hasMore = !favoriteItemStore.complete;
       renderFavoriteList({ animateFrom: 0 });
+      if (favoriteItemStore.offset >= FAVORITE_INITIAL_PAGE_COUNT * FAVORITE_PAGE_LIMIT || favoriteItemStore.complete) {
+        return undefined;
+      }
+
+      state.loading = true;
+      renderFavoriteList();
+      return loadFavoriteItemsThroughPage(FAVORITE_INITIAL_PAGE_COUNT);
     }).catch((error) => {
       if (token !== favoriteBrowserRequestToken) {
         return;
       }
       state.loading = false;
       state.error = error?.message || "收藏加载失败";
+      state.items = getFavoriteFolderItems(FAVORITE_ALL_FOLDER_ID);
+      state.hasMore = !favoriteItemStore.complete;
+      renderFavoriteList();
+    }).finally(() => {
+      if (token !== favoriteBrowserRequestToken) {
+        return;
+      }
+      state.loading = false;
+      state.items = getFavoriteFolderItems(FAVORITE_ALL_FOLDER_ID);
+      state.hasMore = !favoriteItemStore.complete;
       renderFavoriteList();
     });
   }
@@ -1146,13 +1191,14 @@
     const previousCount = state.items.length;
     state.loading = true;
     renderFavoriteList();
-    return fetchFavoritePage({ offset: favoriteItemStore.items.length, limit: FAVORITE_PAGE_LIMIT })
+    return fetchFavoritePage({ offset: favoriteItemStore.offset, limit: FAVORITE_PAGE_LIMIT })
       .then((payload) => {
         if (token !== favoriteBrowserRequestToken) {
           return;
         }
         mergeFavoriteItems(payload.items);
-        if (!payload.hasMore || !payload.items.length) {
+        favoriteItemStore.offset += payload.rawCount;
+        if (!payload.hasMore || !payload.rawCount || !payload.items.length) {
           favoriteItemStore.complete = true;
         }
         state.loading = false;
@@ -1387,66 +1433,9 @@
         return;
       }
 
-      const tabButton = event.target.closest("[data-favorite-tab]");
-      if (tabButton) {
-        event.preventDefault();
-        switchFavoriteTab(tabButton.dataset.favoriteTab || "");
-        return;
-      }
-      const dialogInput = event.target.closest("[data-favorite-dialog-input]");
-      if (dialogInput) {
-        event.preventDefault();
-        return;
-      }
-      if (event.target.closest("[data-favorite-dialog-mask]") && !event.target.closest(".better-favorite-browser__dialog")) {
-        event.preventDefault();
-        closeCreateFavoriteFolderDialog();
-        return;
-      }
-      if (event.target.closest("[data-favorite-dialog-cancel]")) {
-        event.preventDefault();
-        closeCreateFavoriteFolderDialog();
-        return;
-      }
-      if (event.target.closest("[data-favorite-dialog-submit]")) {
-        event.preventDefault();
-        submitCreateFavoriteFolder();
-        return;
-      }
-      if (event.target.closest("[data-favorite-open-site]")) {
-        event.preventDefault();
-        window.open("https://www.xiaoheihe.cn/app/user/favour", "_blank", "noopener");
-        closeCreateFavoriteFolderDialog();
-        return;
-      }
-      if (event.target.closest("[data-favorite-create]")) {
-        event.preventDefault();
-        openCreateFavoriteFolderDialog();
-        return;
-      }
-      const folderButton = event.target.closest("[data-favorite-folder-id]");
-      if (folderButton) {
-        event.preventDefault();
-        openFavoriteFolder(
-          folderButton.dataset.favoriteFolderId || "",
-          folderButton.dataset.favoriteFolderName || ""
-        );
-        return;
-      }
-      if (event.target.closest("[data-favorite-back]")) {
-        event.preventDefault();
-        backToFavoriteFolders();
-        return;
-      }
       if (event.target.closest("[data-favorite-search-clear]")) {
         event.preventDefault();
         clearFavoriteSearch();
-        return;
-      }
-      if (event.target.closest("[data-favorite-refresh]")) {
-        event.preventDefault();
-        favoriteFoldersCache = null;
-        refreshFavoriteFolders();
         return;
       }
       if (event.target.closest("[data-favorite-retry]")) {
@@ -1457,17 +1446,6 @@
 
     popover.addEventListener("input", (event) => {
       const target = event.target instanceof Element ? event.target : null;
-      const dialogField = target?.closest("[data-favorite-dialog-input]");
-      if (dialogField) {
-        favoriteBrowserState.dialogName = dialogField.value || "";
-        const errorNode = popover.querySelector("[data-favorite-dialog-error]");
-        if (errorNode) {
-          errorNode.hidden = true;
-          errorNode.textContent = "";
-        }
-        return;
-      }
-
       const input = target?.closest("[data-favorite-search]");
       if (!input) {
         return;
@@ -1481,21 +1459,6 @@
 
     popover.addEventListener("keydown", (event) => {
       const target = event.target instanceof Element ? event.target : null;
-      const dialogField = target?.closest("[data-favorite-dialog-input]");
-      if (dialogField) {
-        if (event.key === "Enter") {
-          event.preventDefault();
-          submitCreateFavoriteFolder();
-          return;
-        }
-        if (event.key === "Escape") {
-          event.preventDefault();
-          event.stopPropagation();
-          closeCreateFavoriteFolderDialog();
-        }
-        return;
-      }
-
       const input = target?.closest("[data-favorite-search]");
       if (!input) {
         return;

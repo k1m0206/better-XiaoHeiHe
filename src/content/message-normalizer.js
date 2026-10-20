@@ -118,20 +118,39 @@
   }
 
   function getReplyMessageTopicName(message) {
-    const topic = Array.isArray(message?.topics) ? message.topics[0] : message?.topic;
-    return String(message?.topic_name || topic?.name || "").trim();
+    const topic = Array.isArray(message?.topics) ? message.topics[0]
+      : (message?.topic || (Array.isArray(message?.link?.topics) ? message.link.topics[0] : message?.link?.topic)
+        || message?.link_info?.topic || message?.link_detail?.topic || message?.link_data?.topic);
+    return String(
+      message?.topic_name
+      || message?.section_name
+      || message?.link_topic_name
+      || message?.link_section_name
+      || topic?.name
+      || topic?.title
+      || findFirstFieldDeep(message, ["topic_name", "topicName", "link_topic_name", "section_name", "sectionName", "link_section_name", "forum_name", "board_name"])
+      || ""
+    ).trim();
   }
 
   function getReplyMessageTopicIcon(message) {
-    const topic = Array.isArray(message?.topics) ? message.topics[0] : message?.topic;
+    const topic = Array.isArray(message?.topics) ? message.topics[0]
+      : (message?.topic || (Array.isArray(message?.link?.topics) ? message.link.topics[0] : message?.link?.topic)
+        || message?.link_info?.topic || message?.link_detail?.topic || message?.link_data?.topic);
     return String(
       message?.topic_icon
       || message?.topic_pic_url
       || message?.topic_img
+      || message?.section_icon
+      || message?.section_pic_url
+      || message?.link_topic_icon
+      || message?.link_topic_pic_url
+      || message?.link_section_icon
       || topic?.pic_url
       || topic?.icon
       || topic?.img
       || topic?.avatar
+      || findFirstFieldDeep(message, ["topic_icon", "topic_pic_url", "link_topic_icon", "link_topic_pic_url", "section_icon", "section_pic_url", "link_section_icon"])
       || ""
     ).trim();
   }

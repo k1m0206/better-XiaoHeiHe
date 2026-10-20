@@ -34,7 +34,9 @@
       author: normalizeHistoryText(raw.author, 40),
       authorId: normalizeHistoryText(raw.authorId, 32),
       authorAvatar: String(raw.authorAvatar || "").trim(),
+      authorLevel: String(raw.authorLevel || "").trim(),
       topicName: normalizeHistoryText(raw.topicName, 40),
+      topicIcon: String(raw.topicIcon || "").trim(),
       thumbnailUrl: String(raw.thumbnailUrl || imageUrls[0] || "").trim(),
       imageCount: Math.max(0, Number(raw.imageCount) || 0),
       imageUrls,
@@ -60,7 +62,7 @@
 
   function mergeBrowseHistoryEntry(existing, next) {
     const merged = existing ? { ...existing } : {};
-    ["title", "description", "author", "authorId", "authorAvatar", "topicName", "thumbnailUrl"].forEach((key) => {
+    ["title", "description", "author", "authorId", "authorAvatar", "authorLevel", "topicName", "topicIcon", "thumbnailUrl"].forEach((key) => {
       if (next[key]) {
         merged[key] = next[key];
       }
@@ -169,8 +171,12 @@
     const avatarNode = root.querySelector(".link-user__avatar img")
       || root.querySelector(".link-user .hb-cpt__avatar img")
       || root.querySelector(".link-user img");
+    const authorLevelNode = root.querySelector(".link-user .hb-cpt__level-tag, .link-user .hb-level-tag, .link-user .level-tag__wrapper");
     const authorHref = String(authorNode?.closest("a")?.getAttribute("href") || authorNode?.getAttribute("href") || "");
     const authorId = authorHref.match(/\/app\/user\/profile\/(\d+)/)?.[1] || "";
+    const topicTextNode = root.querySelector(".link-section-tags .content-tag-text");
+    const topicElement = topicTextNode?.closest(".content-list__tag-item, .hb-cpt__content-tag, a, [class*=tag]") || topicTextNode?.parentElement;
+    const topicIconNode = topicElement?.querySelector("img");
 
     return {
       id: linkId,
@@ -179,7 +185,9 @@
       author: normalizeHistoryText(authorNode?.textContent || detail?.author || "", 40),
       authorId,
       authorAvatar: String(avatarNode?.currentSrc || avatarNode?.src || "").trim(),
-      topicName: normalizeHistoryText(root.querySelector(".link-section-tags .content-tag-text")?.textContent || detail?.topic || "", 40),
+      authorLevel: normalizeUserLevel(authorLevelNode?.textContent || detail?.authorLevel || ""),
+      topicName: normalizeHistoryText(topicTextNode?.textContent || detail?.topic || "", 40),
+      topicIcon: String(topicIconNode?.currentSrc || topicIconNode?.src || detail?.topicIcon || "").trim(),
       thumbnailUrl: imageUrls[0] || "",
       imageCount: imageUrls.length,
       imageUrls,
@@ -259,8 +267,7 @@
 
   function renderBrowseHistoryItemMeta(item) {
     return `
-      <span class="better-favorite-popover__meta">${escapeHtml(formatBrowseHistoryTime(item.visitedAt) || "刚刚")}浏览</span>
-      ${item.imageCount > 1 ? `<span class="better-favorite-popover__meta">${escapeHtml(item.imageCount)} 张图</span>` : ""}
+      <span class="better-favorite-popover__meta">${escapeHtml(formatBrowseHistoryTime(item.visitedAt) || "刚刚")}</span>
       ${renderPostBrowserTopic(item)}
     `;
   }
@@ -308,11 +315,6 @@
     }
 
     body.innerHTML = `
-      <div class="better-browse-history__summary">
-        ${browseHistoryItems.length > items.length
-          ? `最近 ${items.length} 条 · 共 ${browseHistoryItems.length} 条`
-          : `共 ${items.length} 条`}
-      </div>
       <div class="better-browse-history__list" role="list">
         ${items.map((item, index) => renderPostBrowserItem(item, {
           openTarget: "history",

@@ -157,6 +157,23 @@
     });
   }
 
+  function shouldRefreshHeaderChromeForMutations(mutations) {
+    const headerChromeSelector = [
+      ".hb-view-header .message-center__btn",
+      ".nav-actions .publish-btn",
+      ".nav .nav-links"
+    ].join(", ");
+
+    return mutations.some((mutation) => {
+      if (mutationTargetMatches(mutation, headerChromeSelector)) {
+        return true;
+      }
+
+      const changedNodes = [...mutation.addedNodes, ...mutation.removedNodes];
+      return changedNodes.some((node) => mutationNodeMatches(node, headerChromeSelector));
+    });
+  }
+
   function shouldRefreshHomePageForMutations(mutations) {
     const homeStructureSelector = [
       FEED_ITEM_SELECTOR,
@@ -179,6 +196,9 @@
         return;
       }
       if (isLinkPage()) {
+        if (shouldRefreshHeaderChromeForMutations(mutations)) {
+          scheduleHandlePage();
+        }
         if (shouldRefreshLinkPageForMutations(mutations)) {
           scheduleLinkPageFilterRefresh();
         }
@@ -199,8 +219,6 @@
 
   function installRouteHooks() {
     window.addEventListener("popstate", () => {
-      // 站内前进/后退也算一次站内路由变更，供文章工具条的“返回”判断。
-      internalRouteCount += 1;
       scheduleHandlePageAfterRoute();
     });
 
@@ -210,7 +228,6 @@
     history.pushState = function (...args) {
       savedScrollY = window.scrollY;
       const result = originalPushState.apply(this, args);
-      internalRouteCount += 1;
       scheduleHandlePageAfterRoute();
       return result;
     };

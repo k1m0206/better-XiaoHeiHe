@@ -6383,13 +6383,6 @@
         outline-offset: 2px;
       }
 
-      .better-browse-history__summary {
-        padding: 2px 2px 8px;
-        color: #8a9299;
-        font-size: 12px;
-        line-height: 18px;
-      }
-
       /* ---------------- 收藏夹浏览器 ---------------- */
       .better-favorite-browser__summary-row {
         display: flex;
@@ -7026,7 +7019,7 @@
         transform: translate(-50%, 0);
       }
 
-      /* 文章顶部工具条：返回 / AI 总结 / 复制链接（与搜索框同一行，不使用绝对定位） */
+      /* 文章顶部工具条：AI 总结 / 复制链接（与搜索框同一行，不使用绝对定位） */
       .${LINK_PAGE_TOOLBAR_CLASS} {
         box-sizing: border-box;
         display: none;
@@ -7115,7 +7108,41 @@
         content: none;
       }
 
-      /* 原生横条里被工具条取代的入口（返回 / AI / 复制）隐藏，避免重复按钮 */
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${LINK_PAGE_TOOLBAR_CLASS} > button.better-ai-summary-button.is-loading {
+        border-color: #c8dcf4;
+        background: #f0f6fd;
+        color: #2775d1;
+        cursor: wait;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${LINK_PAGE_TOOLBAR_CLASS} > button.better-ai-summary-button.is-loading .better-link-page-toolbar__icon svg {
+        display: none;
+      }
+
+      .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${LINK_PAGE_TOOLBAR_CLASS} > button.better-ai-summary-button.is-loading .better-link-page-toolbar__icon::after {
+        box-sizing: border-box;
+        width: 14px;
+        height: 14px;
+        border: 2px solid #c8dcf4;
+        border-top-color: #2775d1;
+        border-radius: 50%;
+        content: "";
+        animation: better-link-page-ai-summary-spin 0.8s linear infinite;
+      }
+
+      @keyframes better-link-page-ai-summary-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .${HOME_LAYOUT_CLASS}.${LINK_DETAIL_LAYOUT_CLASS} .${LINK_PAGE_TOOLBAR_CLASS} > button.better-ai-summary-button.is-loading .better-link-page-toolbar__icon::after {
+          animation-duration: 2.4s;
+        }
+      }
+
+      /* 原生横条里被工具条取代的 AI / 复制入口隐藏；保留站点原生返回按钮 */
       [data-better-relocated-action="true"] {
         display: none !important;
       }

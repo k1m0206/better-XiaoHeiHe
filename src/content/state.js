@@ -35,6 +35,7 @@
   const FAVORITE_ALL_FOLDER_ID = "__all__";
   const FAVORITE_SCHEMA_VERSION = 1;
   const FAVORITE_PAGE_LIMIT = 20;
+  const FAVORITE_INITIAL_PAGE_COUNT = 5;
   const FAVORITE_MAX_PAGES = 12;
   const FAVORITE_MAX_ITEMS = 240;
   const FAVORITE_SEARCH_DEBOUNCE = 250;
@@ -50,9 +51,8 @@
     { id: FAVORITE_TAB_IDS.FOLDERS, label: "收藏夹" },
     { id: FAVORITE_TAB_IDS.CY, label: "CY" }
   ];
-  // 文章详情页顶部工具条（返回 / AI 总结 / 复制链接），挂在全局搜索框左侧的同一行。
+  // 文章详情页顶部工具条（AI 总结 / 复制链接），挂在全局搜索框左侧的同一行。
   const LINK_PAGE_TOOLBAR_CLASS = "better-link-page-toolbar";
-  const LINK_PAGE_TOOLBAR_BACK_CLASS = "better-link-page-toolbar__back";
   const LINK_PAGE_TOOLBAR_SUMMARY_CLASS = "better-link-page-toolbar__summary";
   const LINK_PAGE_TOOLBAR_COPY_CLASS = "better-link-page-toolbar__copy";
   const HEADER_TOAST_CLASS = "better-xiaoheihe-toast";
@@ -208,10 +208,9 @@
   let favoriteBrowserRequestToken = 0;
   let favoriteFoldersCache = null;
   let favoriteAllItemsPromise = null;
+  let favoriteInitialItemsPromise = null;
   let favoriteDialogOutsideClickBound = false;
   let headerToastTimer = null;
-  // 站内 SPA 路由变更次数，用于判断“返回”是否应回到站内上一页。
-  let internalRouteCount = 0;
   let browseHistoryReady = false;
   let browseHistoryPromptRecordPath = "";
   let browseHistoryRecordTimer = null;
@@ -271,6 +270,7 @@
   // 收藏接口返回的帖子缓存；complete 表示已经翻到最后一页，搜索只依赖它。
   const favoriteItemStore = {
     items: [],
+    offset: 0,
     complete: false,
     loading: false
   };

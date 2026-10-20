@@ -372,16 +372,9 @@
                 </span>
               ` : ""}
             </div>
-            ${message.topicName ? `
-              <div class="better-message-popover__media-row">
-                <span class="better-message-popover__topic">
-                  ${message.topicIcon ? `<img class="better-message-popover__topic-icon" src="${escapeHtml(message.topicIcon)}" alt="">` : ""}
-                  ${escapeHtml(message.topicName)}
-                </span>
-              </div>
-            ` : ""}
           </div>
         </div>
+        ${(message.topicName || message.topicIcon) ? `<div class="better-message-popover__media-row better-message-popover__message-topic-row">${renderPostBrowserTopic(message)}</div>` : ""}
       </a>
     `;
     }).join("") + (state.loading
@@ -630,15 +623,6 @@
     }
 
     headerMessageClickBound = true;
-    document.addEventListener("pointerdown", (event) => {
-      const button = event.target instanceof Element
-        ? event.target.closest(`.${HEADER_MESSAGE_CLASS}`)
-        : null;
-      if (!button) {
-        return;
-      }
-      handleHeaderMessageClick(event, button);
-    }, true);
     document.addEventListener("click", (event) => {
       const button = event.target instanceof Element
         ? event.target.closest(`.${HEADER_MESSAGE_CLASS}`)
@@ -673,8 +657,6 @@
         </i>
       `;
     }
-    button.onpointerdown = (event) => handleHeaderMessageClick(event, button);
-    button.onclick = (event) => handleHeaderMessageClick(event, button);
     bindHeaderMessageClickDelegation();
 
     const favoriteEntry = document.querySelector(`.${FAVORITE_ENTRY_CLASS}`);
@@ -849,13 +831,13 @@
   }
 
   // ---------------------------------------------------------------------------
-  // 文章详情页顶部工具条：返回 / AI 总结 / 复制链接
+  // 文章详情页顶部工具条：AI 总结 / 复制链接
   // 位置：全局搜索框左侧，与搜索框同处顶部一行 flex 布局（不使用固定坐标，
   // 窄窗口时由 CSS 收缩文字、保留图标和 tooltip）。
   // AI 按钮复用 link-page.js / ai-summary.js 的 summarizeLinkPage() 与按钮状态函数，
   // 不新增第二套请求逻辑；旧的白色横条 AI 按钮由 ensureLinkPageAiSummaryButton() 清理。
   // ---------------------------------------------------------------------------
-  const NATIVE_LINK_ACTION_LABELS = ["返回", "back", "ai", "ai总结", "ai 总结", "总结", "复制", "复制链接", "copy", "copy link"];
+  const NATIVE_LINK_ACTION_LABELS = ["ai", "ai总结", "ai 总结", "总结", "复制", "复制链接", "copy", "copy link"];
 
   function showHeaderToast(message) {
     if (!message) {
@@ -916,25 +898,6 @@
     return Promise.resolve(copyTextToClipboardFallback(text));
   }
 
-  function handleLinkPageToolbarBack(event) {
-    event.preventDefault();
-    event.stopPropagation();
-
-    // 只有站内来源才回退，避免把用户带回外部站点。
-    let sameOriginReferrer = false;
-    try {
-      sameOriginReferrer = Boolean(document.referrer) && new URL(document.referrer).origin === window.location.origin;
-    } catch (error) {
-      sameOriginReferrer = false;
-    }
-
-    if (internalRouteCount > 0 || (sameOriginReferrer && window.history.length > 1)) {
-      window.history.back();
-      return;
-    }
-    window.location.href = "/app/bbs/home";
-  }
-
   function handleLinkPageToolbarCopy(event) {
     event.preventDefault();
     event.stopPropagation();
@@ -950,12 +913,6 @@
     toolbar.setAttribute("role", "toolbar");
     toolbar.setAttribute("aria-label", "文章操作");
     toolbar.innerHTML = `
-      <button type="button" class="${LINK_PAGE_TOOLBAR_BACK_CLASS}" title="返回上一页" aria-label="返回">
-        <i class="better-link-page-toolbar__icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="16" height="16"><path d="M14.5 5.5 8 12l6.5 6.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
-        </i>
-        <span class="better-link-page-toolbar__label">返回</span>
-      </button>
       <button type="button" class="${LINK_PAGE_TOOLBAR_SUMMARY_CLASS} better-ai-summary-button better-link-page-ai-summary"
         title="AI 总结" aria-label="AI 总结" data-ai-idle-label="AI 总结" data-ai-done-label="查看总结">
         <i class="better-link-page-toolbar__icon" aria-hidden="true">
@@ -971,7 +928,6 @@
       </button>
     `;
 
-    toolbar.querySelector(`.${LINK_PAGE_TOOLBAR_BACK_CLASS}`)?.addEventListener("click", handleLinkPageToolbarBack);
     toolbar.querySelector(`.${LINK_PAGE_TOOLBAR_COPY_CLASS}`)?.addEventListener("click", handleLinkPageToolbarCopy);
     toolbar.querySelector(`.${LINK_PAGE_TOOLBAR_SUMMARY_CLASS}`)?.addEventListener("click", (event) => {
       event.preventDefault();
@@ -1008,6 +964,10 @@
         .toLowerCase()
         .replace(/\s+/g, " ");
       if (!label) {
+        return;
+      }
+      if (label.includes("返回") || label === "back" || label.startsWith("back ") || label.endsWith(" back")) {
+        element.removeAttribute("data-better-relocated-action");
         return;
       }
       if (NATIVE_LINK_ACTION_LABELS.some((candidate) => label === candidate || label.includes(candidate))) {

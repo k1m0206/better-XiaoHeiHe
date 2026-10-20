@@ -82,9 +82,12 @@
     const richText = parseLinkRichText(link.text);
     const feedImageUrls = uniqueStrings(Array.isArray(link.imgs) ? link.imgs : []);
     const feedThumbnailUrls = uniqueStrings(Array.isArray(link.thumbs) ? link.thumbs : []);
+    const firstTopic = Array.isArray(link.topics) ? link.topics.find((topic) => topic && typeof topic === "object") : null;
+    const authorLevel = link.user?.level_info?.level || link.user?.level || link.user?.user_level || "";
     return {
       title: String(link.title || "").trim(),
       author: String(link.user?.username || link.user?.nickname || "").trim(),
+      authorLevel: authorLevel ? `Lv.${authorLevel}` : "",
       content: richText.content || String(link.description || "").trim(),
       imageUrls: uniqueStrings([...richText.imageUrls, ...feedImageUrls]),
       feedImageUrls,
@@ -93,7 +96,8 @@
         ...(Array.isArray(link.topics) ? link.topics.map((topic) => topic?.name) : []),
         ...(Array.isArray(link.tags) ? link.tags.map((tag) => tag?.text || tag?.name) : []),
         ...(Array.isArray(link.hashtags) ? link.hashtags.map((tag) => tag?.text || tag?.name) : [])
-      ]).join("\n")
+      ]).join("\n"),
+      topicIcon: String(firstTopic?.pic_url || firstTopic?.icon || firstTopic?.img || firstTopic?.avatar || "").trim()
     };
   }
 
