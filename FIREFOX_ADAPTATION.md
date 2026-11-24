@@ -2,7 +2,7 @@
 
 Firefox 使用 `manifest-firefox.json` 打包，构建脚本会把它复制为包内的 `manifest.json`。
 
-Firefox 版本与主版本一致，右侧评论区请求只移除 `heybox_id` URL 参数，不会临时移除或修改 `heybox_id` 和 `user_heybox_id` Cookie。这样可以避免页面刷新或导航时登录态短暂缺失并触发重新登录。
+Firefox 版本与主版本一致。右侧评论区的读取请求会移除 `heybox_id` URL 参数，发布评论请求则按当前网页端要求携带该参数。扩展不会临时移除或修改 `heybox_id` 和 `user_heybox_id` Cookie，避免页面刷新或导航时登录态短暂缺失并触发重新登录。
 
 ## 本地调试
 

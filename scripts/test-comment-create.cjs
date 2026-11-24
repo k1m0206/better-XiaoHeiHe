@@ -1,6 +1,6 @@
 // 离线运行真实请求构造代码；fetch 仅为桩函数，不读取或使用真实登录凭据。
 const assert = require("node:assert/strict");
-const { createHmac, webcrypto } = require("node:crypto");
+const { webcrypto } = require("node:crypto");
 const { readFileSync } = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
@@ -13,6 +13,8 @@ function createContext(fetch = () => { throw new Error("未预期的网络请求
   const context = vm.createContext({
     crypto: webcrypto,
     TextEncoder,
+    atob,
+    btoa,
     URLSearchParams,
     fetch,
     captureExistingApiEntries() {},
@@ -39,7 +41,7 @@ function createContext(fetch = () => { throw new Error("未预期的网络请求
   return context;
 }
 
-test("评论创建使用 api 域名，参数对齐网页且不携带身份 ID", async () => {
+test("评论创建使用 api 域名，参数与当前网页请求对齐", async () => {
   const context = createContext();
   const url = new URL(await context.buildCommentCreateApiUrl());
   assert.equal(url.origin, "https://api.xiaoheihe.cn");
@@ -47,17 +49,26 @@ test("评论创建使用 api 域名，参数对齐网页且不携带身份 ID", 
   const params = Object.fromEntries(url.searchParams);
   const { hkey, _time, nonce, _rnd, ...base } = params;
   assert.deepEqual(base, {
-    app: "heybox", os_type: "web", x_app: "heybox_website",
+    app: "heybox", heybox_id: "fixture-cookie-id", os_type: "web", x_app: "heybox_website",
     x_client_type: "web", x_os_type: "Windows", x_client_version: "",
     client_type: "web", web_version: "3.0", version: "999.0.4"
   });
   assert.match(hkey, /^[A-Z0-9]{7}$/);
   assert.match(nonce, /^[A-F0-9]{32}$/);
   assert.ok(Math.abs(Number(_time) - Math.floor(Date.now() / 1000)) < 5);
-  const key = vm.runInContext("WORKSHOP_RND_SECRET", context);
-  const expected = createHmac("sha256", key)
-    .update(`${key}${nonce}${_time}:${nonce}`).digest("hex");
-  assert.equal(_rnd, `15:${expected}`);
+  assert.match(_rnd, /^16:[A-Za-z0-9_-]+$/);
+  const key = Buffer.from(vm.runInContext("WORKSHOP_RND_KEY_BASE64", context), "base64");
+  const payload = Buffer.from(_rnd.slice(3).replace(/-/g, "+").replace(/_/g, "/"), "base64");
+  const importedKey = await webcrypto.subtle.importKey("raw", key, { name: "AES-GCM" }, false, ["decrypt"]);
+  const decrypted = await webcrypto.subtle.decrypt({
+    name: "AES-GCM",
+    iv: payload.subarray(0, 12),
+    additionalData: new TextEncoder().encode("heybox-rnd:v16"),
+    tagLength: 128
+  }, importedKey, payload.subarray(12));
+  assert.deepEqual(JSON.parse(Buffer.from(decrypted).toString("utf8")), [
+    _time, nonce, "/bbs/app/comment/create/"
+  ]);
 });
 
 test("每次创建请求都重新生成签名", async () => {

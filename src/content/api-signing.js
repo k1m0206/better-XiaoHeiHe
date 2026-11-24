@@ -322,13 +322,15 @@
     return `https://api.xiaoheihe.cn${COMMENT_SUPPORT_API_PATH}?${params.toString()}`;
   }
 
-  // 评论创建使用 api 域名和 Cookie 登录态，不传 heybox_id URL 参数。
-  // 保留 web_version=3.0 及原 Workshop 版本 15 的 _rnd 附加签名。
+  // 评论创建使用 api 域名、当前 Cookie 登录态及 URL 中的 heybox_id。
+  // 保留 web_version=3.0，并按当前网页端的版本 16 生成 _rnd。
   async function buildCommentCreateApiUrl() {
-    const baseParams = getBaseApiParams({ includeHeyboxId: false });
+    const baseParams = getBaseApiParams();
+    const heyboxId = getCookie("heybox_id") || getCookie("user_heybox_id") || "";
     const signedParams = createSignedParams(COMMENT_CREATE_API_PATH);
     const params = new URLSearchParams({
       app: "heybox",
+      ...(heyboxId ? { heybox_id: heyboxId } : {}),
       os_type: "web",
       x_app: "heybox_website",
       x_client_type: "web",
@@ -338,7 +340,7 @@
       web_version: "3.0",
       version: "999.0.4",
       ...signedParams,
-      _rnd: await createWorkshopRndParam(signedParams)
+      _rnd: await createWorkshopRndParam(signedParams, COMMENT_CREATE_API_PATH)
     });
 
     return `${API_ORIGIN}${COMMENT_CREATE_API_PATH}?${params.toString()}`;
