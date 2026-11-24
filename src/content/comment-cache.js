@@ -80,8 +80,15 @@
     }
 
     const richText = parseLinkRichText(link.text);
-    const feedImageUrls = uniqueStrings(Array.isArray(link.imgs) ? link.imgs : []);
-    const feedThumbnailUrls = uniqueStrings(Array.isArray(link.thumbs) ? link.thumbs : []);
+    const videoThumbs = [link.video_thumb, link.video_info?.thumb].filter(Boolean);
+    const feedImageUrls = uniqueStrings([
+      ...(Array.isArray(link.imgs) ? link.imgs : []),
+      ...videoThumbs
+    ]);
+    const feedThumbnailUrls = uniqueStrings([
+      ...(Array.isArray(link.thumbs) ? link.thumbs : []),
+      ...videoThumbs
+    ]);
     const firstTopic = Array.isArray(link.topics) ? link.topics.find((topic) => topic && typeof topic === "object") : null;
     const authorLevel = link.user?.level_info?.level || link.user?.level || link.user?.user_level || "";
     return {
@@ -117,6 +124,10 @@
       feedImageUrls: detail.feedImageUrls.length ? detail.feedImageUrls : (previousDetail.feedImageUrls || []),
       feedThumbnailUrls: detail.feedThumbnailUrls.length ? detail.feedThumbnailUrls : (previousDetail.feedThumbnailUrls || [])
     };
+    const createTime = typeof getLinkCreateTime === "function" ? getLinkCreateTime(data?.result?.link) : "";
+    if (createTime && !state.linkCreateAt) {
+      state.linkCreateAt = Number(createTime) || createTime;
+    }
     commentCache.set(linkId, state);
     updateFeedItemFallbackImages(linkId, state.linkDetail);
     return state.linkDetail;

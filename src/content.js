@@ -318,6 +318,7 @@
   const MESSAGE_API_PATH = "/bbs/app/user/message";
   const EMOJI_API_PATH = "/bbs/app/api/emojis/list";
   const FEEDS_API_PATH = "/bbs/app/feeds";
+  const PROFILE_EVENTS_API_PATH = "/bbs/app/profile/events";
   const SEARCH_WELCOME_API_PATH = "/bbs/app/api/search/welcome_page/v2";
   const API_ORIGIN = "https://api.xiaoheihe.cn";
   const WORKSHOP_API_ORIGIN = "https://workshopapi.xiaoheihe.cn";
@@ -8771,18 +8772,35 @@
   function isFeedApiUrl(url) {
     try {
       const parsed = new URL(url, window.location.href);
-      return parsed.origin === API_ORIGIN && parsed.pathname === FEEDS_API_PATH;
+      if (parsed.origin !== API_ORIGIN) {
+        return false;
+      }
+      const pathname = parsed.pathname.replace(/\/+$/, "");
+      return pathname === FEEDS_API_PATH || pathname === PROFILE_EVENTS_API_PATH;
     } catch {
       return false;
     }
   }
 
   function cacheFeedApiData(data) {
-    const links = Array.isArray(data?.result?.links) ? data.result.links : [];
-    links.forEach((link) => {
+    const rawLinks = Array.isArray(data?.result?.links)
+      ? data.result.links
+      : (Array.isArray(data?.result?.moments) ? data.result.moments : []);
+    rawLinks.forEach((link) => {
       const linkId = String(link?.linkid || link?.link_id || "");
       if (linkId) {
         cacheLinkDetailFromApiData(linkId, { result: { link } });
+      }
+      if (link?.share_url) {
+        try {
+          const shareUrl = new URL(link.share_url);
+          const shareLinkId = shareUrl.searchParams.get("link_id");
+          if (shareLinkId && shareLinkId !== linkId) {
+            cacheLinkDetailFromApiData(shareLinkId, { result: { link } });
+          }
+        } catch {
+          // Ignore invalid share URLs.
+        }
       }
     });
   }
@@ -10782,8 +10800,15 @@
     }
 
     const richText = parseLinkRichText(link.text);
-    const feedImageUrls = uniqueStrings(Array.isArray(link.imgs) ? link.imgs : []);
-    const feedThumbnailUrls = uniqueStrings(Array.isArray(link.thumbs) ? link.thumbs : []);
+    const videoThumbs = [link.video_thumb, link.video_info?.thumb].filter(Boolean);
+    const feedImageUrls = uniqueStrings([
+      ...(Array.isArray(link.imgs) ? link.imgs : []),
+      ...videoThumbs
+    ]);
+    const feedThumbnailUrls = uniqueStrings([
+      ...(Array.isArray(link.thumbs) ? link.thumbs : []),
+      ...videoThumbs
+    ]);
     const firstTopic = Array.isArray(link.topics) ? link.topics.find((topic) => topic && typeof topic === "object") : null;
     const authorLevel = link.user?.level_info?.level || link.user?.level || link.user?.user_level || "";
     return {
@@ -10819,6 +10844,10 @@
       feedImageUrls: detail.feedImageUrls.length ? detail.feedImageUrls : (previousDetail.feedImageUrls || []),
       feedThumbnailUrls: detail.feedThumbnailUrls.length ? detail.feedThumbnailUrls : (previousDetail.feedThumbnailUrls || [])
     };
+    const createTime = typeof getLinkCreateTime === "function" ? getLinkCreateTime(data?.result?.link) : "";
+    if (createTime && !state.linkCreateAt) {
+      state.linkCreateAt = Number(createTime) || createTime;
+    }
     commentCache.set(linkId, state);
     updateFeedItemFallbackImages(linkId, state.linkDetail);
     return state.linkDetail;

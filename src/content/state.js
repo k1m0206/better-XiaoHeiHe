@@ -130,6 +130,7 @@
   const MESSAGE_API_PATH = "/bbs/app/user/message";
   const EMOJI_API_PATH = "/bbs/app/api/emojis/list";
   const FEEDS_API_PATH = "/bbs/app/feeds";
+  const PROFILE_EVENTS_API_PATH = "/bbs/app/profile/events";
   const SEARCH_WELCOME_API_PATH = "/bbs/app/api/search/welcome_page/v2";
   const API_ORIGIN = "https://api.xiaoheihe.cn";
   const WORKSHOP_API_ORIGIN = "https://workshopapi.xiaoheihe.cn";

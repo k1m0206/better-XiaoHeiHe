@@ -110,18 +110,35 @@
   function isFeedApiUrl(url) {
     try {
       const parsed = new URL(url, window.location.href);
-      return parsed.origin === API_ORIGIN && parsed.pathname === FEEDS_API_PATH;
+      if (parsed.origin !== API_ORIGIN) {
+        return false;
+      }
+      const pathname = parsed.pathname.replace(/\/+$/, "");
+      return pathname === FEEDS_API_PATH || pathname === PROFILE_EVENTS_API_PATH;
     } catch {
       return false;
     }
   }
 
   function cacheFeedApiData(data) {
-    const links = Array.isArray(data?.result?.links) ? data.result.links : [];
-    links.forEach((link) => {
+    const rawLinks = Array.isArray(data?.result?.links)
+      ? data.result.links
+      : (Array.isArray(data?.result?.moments) ? data.result.moments : []);
+    rawLinks.forEach((link) => {
       const linkId = String(link?.linkid || link?.link_id || "");
       if (linkId) {
         cacheLinkDetailFromApiData(linkId, { result: { link } });
+      }
+      if (link?.share_url) {
+        try {
+          const shareUrl = new URL(link.share_url);
+          const shareLinkId = shareUrl.searchParams.get("link_id");
+          if (shareLinkId && shareLinkId !== linkId) {
+            cacheLinkDetailFromApiData(shareLinkId, { result: { link } });
+          }
+        } catch {
+          // Ignore invalid share URLs.
+        }
       }
     });
   }
